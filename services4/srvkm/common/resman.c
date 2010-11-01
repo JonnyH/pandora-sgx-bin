@@ -46,7 +46,11 @@
 #include <asm/semaphore.h>
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+static DEFINE_SEMAPHORE(lock);
+#else
 static DECLARE_MUTEX(lock);
+#endif
 
 #define ACQUIRE_SYNC_OBJ  do {							\
 		if (in_interrupt()) { 							\
