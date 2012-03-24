@@ -107,9 +107,9 @@ static IMG_VOID PowerLockUnwrap(SYS_SPECIFIC_DATA *psSysSpecData)
 	{
 		PVR_ASSERT(PowerLockWrappedOnCPU(psSysSpecData));
 
-		spin_unlock(&psSysSpecData->sPowerLock);
-
 		atomic_set(&psSysSpecData->sPowerLockCPU, -1);
+
+		spin_unlock(&psSysSpecData->sPowerLock);
 
 		put_cpu();
 	}
