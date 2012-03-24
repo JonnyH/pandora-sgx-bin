@@ -32,6 +32,12 @@
 #include <asm/bug.h>
 #include <linux/platform_device.h>
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,33))
+#include <linux/semaphore.h>
+#include <asm-generic/resource.h>
+#include <plat/omap-pm.h>
+#else
+
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31))
 #include <linux/semaphore.h>
 #include <plat/resource.h>
@@ -46,6 +52,7 @@
 #include <asm/semaphore.h>
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
 #include <asm/arch/resource.h>
+#endif
 #endif
 #endif
 #endif
