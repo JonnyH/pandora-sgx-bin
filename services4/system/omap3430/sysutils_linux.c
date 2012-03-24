@@ -39,8 +39,6 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,26))
 #include <linux/semaphore.h>
-#include <mach/resource.h>
-#include <mach/omap-pm.h>
 #else
 #include <asm/semaphore.h>
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
