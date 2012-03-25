@@ -33,7 +33,8 @@
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,31))
 #include <linux/semaphore.h>
-#include <plat/resource.h>
+#include <linux/smp.h>
+#include <asm-generic/resource.h>
 #include <plat/omap-pm.h>
 #else
 

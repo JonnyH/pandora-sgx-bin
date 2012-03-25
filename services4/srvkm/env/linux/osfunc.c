@@ -1516,7 +1516,8 @@ typedef struct TIMER_CALLBACK_DATA_TAG
 
 static TIMER_CALLBACK_DATA sTimers[OS_MAX_TIMERS];
 
-static spinlock_t sTimerStructLock = SPIN_LOCK_UNLOCKED;
+//static spinlock_t sTimerStructLock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(sTimerStructLock);
 
 static IMG_VOID OSTimerCallbackWrapper(IMG_UINT32 ui32Data)
 {

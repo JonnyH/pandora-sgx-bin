@@ -28,6 +28,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/version.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <img_defs.h>
@@ -492,7 +493,7 @@ static int __init bc_cat_init(void)
 #ifdef PLAT_TI8168  
    width_align = 8;
 #else
-   width_align = cpu_is_omap3530() && omap_rev_lt_3_0() ? 32 : 8;   
+   width_align = cpu_is_omap3530() && ( omap_rev() < OMAP3430_REV_ES3_0 ) ? 32 : 8;   
 #endif    
     major = register_chrdev(0, DEVNAME, &bc_cat_fops);
 

@@ -56,7 +56,9 @@ extern int omap_dispc_request_irq(unsigned long, void (*)(void *), void *);
 extern void omap_dispc_free_irq(unsigned long, void (*)(void *), void *);
 extern void omap_dispc_set_plane_base(int plane, IMG_UINT32 phys_addr);
 #else
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,32))
+#if   (LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0))
+#include <video/omapdss.h>
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,32))
 #include <plat/display.h>
 #else
 #include <mach/display.h>
