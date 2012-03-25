@@ -80,8 +80,13 @@ extern IMG_IMPORT IMG_BOOL PVRGetBufferClassJTable(
 
 static int bc_open(struct inode *i, struct file *f);
 static int bc_release(struct inode *i, struct file *f);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 static int bc_ioctl(struct inode *inode, struct file *file,
                     unsigned int cmd, unsigned long arg);
+#else
+static long bc_ioctl(struct file *file,
+                    unsigned int cmd, unsigned long arg);
+#endif
 static int bc_mmap(struct file *filp, struct vm_area_struct *vma);
 
 static int BC_CreateBuffers(int id, bc_buf_params_t *p);
@@ -122,8 +127,15 @@ static int width_align;
 static struct file_operations bc_cat_fops = {
     .open =  bc_open,
     .release = bc_release,
-    .ioctl = bc_ioctl,
-    .mmap =  bc_mmap,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
+	.ioctl = bc_ioctl,
+#else
+	.unlocked_ioctl = bc_ioctl,
+#ifdef CONFIG_COMPAT
+    .compat_ioctl = bc_ioctl,
+#endif
+#endif
+	.mmap =  bc_mmap,
 };
 
 
@@ -691,8 +703,13 @@ static int bc_mmap(struct file *filp, struct vm_area_struct *vma)
     return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 static int bc_ioctl(struct inode *inode, struct file *file,
                     unsigned int cmd, unsigned long arg)
+#else
+static long  bc_ioctl(struct file *file,
+                    unsigned int cmd, unsigned long arg)
+#endif
 {
     BC_CAT_DEVINFO *devinfo;
     int id = file_to_id (file);
