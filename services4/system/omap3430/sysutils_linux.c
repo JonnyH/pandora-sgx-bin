@@ -65,6 +65,10 @@
 #define SGX_PARENT_CLOCK "core_ck"
 #endif
 
+#undef SYS_SGX_CLOCK_SPEED
+#define SYS_SGX_CLOCK_SPEED sgx_clock_speed
+static int sgx_clock_speed;
+
 #if !defined(PDUMP) && !defined(NO_HARDWARE)
 static IMG_BOOL PowerLockWrappedOnCPU(SYS_SPECIFIC_DATA *psSysSpecData)
 {
@@ -532,6 +536,8 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 	if (!psSysSpecData->bSysClocksOneTimeInit)
 	{
 		bPowerLock = IMG_FALSE;
+
+		sgx_clock_speed = cpu_is_omap3630() ? 200000000 : 110666666;
 
 		spin_lock_init(&psSysSpecData->sPowerLock);
 		atomic_set(&psSysSpecData->sPowerLockCPU, -1);

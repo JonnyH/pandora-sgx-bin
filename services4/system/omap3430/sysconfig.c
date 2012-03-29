@@ -739,6 +739,7 @@ PVRSRV_ERROR SysDevicePrePowerState(IMG_UINT32			ui32DeviceIndex,
 	{
 		PVR_DPF((PVR_DBG_MESSAGE, "SysDevicePrePowerState: SGX Entering state D3"));
 		DisableSGXClocks(gpsSysData);
+		PVRSRVSetDCState(DC_STATE_SUSPEND_COMMANDS);
 	}
 #else	
 	PVR_UNREFERENCED_PARAMETER(eNewPowerState );
@@ -764,6 +765,7 @@ PVRSRV_ERROR SysDevicePostPowerState(IMG_UINT32			ui32DeviceIndex,
 	if (eCurrentPowerState == PVRSRV_POWER_STATE_D3)
 	{
 		PVR_DPF((PVR_DBG_MESSAGE, "SysDevicePostPowerState: SGX Leaving state D3"));
+		PVRSRVSetDCState(DC_STATE_RESUME_COMMANDS);
 		eError = EnableSGXClocks(gpsSysData);
 	}
 #else	
