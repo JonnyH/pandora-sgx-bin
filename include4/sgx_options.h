@@ -24,7 +24,7 @@
  *
  ******************************************************************************/
 
-#if defined(DEBUG) || defined (INTERNAL_TEST)
+#if defined(DEBUG_PVR) || defined (INTERNAL_TEST)
 #define DEBUG_SET_OFFSET	OPTIONS_BIT0
 #define OPTIONS_BIT0		0x1
 #else
@@ -74,15 +74,6 @@
 #else
 #define OPTIONS_BIT6		0x0
 #endif 
-
-#if defined(SGX_DONT_SWITCH_OFF_FEATURES) || defined (INTERNAL_TEST)
-#define SGX_DONT_SWITCH_OFF_FEATURES_SET_OFFSET	OPTIONS_BIT7
-#define OPTIONS_BIT7		(0x1 << 7)
-#else
-#define OPTIONS_BIT7		0x0
-#endif 
-
-
 
 #if defined(SGX_FAST_DPM_INIT) || defined (INTERNAL_TEST)
 #define SGX_FAST_DPM_INIT_SET_OFFSET	OPTIONS_BIT8
@@ -214,7 +205,6 @@
 	OPTIONS_BIT4 |\
 	OPTIONS_BIT5 |\
 	OPTIONS_BIT6 |\
-	OPTIONS_BIT7 |\
 	OPTIONS_BIT8 |\
 	OPTIONS_BIT9 |\
 	OPTIONS_BIT10 |\
