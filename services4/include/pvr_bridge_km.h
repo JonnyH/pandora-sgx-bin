@@ -49,7 +49,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVAcquireDeviceDataKM(IMG_UINT32			uiDevIndex,
 													IMG_HANDLE			*phDevCookie);
 							
 IMG_IMPORT
-PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateCommandQueueKM(IMG_UINT32 ui32QueueSize,
+PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateCommandQueueKM(IMG_SIZE_T ui32QueueSize,
 													 PVRSRV_QUEUE_INFO **ppsQueueInfo);
 
 IMG_IMPORT
@@ -72,7 +72,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateDeviceMemContextKM(IMG_HANDLE					hDevCook
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyDeviceMemContextKM(IMG_HANDLE hDevCookie,
 														  IMG_HANDLE hDevMemContext,
-														  IMG_BOOL *pbCreated);
+														  IMG_BOOL *pbDestroyed);
 
 
 IMG_IMPORT
@@ -89,9 +89,10 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVAllocDeviceMemKM(IMG_HANDLE					hDevCookie,
 												 PVRSRV_PER_PROCESS_DATA	*psPerProc,
 												 IMG_HANDLE					hDevMemHeap,
 												 IMG_UINT32					ui32Flags,
-												 IMG_UINT32					ui32Size,
-												 IMG_UINT32					ui32Alignment,
+												 IMG_SIZE_T					ui32Size,
+												 IMG_SIZE_T					ui32Alignment,
 												 PVRSRV_KERNEL_MEM_INFO		**ppsMemInfo);
+
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVFreeDeviceMemKM(IMG_HANDLE			hDevCookie,
@@ -104,8 +105,8 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDissociateDeviceMemKM(IMG_HANDLE			hDevCookie,
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVReserveDeviceVirtualMemKM(IMG_HANDLE		hDevMemHeap,
 														 IMG_DEV_VIRTADDR	*psDevVAddr,
-														 IMG_UINT32			ui32Size,
-														 IMG_UINT32			ui32Alignment,
+														 IMG_SIZE_T			ui32Size,
+														 IMG_SIZE_T			ui32Alignment,
 														 PVRSRV_KERNEL_MEM_INFO	**ppsMemInfo);
 
 IMG_IMPORT
@@ -124,8 +125,8 @@ IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVWrapExtMemoryKM(IMG_HANDLE				hDevCookie,
 												PVRSRV_PER_PROCESS_DATA	*psPerProc,
 												IMG_HANDLE				hDevMemContext,
-												IMG_UINT32 				ui32ByteSize, 
-												IMG_UINT32				ui32PageOffset,
+												IMG_SIZE_T 				ui32ByteSize, 
+												IMG_SIZE_T				ui32PageOffset,
 												IMG_BOOL				bPhysContig,
 												IMG_SYS_PHYADDR	 		*psSysAddr,
 												IMG_VOID 				*pvLinAddr,
@@ -239,9 +240,9 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVUnmapDeviceClassMemoryKM(PVRSRV_KERNEL_MEM_INFO 
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetFreeDeviceMemKM(IMG_UINT32 ui32Flags,
-												   IMG_UINT32 *pui32Total,
-												   IMG_UINT32 *pui32Free,
-												   IMG_UINT32 *pui32LargestBlock);
+												   IMG_SIZE_T *pui32Total,
+												   IMG_SIZE_T *pui32Free,
+												   IMG_SIZE_T *pui32LargestBlock);
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVAllocSyncInfoKM(IMG_HANDLE					hDevCookie,
 												IMG_HANDLE					hDevMemContext,
@@ -252,13 +253,13 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFreeSyncInfoKM(PVRSRV_KERNEL_SYNC_INFO	*psKernel
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo);
 
-PVRSRV_ERROR PVRSRVGetFBStatsKM(IMG_UINT32	*pui32Total,
-								IMG_UINT32	*pui32Available);
+PVRSRV_ERROR PVRSRVGetFBStatsKM(IMG_SIZE_T	*pui32Total,
+								IMG_SIZE_T	*pui32Available);
 
 IMG_IMPORT PVRSRV_ERROR
 PVRSRVAllocSharedSysMemoryKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 							 IMG_UINT32 				ui32Flags,
-							 IMG_UINT32 				ui32Size,
+							 IMG_SIZE_T 				ui32Size,
 							 PVRSRV_KERNEL_MEM_INFO		**ppsKernelMemInfo);
 
 IMG_IMPORT PVRSRV_ERROR
