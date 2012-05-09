@@ -27,18 +27,33 @@
 #ifndef _PDUMP_KM_H_
 #define _PDUMP_KM_H_
 
+#if (defined(LINUX) && (defined(SUPPORT_SGX) || defined(SUPPORT_MSVDX)))
+
+#define SGX_SUPPORT_COMMON_PDUMP
+
+#if defined(SGX_SUPPORT_COMMON_PDUMP)
+#include <pdump_osfunc.h>
+#endif
+#endif 
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-#define PDUMP_FLAGS_NEVER			0x08000000
-#define PDUMP_FLAGS_TOOUT2MEM		0x10000000
-#define PDUMP_FLAGS_LASTFRAME		0x20000000
-#define PDUMP_FLAGS_RESETLFBUFFER	0x40000000
-#define PDUMP_FLAGS_CONTINUOUS		0x80000000
+#define PDUMP_FLAGS_NEVER			0x08000000UL
+#define PDUMP_FLAGS_TOOUT2MEM		0x10000000UL
+#define PDUMP_FLAGS_LASTFRAME		0x20000000UL
+#define PDUMP_FLAGS_RESETLFBUFFER	0x40000000UL
+#define PDUMP_FLAGS_CONTINUOUS		0x80000000UL
 
 #define PDUMP_PD_UNIQUETAG			(IMG_HANDLE)0
 #define PDUMP_PT_UNIQUETAG			(IMG_HANDLE)0
+
+#define PDUMP_STREAM_PARAM2			0
+#define PDUMP_STREAM_SCRIPT2		1
+#define PDUMP_STREAM_DRIVERINFO		2
+#define PDUMP_NUM_STREAMS			3
+
 
 #ifndef PDUMP
 #define MAKEUNIQUETAG(hMemInfo)	(0)
@@ -47,8 +62,6 @@ extern "C" {
 #ifdef PDUMP
 
 #define MAKEUNIQUETAG(hMemInfo)	(((BM_BUF *)(((PVRSRV_KERNEL_MEM_INFO *)hMemInfo)->sMemBlk.hBuffer))->pMapping)
-
-	#define PDUMP_REG_FUNC_NAME PDumpReg
 
 	IMG_IMPORT PVRSRV_ERROR PDumpMemPolKM(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 										  IMG_UINT32			ui32Offset,
@@ -99,9 +112,18 @@ extern "C" {
 	IMG_IMPORT PVRSRV_ERROR PDumpSetFrameKM(IMG_UINT32 ui32Frame);
 	IMG_IMPORT PVRSRV_ERROR PDumpCommentKM(IMG_CHAR *pszComment, IMG_UINT32 ui32Flags);
 	IMG_IMPORT PVRSRV_ERROR PDumpDriverInfoKM(IMG_CHAR *pszString, IMG_UINT32 ui32Flags);
+
 	PVRSRV_ERROR PDumpRegWithFlagsKM(IMG_UINT32 ui32RegAddr,
 									 IMG_UINT32 ui32RegValue,
 									 IMG_UINT32 ui32Flags);
+	PVRSRV_ERROR PDumpRegPolWithFlagsKM(IMG_UINT32 ui32RegAddr,
+										IMG_UINT32 ui32RegValue,
+										IMG_UINT32 ui32Mask,
+										IMG_UINT32 ui32Flags);
+	PVRSRV_ERROR PDumpRegPolKM(IMG_UINT32 ui32RegAddr,
+							   IMG_UINT32 ui32RegValue,
+							   IMG_UINT32 ui32Mask);
+
 	IMG_IMPORT PVRSRV_ERROR PDumpBitmapKM(IMG_CHAR *pszFileName,
 										  IMG_UINT32 ui32FileOffset,
 										  IMG_UINT32 ui32Width,
@@ -254,7 +276,7 @@ extern "C" {
 	#define PDUMPTESTFRAME			PDumpIsCaptureFrameKM
 	#define PDUMPTESTNEXTFRAME		PDumpTestNextFrame
 	#define PDUMPREGWITHFLAGS		PDumpRegWithFlagsKM
-	#define PDUMPREG				PDUMP_REG_FUNC_NAME
+	#define PDUMPREG				PDumpRegKM
 	#define PDUMPCOMMENT			PDumpComment
 	#define PDUMPCOMMENTWITHFLAGS	PDumpCommentWithFlags
 	#define PDUMPREGPOL				PDumpRegPolKM

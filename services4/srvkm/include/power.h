@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+
  
 typedef struct _PVRSRV_POWER_DEV_TAG_
 {
