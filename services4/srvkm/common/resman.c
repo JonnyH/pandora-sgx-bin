@@ -72,7 +72,7 @@ static DECLARE_MUTEX(lock);
 
 typedef struct _RESMAN_ITEM_
 {
-#ifdef DEBUG
+#ifdef DEBUG_PVR
 	IMG_UINT32				ui32Signature;
 #endif
 	struct _RESMAN_ITEM_	**ppsThis;	
@@ -90,7 +90,7 @@ typedef struct _RESMAN_ITEM_
 
 typedef struct _RESMAN_CONTEXT_
 {
-#ifdef DEBUG
+#ifdef DEBUG_PVR
 	IMG_UINT32					ui32Signature;
 #endif
 	struct	_RESMAN_CONTEXT_	**ppsThis;
@@ -112,6 +112,16 @@ typedef struct
 
 PRESMAN_LIST	gpsResList = IMG_NULL;
 
+#include "lists.h"	  
+
+static IMPLEMENT_LIST_ANY_VA(RESMAN_ITEM)
+static IMPLEMENT_LIST_ANY_VA_2(RESMAN_ITEM, IMG_BOOL, IMG_FALSE)
+static IMPLEMENT_LIST_INSERT(RESMAN_ITEM)
+static IMPLEMENT_LIST_REMOVE(RESMAN_ITEM)
+
+static IMPLEMENT_LIST_REMOVE(RESMAN_CONTEXT)
+static IMPLEMENT_LIST_INSERT(RESMAN_CONTEXT)
+
 
 #define PRINT_RESLIST(x, y, z)
 
@@ -125,7 +135,7 @@ static PVRSRV_ERROR FreeResourceByCriteria(PRESMAN_CONTEXT	psContext,
 										   IMG_BOOL			bExecuteCallback);
 
 
-#ifdef DEBUG
+#ifdef DEBUG_PVR
 	static IMG_VOID ValidateResList(PRESMAN_LIST psResList);
 	#define VALIDATERESLIST() ValidateResList(gpsResList)
 #else
@@ -144,7 +154,8 @@ PVRSRV_ERROR ResManInit(IMG_VOID)
 		
 		if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 						sizeof(*gpsResList),
-						(IMG_VOID **)&gpsResList, IMG_NULL) != PVRSRV_OK)
+						(IMG_VOID **)&gpsResList, IMG_NULL,
+						"Resource Manager List") != PVRSRV_OK)
 		{
 			return PVRSRV_ERROR_OUT_OF_MEMORY;
 		}
@@ -166,6 +177,7 @@ IMG_VOID ResManDeInit(IMG_VOID)
 	{
 		
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(*gpsResList), gpsResList, IMG_NULL);
+		gpsResList = IMG_NULL;
 	}
 }
 
@@ -184,7 +196,8 @@ PVRSRV_ERROR PVRSRVResManConnect(IMG_HANDLE			hPerProc,
 
 	
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(*psResManContext),
-						(IMG_VOID **)&psResManContext, IMG_NULL);
+						(IMG_VOID **)&psResManContext, IMG_NULL,
+						"Resource Manager Context");
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "PVRSRVResManConnect: ERROR allocating new RESMAN context struct"));
@@ -198,20 +211,14 @@ PVRSRV_ERROR PVRSRVResManConnect(IMG_HANDLE			hPerProc,
 		return eError;
 	}
 
-#ifdef DEBUG
+#ifdef DEBUG_PVR
 	psResManContext->ui32Signature = RESMAN_SIGNATURE;
 #endif 
 	psResManContext->psResItemList	= IMG_NULL;
 	psResManContext->psPerProc = hPerProc;
 
 	
-	psResManContext->psNext		= gpsResList->psContextList;
-	psResManContext->ppsThis	= &gpsResList->psContextList;
-	gpsResList->psContextList	= psResManContext;
-	if (psResManContext->psNext)
-	{
-		psResManContext->psNext->ppsThis = &(psResManContext->psNext);			
-	}
+	List_RESMAN_CONTEXT_Insert(&gpsResList->psContextList, psResManContext);
 
 	
 	VALIDATERESLIST();
@@ -246,6 +253,9 @@ IMG_VOID PVRSRVResManDisconnect(PRESMAN_CONTEXT psResManContext,
 
 		
 		FreeResourceByCriteria(psResManContext, RESMAN_CRITERIA_RESTYPE, RESMAN_TYPE_EVENT_OBJECT, 0, 0, IMG_TRUE);
+
+		
+		FreeResourceByCriteria(psResManContext, RESMAN_CRITERIA_RESTYPE, RESMAN_TYPE_MODIFY_SYNC_OPS, 0, 0, IMG_TRUE);
 		
 		
 		FreeResourceByCriteria(psResManContext, RESMAN_CRITERIA_RESTYPE, RESMAN_TYPE_HW_RENDER_CONTEXT, 0, 0, IMG_TRUE);
@@ -277,14 +287,11 @@ IMG_VOID PVRSRVResManDisconnect(PRESMAN_CONTEXT psResManContext,
 	PVR_ASSERT(psResManContext->psResItemList == IMG_NULL);
 
 	
-	*(psResManContext->ppsThis) = psResManContext->psNext;
-	if (psResManContext->psNext)
-	{
-		psResManContext->psNext->ppsThis	= psResManContext->ppsThis;
-	}
+	List_RESMAN_CONTEXT_Remove(psResManContext);
 
 	
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(RESMAN_CONTEXT), psResManContext, IMG_NULL);
+	
 
 
 	
@@ -330,7 +337,8 @@ PRESMAN_ITEM ResManRegisterRes(PRESMAN_CONTEXT	psResManContext,
 	
 	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				   sizeof(RESMAN_ITEM), (IMG_VOID **)&psNewResItem,
-				   IMG_NULL) != PVRSRV_OK)
+				   IMG_NULL,
+				   "Resource Manager Item") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "ResManRegisterRes: "
 				"ERROR allocating new resource item"));
@@ -342,7 +350,7 @@ PRESMAN_ITEM ResManRegisterRes(PRESMAN_CONTEXT	psResManContext,
 	}
 
 	
-#ifdef DEBUG
+#ifdef DEBUG_PVR
 	psNewResItem->ui32Signature		= RESMAN_SIGNATURE;
 #endif 
 	psNewResItem->ui32ResType		= ui32ResType;
@@ -352,13 +360,7 @@ PRESMAN_ITEM ResManRegisterRes(PRESMAN_CONTEXT	psResManContext,
 	psNewResItem->ui32Flags		    = 0;
 	
 	
-	psNewResItem->ppsThis	= &psResManContext->psResItemList;
-	psNewResItem->psNext	= psResManContext->psResItemList;
-	psResManContext->psResItemList = psNewResItem;
-	if (psNewResItem->psNext)
-	{
-		psNewResItem->psNext->ppsThis = &psNewResItem->psNext;
-	}
+	List_RESMAN_ITEM_Insert(&psResManContext->psResItemList, psNewResItem);
 
 	
 	VALIDATERESLIST();
@@ -452,27 +454,18 @@ PVRSRV_ERROR ResManDissociateRes(RESMAN_ITEM		*psResItem,
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-#ifdef DEBUG 
+#ifdef DEBUG_PVR
 	PVR_ASSERT(psResItem->ui32Signature == RESMAN_SIGNATURE);
 #endif
 
 	if (psNewResManContext != IMG_NULL)
 	{
 		
-		if (psResItem->psNext)
-		{
-			psResItem->psNext->ppsThis	= psResItem->ppsThis;
-		}
-		*psResItem->ppsThis = psResItem->psNext;
+		List_RESMAN_ITEM_Remove(psResItem);
 
 		
-		psResItem->ppsThis	= &psNewResManContext->psResItemList;
-		psResItem->psNext	= psNewResManContext->psResItemList;
-		psNewResManContext->psResItemList = psResItem;
-		if (psResItem->psNext)
-		{
-			psResItem->psNext->ppsThis = &psResItem->psNext;
-		}
+		List_RESMAN_ITEM_Insert(&psNewResManContext->psResItemList, psResItem);
+		
 	}
 	else
 	{
@@ -487,11 +480,20 @@ PVRSRV_ERROR ResManDissociateRes(RESMAN_ITEM		*psResItem,
 	return eError;
 }
 
+IMG_BOOL ResManFindResourceByPtr_AnyVaCb(RESMAN_ITEM *psCurItem, va_list va)
+{
+	RESMAN_ITEM		*psItem;
+	
+	psItem = va_arg(va, RESMAN_ITEM*);
+	
+	return (IMG_BOOL)(psCurItem == psItem);
+}
+
 
 IMG_INTERNAL PVRSRV_ERROR ResManFindResourceByPtr(PRESMAN_CONTEXT	psResManContext,
 												  RESMAN_ITEM		*psItem)
 {
-	RESMAN_ITEM		*psCurItem;
+	PVRSRV_ERROR	eResult;
 
 	PVR_ASSERT(psResManContext != IMG_NULL);
 	PVR_ASSERT(psItem != IMG_NULL);
@@ -503,7 +505,7 @@ IMG_INTERNAL PVRSRV_ERROR ResManFindResourceByPtr(PRESMAN_CONTEXT	psResManContex
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-#ifdef DEBUG	
+#ifdef DEBUG_PVR
 	PVR_ASSERT(psItem->ui32Signature == RESMAN_SIGNATURE);
 #endif
 
@@ -522,28 +524,21 @@ IMG_INTERNAL PVRSRV_ERROR ResManFindResourceByPtr(PRESMAN_CONTEXT	psResManContex
 			psItem->pfnFreeResource, psItem->ui32Flags));
 
 	
-	psCurItem	= psResManContext->psResItemList;
-
-	while(psCurItem != IMG_NULL)
+	if(List_RESMAN_ITEM_IMG_BOOL_Any_va(psResManContext->psResItemList,
+										ResManFindResourceByPtr_AnyVaCb,
+										psItem))
 	{
-		
-		if(psCurItem != psItem)
-		{
-			
-			psCurItem = psCurItem->psNext;
-		}
-		else
-		{
-			
-			RELEASE_SYNC_OBJ;
-			return PVRSRV_OK;
-		}
+		eResult = PVRSRV_OK;
+	}
+	else
+	{
+		eResult = PVRSRV_ERROR_NOT_OWNER;
 	}
 
 	
 	RELEASE_SYNC_OBJ;
 
-	return PVRSRV_ERROR_NOT_OWNER;
+	return eResult;
 }
 
 static PVRSRV_ERROR FreeResourceByPtr(RESMAN_ITEM	*psItem,
@@ -559,7 +554,7 @@ static PVRSRV_ERROR FreeResourceByPtr(RESMAN_ITEM	*psItem,
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-#ifdef DEBUG	
+#ifdef DEBUG_PVR
 	PVR_ASSERT(psItem->ui32Signature == RESMAN_SIGNATURE);
 #endif
 
@@ -574,11 +569,8 @@ static PVRSRV_ERROR FreeResourceByPtr(RESMAN_ITEM	*psItem,
 			psItem->pfnFreeResource, psItem->ui32Flags));
 
 	
-	if (psItem->psNext)
-	{
-		psItem->psNext->ppsThis	= psItem->ppsThis;
-	}
-	*psItem->ppsThis = psItem->psNext;
+	List_RESMAN_ITEM_Remove(psItem);
+	
 
 	
 	RELEASE_SYNC_OBJ;
@@ -606,6 +598,40 @@ static PVRSRV_ERROR FreeResourceByPtr(RESMAN_ITEM	*psItem,
 	return(eError);
 }
 
+IMG_VOID* FreeResourceByCriteria_AnyVaCb(RESMAN_ITEM *psCurItem, va_list va)
+{
+	IMG_UINT32 ui32SearchCriteria;
+	IMG_UINT32 ui32ResType;
+	IMG_PVOID pvParam;
+	IMG_UINT32 ui32Param;
+
+	ui32SearchCriteria = va_arg(va, IMG_UINT32);
+	ui32ResType = va_arg(va, IMG_UINT32);
+	pvParam = va_arg(va, IMG_PVOID);
+	ui32Param = va_arg(va, IMG_UINT32);
+
+		
+	if(
+	
+		(((ui32SearchCriteria & RESMAN_CRITERIA_RESTYPE) == 0UL) ||
+		(psCurItem->ui32ResType == ui32ResType))
+	&&
+	
+		(((ui32SearchCriteria & RESMAN_CRITERIA_PVOID_PARAM) == 0UL) ||
+			 (psCurItem->pvParam == pvParam))
+	&&
+	
+		(((ui32SearchCriteria & RESMAN_CRITERIA_UI32_PARAM) == 0UL) ||
+			 (psCurItem->ui32Param == ui32Param))
+		)
+	{
+		return psCurItem;
+	}
+	else
+	{
+		return IMG_NULL;
+	}
+}
 
 static PVRSRV_ERROR FreeResourceByCriteria(PRESMAN_CONTEXT	psResManContext,
 										   IMG_UINT32		ui32SearchCriteria, 
@@ -615,65 +641,27 @@ static PVRSRV_ERROR FreeResourceByCriteria(PRESMAN_CONTEXT	psResManContext,
 										   IMG_BOOL			bExecuteCallback)
 {
 	PRESMAN_ITEM	psCurItem;
-	IMG_BOOL		bMatch;
 	PVRSRV_ERROR	eError = PVRSRV_OK;
 
 	
-	psCurItem	= psResManContext->psResItemList;
-
-	while(psCurItem != IMG_NULL)
+	
+	while((psCurItem = (PRESMAN_ITEM)
+				List_RESMAN_ITEM_Any_va(psResManContext->psResItemList,
+										FreeResourceByCriteria_AnyVaCb,
+										ui32SearchCriteria,
+										ui32ResType,
+						 				pvParam,
+						 				ui32Param)) != IMG_NULL
+		  	&& eError == PVRSRV_OK)
 	{
-		
-		bMatch = IMG_TRUE;
-
-		
-		if(((ui32SearchCriteria & RESMAN_CRITERIA_RESTYPE) != 0UL) &&
-			(psCurItem->ui32ResType != ui32ResType))
-		{
-			bMatch = IMG_FALSE;
-		}
-
-		
-		else if(((ui32SearchCriteria & RESMAN_CRITERIA_PVOID_PARAM) != 0UL) &&
-				 (psCurItem->pvParam != pvParam))
-		{
-			bMatch = IMG_FALSE;
-		}
-
-		
-		else if(((ui32SearchCriteria & RESMAN_CRITERIA_UI32_PARAM) != 0UL) &&
-				 (psCurItem->ui32Param != ui32Param))
-		{
-			bMatch = IMG_FALSE;
-		}
-		
-		if(!bMatch)
-		{
-			
-			psCurItem = psCurItem->psNext;
-		}
-		else
-		{
-			
-			eError = FreeResourceByPtr(psCurItem, bExecuteCallback);
-
-			if(eError != PVRSRV_OK)
-			{
-				return eError;
-			}
-
-			
-
-
-			psCurItem = psResManContext->psResItemList;
-		}
+		eError = FreeResourceByPtr(psCurItem, bExecuteCallback);
 	}
 
 	return eError;
 }
 
 
-#ifdef DEBUG
+#ifdef DEBUG_PVR
 static IMG_VOID ValidateResList(PRESMAN_LIST psResList)
 {
 	PRESMAN_ITEM	psCurItem, *ppsThisItem;

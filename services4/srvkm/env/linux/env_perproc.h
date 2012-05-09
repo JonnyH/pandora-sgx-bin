@@ -46,5 +46,7 @@ IMG_VOID LinuxMMapPerProcessDisconnect(PVRSRV_ENV_PER_PROCESS_DATA *psEnvPerProc
  
 PVRSRV_ERROR LinuxMMapPerProcessHandleOptions(PVRSRV_HANDLE_BASE *psHandleBase);
 
+IMG_HANDLE LinuxTerminatingProcessPrivateData(IMG_VOID);
+
 #endif 
 

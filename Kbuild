@@ -12,6 +12,7 @@ services4/srvkm/common/resman.c \
 services4/srvkm/common/buffer_manager.c \
 services4/srvkm/common/pvrsrv.c \
 services4/srvkm/common/handle.c \
+services4/srvkm/common/lists.c \
 services4/srvkm/common/ra.c \
 services4/srvkm/common/devicemem.c \
 services4/srvkm/env/linux/pvr_debug.c \

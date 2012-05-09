@@ -441,7 +441,8 @@ PVRSRVAllocDeviceMemBW(IMG_UINT32 ui32BridgeID,
 							   psAllocDeviceMemIN->ui32Attribs,
 							   psAllocDeviceMemIN->ui32Size,
 							   psAllocDeviceMemIN->ui32Alignment,
-							   &psMemInfo);
+							   &psMemInfo,
+							   "" );
 
 	if(psAllocDeviceMemOUT->eError != PVRSRV_OK)
 	{
@@ -981,7 +982,8 @@ PVRSRVWrapExtMemoryBW(IMG_UINT32 ui32BridgeID,
 		ASSIGN_AND_EXIT_ON_ERROR(psWrapExtMemOUT->eError,
 				  OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				  ui32PageTableSize,
-				  (IMG_VOID **)&psSysPAddr, 0));
+				  (IMG_VOID **)&psSysPAddr, 0,
+				  "Page Table"));
 
 		if(CopyFromUserWrapper(psPerProc, 
 							   ui32BridgeID,
@@ -1573,7 +1575,8 @@ PVRSRVGetMiscInfoBW(IMG_UINT32 ui32BridgeID,
 		ASSIGN_AND_EXIT_ON_ERROR(psGetMiscInfoOUT->eError,
 				    OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 		                    psGetMiscInfoOUT->sMiscInfo.ui32MemoryStrLen,
-		                    (IMG_VOID **)&psGetMiscInfoOUT->sMiscInfo.pszMemoryStr, 0));
+		                    (IMG_VOID **)&psGetMiscInfoOUT->sMiscInfo.pszMemoryStr, 0,
+							"Output string buffer"));
 
 		psGetMiscInfoOUT->eError = PVRSRVGetMiscInfoKM(&psGetMiscInfoOUT->sMiscInfo);
 	

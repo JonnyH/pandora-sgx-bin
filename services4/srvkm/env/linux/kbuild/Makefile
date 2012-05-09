@@ -23,13 +23,20 @@
 # 
 #
 
-include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common
+MODULE		?= pvrsrvkm
 
-MODULE		= pvrsrvkm
+MODULE_CFLAGS = 
 
-#MODULE_CFLAGS = -E
-
+ifeq ($(PVR_KBUILD_IN_KERNEL),1)
+# PVRKROOT is the relative path to the PVR sources.
+# DRVKROOT should point to the non-PVR sources, if any.
+PVRKROOT ?= .
+KBUILDROOT 	= $(PVRKROOT)/services4
+else
 KBUILDROOT 	= ../../../..
+endif
+
+clean-dirs :=
 
 INCLUDES = 	-I$(EURASIAROOT)/include4 \
 			-I$(EURASIAROOT)/services4/include \
@@ -70,7 +77,9 @@ SOURCES	     += $(KBUILDROOT)/srvkm/common/buffer_manager.c \
 				$(KBUILDROOT)/srvkm/bridged/bridged_pvr_bridge.c \
 				$(KBUILDROOT)/srvkm/common/perproc.c \
 				$(KBUILDROOT)/../services4/system/$(PVR_SYSTEM)/sysconfig.c \
-				$(KBUILDROOT)/../services4/system/$(PVR_SYSTEM)/sysutils.c
+				$(KBUILDROOT)/../services4/system/$(PVR_SYSTEM)/sysutils.c \
+				$(KBUILDROOT)/srvkm/common/lists.c \
+				$(KBUILDROOT)/srvkm/common/mem_debug.c
 
 INCLUDES += -I$(EURASIAROOT)/services4/srvkm/hwdefs 
 
@@ -119,7 +128,17 @@ endif # SUPPORT_SGX
 
 ifeq ($(SUPPORT_DRI_DRM),1)
 	SOURCES += $(KBUILDROOT)/srvkm/env/linux/pvr_drm.c
-	INCLUDES += -I$(KERNELDIR)/drivers/char/drm -I$(KERNELDIR)/include/drm
+	INCLUDES += -I$(KERNELDIR)/include/drm \
+		-I$(EURASIAROOT)/services4/include/env/linux
+
+ifneq ("$(DISPLAY_CONTROLLER_DIR)","")
+include $(EURASIAROOT)/services4/$(DISPLAY_CONTROLLER_DIR)/makefile.linux.common
+endif
+
+ifeq ($(PDUMP),1)
+include $(EURASIAROOT)/tools/intern/debug/dbgdriv/linux/makefile.linux.common
+endif
+
 endif
 
 ifeq ($(PVR_MODULE_TEST),1)
@@ -127,3 +146,5 @@ INCLUDES += -I$(EURASIAROOT)/moduletests/include
 SOURCES	 += $(KBUILDROOT)/../moduletests/services_test/kern_test.c
 SYS_CFLAGS += -DMODULE_TEST
 endif
+
+include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common

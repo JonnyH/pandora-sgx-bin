@@ -63,6 +63,19 @@ typedef struct _PVRSRV_KERNEL_MEM_INFO_
 	
 	IMG_UINT32				ui32RefCount;
 
+	
+	IMG_BOOL				bPendingFree;
+
+
+	#if defined(ANDROID)
+	#if !defined(USE_CODE)
+	
+	IMG_UINT64				ui64Stamp;
+	#else 
+	IMG_UINT32				dummy1;
+	IMG_UINT32				dummy2;
+	#endif 
+	#endif 
 
 	
 	struct _PVRSRV_KERNEL_SYNC_INFO_	*psKernelSyncInfo;
@@ -84,6 +97,9 @@ typedef struct _PVRSRV_KERNEL_SYNC_INFO_
 	
 	PVRSRV_KERNEL_MEM_INFO	*psSyncDataMemInfoKM;
 
+	
+	IMG_HANDLE				hResItem;
+	
 } PVRSRV_KERNEL_SYNC_INFO;
 
 typedef struct _PVRSRV_DEVICE_SYNC_OBJECT_

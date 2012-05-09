@@ -25,15 +25,6 @@
  ******************************************************************************/
 
 #include "services_headers.h"
-
-#if defined(SUPPORT_VGX)
-#include "vgxapi_km.h"
-#endif
-
-#if defined(SUPPORT_SGX)
-#include "sgxapi_km.h"
-#endif
-
 #include "pvr_bridge_km.h"
 
 
@@ -54,6 +45,7 @@ FreeSharedSysMemCallBack(IMG_PVOID	pvParam,
 			  sizeof(PVRSRV_KERNEL_MEM_INFO),
 			  psKernelMemInfo,
 			  IMG_NULL);
+	
 
 	return PVRSRV_OK;
 }
@@ -62,14 +54,15 @@ FreeSharedSysMemCallBack(IMG_PVOID	pvParam,
 IMG_EXPORT PVRSRV_ERROR
 PVRSRVAllocSharedSysMemoryKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 							 IMG_UINT32					ui32Flags,
-							 IMG_UINT32 				ui32Size,
+							 IMG_SIZE_T 				ui32Size,
 							 PVRSRV_KERNEL_MEM_INFO 	**ppsKernelMemInfo)
 {
 	PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo;
 
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				  sizeof(PVRSRV_KERNEL_MEM_INFO),
-				  (IMG_VOID **)&psKernelMemInfo, IMG_NULL) != PVRSRV_OK)
+				  (IMG_VOID **)&psKernelMemInfo, IMG_NULL,
+				  "Kernel Memory Info") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVAllocSharedSysMemoryKM: Failed to alloc memory for meminfo"));
 		return PVRSRV_ERROR_OUT_OF_MEMORY;

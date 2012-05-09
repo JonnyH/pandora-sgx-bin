@@ -137,7 +137,8 @@ static PVRSRV_ERROR InitDevInfo(PVRSRV_PER_PROCESS_DATA *psPerProc,
 
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 						sizeof(PVRSRV_SGX_CCB_INFO),
-						(IMG_VOID **)&psKernelCCBInfo, 0);
+						(IMG_VOID **)&psKernelCCBInfo, 0,
+						"SGX Circular Command Buffer Info");
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"InitDevInfo: Failed to alloc memory"));
@@ -369,7 +370,8 @@ static PVRSRV_ERROR DevInitSGXPart1 (IMG_VOID *pvDeviceNode)
 
 	if(OSAllocMem( PVRSRV_OS_NON_PAGEABLE_HEAP,
 					 sizeof(PVRSRV_SGXDEV_INFO),
-					 (IMG_VOID **)&psDevInfo, IMG_NULL) != PVRSRV_OK)
+					 (IMG_VOID **)&psDevInfo, IMG_NULL,
+					 "SGX Device Info") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"DevInitSGXPart1 : Failed to alloc memory for DevInfo"));
 		return (PVRSRV_ERROR_OUT_OF_MEMORY);
@@ -1010,7 +1012,8 @@ PVRSRV_ERROR SGXRegisterDevice (PVRSRV_DEVICE_NODE *psDeviceNode)
 	
 	if(OSAllocMem( PVRSRV_OS_PAGEABLE_HEAP,
 					 sizeof(DEVICE_MEMORY_HEAP_INFO) * psDevMemoryInfo->ui32HeapCount,
-					 (IMG_VOID **)&psDevMemoryInfo->psDeviceMemoryHeap, 0) != PVRSRV_OK)
+					 (IMG_VOID **)&psDevMemoryInfo->psDeviceMemoryHeap, 0,
+					 "Array of Device Memory Heap Info") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"SGXRegisterDevice : Failed to alloc memory for DEVICE_MEMORY_HEAP_INFO"));
 		return (PVRSRV_ERROR_OUT_OF_MEMORY);

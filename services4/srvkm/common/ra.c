@@ -276,7 +276,8 @@ _SegmentSplit (RA_ARENA *pArena, BT *pBT, IMG_SIZE_T uSize)
 	
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP, 
 					sizeof(BT), 
-					(IMG_VOID **)&pNeighbour, IMG_NULL) != PVRSRV_OK)
+					(IMG_VOID **)&pNeighbour, IMG_NULL,
+					"Boundary Tag") != PVRSRV_OK)
 	{
 		return IMG_NULL;
 	}
@@ -330,7 +331,8 @@ _BuildSpanMarker (IMG_UINTPTR_T base, IMG_SIZE_T uSize)
 
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 					sizeof(BT),
-					(IMG_VOID **)&pBT, IMG_NULL) != PVRSRV_OK)
+					(IMG_VOID **)&pBT, IMG_NULL,
+					"Boundary Tag") != PVRSRV_OK)
 	{
 		return IMG_NULL;
 	}
@@ -350,7 +352,8 @@ _BuildBT (IMG_UINTPTR_T base, IMG_SIZE_T uSize)
 	
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP, 
 					sizeof(BT), 
-					(IMG_VOID **)&pBT, IMG_NULL) != PVRSRV_OK)
+					(IMG_VOID **)&pBT, IMG_NULL,
+					"Boundary Tag") != PVRSRV_OK)
 	{
 		return IMG_NULL;
 	}
@@ -739,7 +742,8 @@ RA_Create (IMG_CHAR *name,
 
 	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 					 sizeof (*pArena),
-					 (IMG_VOID **)&pArena, IMG_NULL) != PVRSRV_OK)
+					 (IMG_VOID **)&pArena, IMG_NULL,
+					 "Resource Arena") != PVRSRV_OK)
 	{
 		goto arena_fail;
 	}

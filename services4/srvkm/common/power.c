@@ -575,7 +575,8 @@ PVRSRV_ERROR PVRSRVRegisterPowerDevice(IMG_UINT32					ui32DeviceIndex,
 
 	eError = OSAllocMem( PVRSRV_OS_PAGEABLE_HEAP,
 						 sizeof(PVRSRV_POWER_DEV),
-						 (IMG_VOID **)&psPowerDevice, IMG_NULL);
+						 (IMG_VOID **)&psPowerDevice, IMG_NULL,
+						 "Power Device");
 	if(eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVRegisterPowerDevice: Failed to alloc PVRSRV_POWER_DEV"));

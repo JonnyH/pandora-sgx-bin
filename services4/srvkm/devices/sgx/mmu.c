@@ -421,7 +421,8 @@ _DeferredAllocPagetables(MMU_HEAP *pMMUHeap, IMG_DEV_VIRTADDR DevVAddr, IMG_UINT
 		{
 			OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 						 sizeof (MMU_PT_INFO),
-						 (IMG_VOID **)&ppsPTInfoList[i], IMG_NULL);
+						 (IMG_VOID **)&ppsPTInfoList[i], IMG_NULL,
+						 "MMU Page Table Info");
 			if (ppsPTInfoList[i] == IMG_NULL)
 			{
 				PVR_DPF((PVR_DBG_ERROR, "_DeferredAllocPagetables: ERROR call to OSAllocMem failed"));
@@ -613,7 +614,8 @@ MMU_Initialise (PVRSRV_DEVICE_NODE *psDeviceNode, MMU_CONTEXT **ppsMMUContext, I
 
 	OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				 sizeof (MMU_CONTEXT),
-				 (IMG_VOID **)&psMMUContext, IMG_NULL);
+				 (IMG_VOID **)&psMMUContext, IMG_NULL,
+				 "MMU Context");
 	if (psMMUContext == IMG_NULL)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "MMU_Initialise: ERROR call to OSAllocMem failed"));
@@ -1211,7 +1213,8 @@ MMU_Create (MMU_CONTEXT *psMMUContext,
 
 	OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				 sizeof (MMU_HEAP),
-				 (IMG_VOID **)&pMMUHeap, IMG_NULL);
+				 (IMG_VOID **)&pMMUHeap, IMG_NULL,
+				 "MMU Heap");
 	if (pMMUHeap == IMG_NULL)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "MMU_Create: ERROR call to OSAllocMem failed"));

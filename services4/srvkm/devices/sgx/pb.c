@@ -80,7 +80,8 @@ SGXFindSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 					  sizeof(PVRSRV_KERNEL_MEM_INFO *)
 						* psStubPBDesc->ui32SubKernelMemInfosCount,
 					  (IMG_VOID **)&ppsSharedPBDescSubKernelMemInfos,
-					  IMG_NULL) != PVRSRV_OK)
+					  IMG_NULL,
+					  "Array of Kernel Memory Info") != PVRSRV_OK)
 		{
 			PVR_DPF((PVR_DBG_ERROR, "SGXFindSharedPBDescKM: OSAllocMem failed"));
 
@@ -331,7 +332,8 @@ SGXAddSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 	if(OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 				  sizeof(PVRSRV_STUB_PBDESC),
 				  (IMG_VOID **)&psStubPBDesc,
-				  0) != PVRSRV_OK)
+				  0,
+				  "Stub Parameter Buffer Description") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "SGXAddSharedPBDescKM: Failed to alloc "
 					"StubPBDesc"));
@@ -346,7 +348,8 @@ SGXAddSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 				  sizeof(PVRSRV_KERNEL_MEM_INFO *)
 				  * ui32SharedPBDescSubKernelMemInfosCount,
 				  (IMG_VOID **)&psStubPBDesc->ppsSubKernelMemInfos,
-				  0) != PVRSRV_OK)
+				  0,
+				  "Array of Kernel Memory Info") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "SGXAddSharedPBDescKM: "
 				 "Failed to alloc "

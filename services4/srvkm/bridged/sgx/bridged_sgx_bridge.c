@@ -629,7 +629,8 @@ SGXGetMiscInfoBW(IMG_UINT32 ui32BridgeID,
 		                    OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 		                    allocatedSize,
 		                    &pAllocated,
-		                    &hAllocatedHandle));
+		                    &hAllocatedHandle,
+							"Array of Hardware Performance Circular Buffer Data"));
 
 		
 		psTmpUserData = sMiscInfo.uData.sRetrieveCB.psHWPerfData;
@@ -754,7 +755,8 @@ SGXReadHWPerfCBBW(IMG_UINT32							ui32BridgeID,
 	                    OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 	                    ui32AllocatedSize,
 	                    (IMG_VOID **)&psAllocated,
-	                    &hAllocatedHandle));
+	                    &hAllocatedHandle,
+						"Array of Hardware Performance Circular Buffer Data"));
 
 	psSGXReadHWPerfCBOUT->eError = SGXReadHWPerfCBKM(hDevCookieInt,
 													 psSGXReadHWPerfCBIN->ui32ArraySize,
@@ -1616,7 +1618,8 @@ SGXAddSharedPBDescBW(IMG_UINT32 ui32BridgeID,
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				  ui32KernelMemInfoHandlesCount * sizeof(IMG_HANDLE),
 				  (IMG_VOID **)&phKernelMemInfoHandles,
-				  0);
+				  0,
+				  "Array of Handles");
 	if (eError != PVRSRV_OK)
 	{
 		goto PVRSRV_BRIDGE_SGX_ADDSHAREDPBDESC_RETURN_RESULT;
@@ -1636,7 +1639,8 @@ SGXAddSharedPBDescBW(IMG_UINT32 ui32BridgeID,
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				  ui32KernelMemInfoHandlesCount * sizeof(PVRSRV_KERNEL_MEM_INFO *),
 				  (IMG_VOID **)&ppsKernelMemInfos,
-				  0);
+				  0,
+				  "Array of pointers to Kernel Memory Info");
 	if (eError != PVRSRV_OK)
 	{
 		goto PVRSRV_BRIDGE_SGX_ADDSHAREDPBDESC_RETURN_RESULT;
@@ -1926,7 +1930,8 @@ SGXPDumpBufferArrayBW(IMG_UINT32 ui32BridgeID,
 
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				  ui32BufferArraySize,
-				  (IMG_PVOID *)&psKickTADumpBuffer, 0) != PVRSRV_OK)
+				  (IMG_PVOID *)&psKickTADumpBuffer, 0,
+				  "Array of Kick Tile Accelerator Dump Buffer") != PVRSRV_OK)
 	{
 		return -ENOMEM;
 	}
@@ -2008,7 +2013,8 @@ SGXPDump3DSignatureRegistersBW(IMG_UINT32 ui32BridgeID,
 
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				  ui32RegisterArraySize,
-				  (IMG_PVOID *)&pui32Registers, 0) != PVRSRV_OK)
+				  (IMG_PVOID *)&pui32Registers, 0,
+				  "Array of Registers") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "PDump3DSignatureRegistersBW: OSAllocMem failed"));
 		goto Exit;
@@ -2061,7 +2067,8 @@ SGXPDumpCounterRegistersBW(IMG_UINT32 ui32BridgeID,
 
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				  ui32RegisterArraySize,
-				  (IMG_PVOID *)&pui32Registers, 0) != PVRSRV_OK)
+				  (IMG_PVOID *)&pui32Registers, 0,
+				  "Array of Registers") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "PDumpCounterRegistersBW: OSAllocMem failed"));
 		ret = -ENOMEM;
@@ -2115,7 +2122,8 @@ SGXPDumpTASignatureRegistersBW(IMG_UINT32 ui32BridgeID,
 
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				  ui32RegisterArraySize,
-				  (IMG_PVOID *)&pui32Registers, 0) != PVRSRV_OK)
+				  (IMG_PVOID *)&pui32Registers, 0,
+				  "Array of Registers") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "PDumpTASignatureRegistersBW: OSAllocMem failed"));
 		ret = -ENOMEM;

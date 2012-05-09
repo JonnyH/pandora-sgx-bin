@@ -599,7 +599,8 @@ IMG_HANDLE SGXRegisterHWRenderContextKM(IMG_HANDLE				psDeviceNode,
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 						sizeof(SGX_HW_RENDER_CONTEXT_CLEANUP),
 						(IMG_VOID **)&psCleanup,
-						&hBlockAlloc);
+						&hBlockAlloc,
+						"SGX Hardware Render Context Cleanup");
 
 	if (eError != PVRSRV_OK)
 	{
@@ -668,7 +669,8 @@ IMG_HANDLE SGXRegisterHWTransferContextKM(IMG_HANDLE				psDeviceNode,
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 						sizeof(SGX_HW_TRANSFER_CONTEXT_CLEANUP),
 						(IMG_VOID **)&psCleanup,
-						&hBlockAlloc);
+						&hBlockAlloc,
+						"SGX Hardware Transfer Context Cleanup");
 
 	if (eError != PVRSRV_OK)
 	{
@@ -762,7 +764,8 @@ IMG_HANDLE SGXRegisterHW2DContextKM(IMG_HANDLE				psDeviceNode,
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 						sizeof(SGX_HW_2D_CONTEXT_CLEANUP),
 						(IMG_VOID **)&psCleanup,
-						&hBlockAlloc);
+						&hBlockAlloc,
+						"SGX Hardware 2D Context Cleanup");
 
 	if (eError != PVRSRV_OK)
 	{

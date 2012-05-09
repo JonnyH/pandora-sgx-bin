@@ -85,13 +85,24 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetDeviceMemHeapInfoKM(IMG_HANDLE				hDevCookie,
 
 
 IMG_IMPORT
-PVRSRV_ERROR IMG_CALLCONV PVRSRVAllocDeviceMemKM(IMG_HANDLE					hDevCookie,
+PVRSRV_ERROR IMG_CALLCONV _PVRSRVAllocDeviceMemKM(IMG_HANDLE					hDevCookie,
 												 PVRSRV_PER_PROCESS_DATA	*psPerProc,
 												 IMG_HANDLE					hDevMemHeap,
 												 IMG_UINT32					ui32Flags,
 												 IMG_SIZE_T					ui32Size,
 												 IMG_SIZE_T					ui32Alignment,
 												 PVRSRV_KERNEL_MEM_INFO		**ppsMemInfo);
+
+
+#if defined(PVRSRV_LOG_MEMORY_ALLOCS)
+	#define PVRSRVAllocDeviceMemKM(devCookie, perProc, devMemHeap, flags, size, alignment, memInfo, logStr) \
+		(PVR_TRACE(("PVRSRVAllocDeviceMemKM(" #devCookie ", " #perProc ", " #devMemHeap ", " #flags ", " #size \
+			", " #alignment "," #memInfo "): " logStr " (size = 0x%;x)", size)),\
+			_PVRSRVAllocDeviceMemKM(devCookie, perProc, devMemHeap, flags, size, alignment, memInfo))
+#else
+	#define PVRSRVAllocDeviceMemKM(devCookie, perProc, devMemHeap, flags, size, alignment, memInfo, logStr) \
+			_PVRSRVAllocDeviceMemKM(devCookie, perProc, devMemHeap, flags, size, alignment, memInfo)
+#endif
 
 
 IMG_IMPORT

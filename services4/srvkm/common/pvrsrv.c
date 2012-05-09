@@ -223,7 +223,8 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInit(PSYS_DATA psSysData)
 	
 	if(OSAllocMem( PVRSRV_PAGEABLE_SELECT, 
 					 sizeof(PVRSRV_EVENTOBJECT) , 
-					 (IMG_VOID **)&psSysData->psGlobalEventObject, 0) != PVRSRV_OK)	
+					 (IMG_VOID **)&psSysData->psGlobalEventObject, 0,
+					 "Event Object") != PVRSRV_OK)	
 	{
 		
 		goto Error;
@@ -291,7 +292,8 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVRegisterDevice(PSYS_DATA psSysData,
 	
 	if(OSAllocMem( PVRSRV_OS_NON_PAGEABLE_HEAP, 
 					 sizeof(PVRSRV_DEVICE_NODE), 
-					 (IMG_VOID **)&psDeviceNode, IMG_NULL) != PVRSRV_OK)	
+					 (IMG_VOID **)&psDeviceNode, IMG_NULL,
+					 "Device Node") != PVRSRV_OK)	
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVRegisterDevice : Failed to alloc memory for psDeviceNode"));
 		return (PVRSRV_ERROR_OUT_OF_MEMORY);
