@@ -30,7 +30,7 @@
 #define HOST_PAGESIZE			(4096)
 #define DBG_MEMORY_INITIALIZER	(0xe2)
 
-IMG_UINT32 HostReadRegistryDWORDFromString(char *pcKey, char *pcValueName, IMG_UINT32 *pui32Data);
+IMG_UINT32 HostReadRegistryDWORDFromString(IMG_CHAR *pcKey, IMG_CHAR *pcValueName, IMG_UINT32 *pui32Data);
 
 IMG_VOID * HostPageablePageAlloc(IMG_UINT32 ui32Pages);
 IMG_VOID HostPageablePageFree(IMG_VOID * pvBase);

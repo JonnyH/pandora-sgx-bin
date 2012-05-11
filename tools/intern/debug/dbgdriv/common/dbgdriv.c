@@ -47,7 +47,7 @@ typedef struct _DBG_LASTFRAME_BUFFER_
 	IMG_UINT8 ui8Buffer[LAST_FRAME_BUF_SIZE];
 	IMG_UINT32		ui32BufLen;
 	struct _DBG_LASTFRAME_BUFFER_	*psNext;
-} DBG_LASTFRAME_BUFFER, *PDBG_LASTFRAME_BUFFER;
+} *PDBG_LASTFRAME_BUFFER;
 
 
 static PDBG_STREAM	g_psStreamList = 0;
@@ -281,34 +281,34 @@ IMG_UINT32 IMG_CALLCONV ExtDBGDrivGetFrame(PDBG_STREAM psStream)
 	return ui32Ret;
 }
 
-IMG_UINT32 IMG_CALLCONV ExtDBGDrivIsLastCaptureFrame(PDBG_STREAM psStream)
+IMG_BOOL IMG_CALLCONV ExtDBGDrivIsLastCaptureFrame(PDBG_STREAM psStream)
 {
-	IMG_UINT32	ui32Ret;
+	IMG_BOOL	bRet;
 
 	
 	HostAquireMutex(g_pvAPIMutex);
 
-	ui32Ret = DBGDrivIsLastCaptureFrame(psStream);
+	bRet = DBGDrivIsLastCaptureFrame(psStream);
 
 	
 	HostReleaseMutex(g_pvAPIMutex);
 
-	return ui32Ret;
+	return bRet;
 }
 
-IMG_UINT32 IMG_CALLCONV ExtDBGDrivIsCaptureFrame(PDBG_STREAM psStream, IMG_BOOL bCheckPreviousFrame)
+IMG_BOOL IMG_CALLCONV ExtDBGDrivIsCaptureFrame(PDBG_STREAM psStream, IMG_BOOL bCheckPreviousFrame)
 {
-	IMG_UINT32	ui32Ret;
+	IMG_BOOL	bRet;
 
 	
 	HostAquireMutex(g_pvAPIMutex);
 
-	ui32Ret = DBGDrivIsCaptureFrame(psStream, bCheckPreviousFrame);
+	bRet = DBGDrivIsCaptureFrame(psStream, bCheckPreviousFrame);
 
 	
 	HostReleaseMutex(g_pvAPIMutex);
 
-	return ui32Ret;
+	return bRet;
 }
 
 void IMG_CALLCONV ExtDBGDrivOverrideMode(PDBG_STREAM psStream,IMG_UINT32 ui32Mode)
@@ -498,27 +498,27 @@ IMG_VOID IMG_CALLCONV ExtDBGDrivWaitForEvent(DBG_EVENT eEvent)
 #if defined(SUPPORT_DBGDRV_EVENT_OBJECTS)
 	DBGDrivWaitForEvent(eEvent);
 #else	
-	PVR_UNREFERENCED_PARAMETER(eEvent);
+	PVR_UNREFERENCED_PARAMETER(eEvent);				
 #endif	
 }
 
-IMG_UINT32 AtoI(char *szIn)
+IMG_UINT32 AtoI(IMG_CHAR *szIn)
 {
-	IMG_UINT32	ui32Len = 0;
+	IMG_INT		iLen = 0;
 	IMG_UINT32	ui32Value = 0;
 	IMG_UINT32	ui32Digit=1;
 	IMG_UINT32	ui32Base=10;
-	int		iPos;
-	char	bc;
+	IMG_INT		iPos;
+	IMG_CHAR	bc;
 
 	
-	while (szIn[ui32Len] > 0)
+	while (szIn[iLen] > 0)
 	{
-		ui32Len ++;
+		iLen ++;
 	}
 
 	
-	if (ui32Len == 0)
+	if (iLen == 0)
 	{
 		return (0);
 	}
@@ -540,7 +540,7 @@ IMG_UINT32 AtoI(char *szIn)
 	}
 
 	
-	for (iPos = ui32Len - 1; iPos >= 0; iPos --)
+	for (iPos = iLen - 1; iPos >= 0; iPos --)
 	{
 		bc = szIn[iPos];
 
@@ -561,7 +561,7 @@ IMG_UINT32 AtoI(char *szIn)
 		else
 			return (0);
 
-		ui32Value += bc  * ui32Digit;
+		ui32Value += (IMG_UINT32)bc  * ui32Digit;
 
 		ui32Digit = ui32Digit * ui32Base;
 	}
@@ -635,7 +635,7 @@ void MonoOut(IMG_CHAR * pszString,IMG_BOOL bNewLine)
 	IMG_UINT32 	i;
 	IMG_CHAR *	pScreen;
 
-	pScreen = (char *) DBGDRIV_MONOBASE;
+	pScreen = (IMG_CHAR *) DBGDRIV_MONOBASE;
 
 	pScreen += g_ui32Line * 160;
 
@@ -731,7 +731,7 @@ IMG_VOID * IMG_CALLCONV DBGDrivCreateStream(IMG_CHAR *		pszName,
 			(!psLFBuffer)
 		)
 	{
-		PVR_DPF((PVR_DBG_ERROR,"DBGDriv: Couldn't create buffer !!!!!\n\r"));
+		PVR_DPF((PVR_DBG_ERROR,"DBGDriv: Couldn't alloc control structs\n\r"));
 		return((IMG_VOID *) 0);
 	}
 
@@ -747,8 +747,8 @@ IMG_VOID * IMG_CALLCONV DBGDrivCreateStream(IMG_CHAR *		pszName,
 
 	if (!pvBase)
 	{
-		PVR_DPF((PVR_DBG_ERROR,"DBGDriv: Couldn't create buffer !!!!!\n\r"));
-		HostNonPageablePageFree(psStream);	
+		PVR_DPF((PVR_DBG_ERROR,"DBGDriv: Couldn't alloc Stream buffer\n\r"));
+		HostNonPageablePageFree(psStream);
 		return((IMG_VOID *) 0);
 	}
 
@@ -757,7 +757,7 @@ IMG_VOID * IMG_CALLCONV DBGDrivCreateStream(IMG_CHAR *		pszName,
 	psStream->psNext = 0;
 	psStream->ui32Flags = ui32Flags;
 	psStream->ui32Base = (IMG_UINT32)pvBase;
-	psStream->ui32Size = ui32Size * 4096;
+	psStream->ui32Size = ui32Size * 4096UL;
 	psStream->ui32RPtr = 0;
 	psStream->ui32WPtr = 0;
 	psStream->ui32DataWritten = 0;
@@ -786,7 +786,7 @@ IMG_VOID * IMG_CALLCONV DBGDrivCreateStream(IMG_CHAR *		pszName,
 
 	if (!pvBase)
 	{
-		PVR_DPF((PVR_DBG_ERROR,"DBGDriv: Couldn't create buffer !!!!!\n\r"));
+		PVR_DPF((PVR_DBG_ERROR,"DBGDriv: Couldn't alloc InitStream buffer\n\r"));
 		
 		if ((psStream->ui32Flags & DEBUG_FLAGS_USE_NONPAGED_MEM) != 0)
 		{
@@ -796,14 +796,14 @@ IMG_VOID * IMG_CALLCONV DBGDrivCreateStream(IMG_CHAR *		pszName,
 		{
 			HostPageablePageFree((IMG_VOID *)psStream->ui32Base);
 		}
-		HostNonPageablePageFree(psStream);	
+		HostNonPageablePageFree(psStream);
 		return((IMG_VOID *) 0);
 	}
 
 	psInitStream->psNext = 0;
 	psInitStream->ui32Flags = ui32Flags;
 	psInitStream->ui32Base = (IMG_UINT32)pvBase;
-	psInitStream->ui32Size = ui32Size * 4096;
+	psInitStream->ui32Size = ui32Size * 4096UL;
 	psInitStream->ui32RPtr = 0;
 	psInitStream->ui32WPtr = 0;
 	psInitStream->ui32DataWritten = 0;
@@ -824,11 +824,11 @@ IMG_VOID * IMG_CALLCONV DBGDrivCreateStream(IMG_CHAR *		pszName,
 
 	
 	psLFBuffer->psStream = psStream;
-	psLFBuffer->ui32BufLen = 0;
+	psLFBuffer->ui32BufLen = 0UL;
 
 	g_bHotkeyMiddump = IMG_FALSE;
-	g_ui32HotkeyMiddumpStart = 0xffffffff;
-	g_ui32HotkeyMiddumpEnd = 0xffffffff;
+	g_ui32HotkeyMiddumpStart = 0xffffffffUL;
+	g_ui32HotkeyMiddumpEnd = 0xffffffffUL;
 
 	
 
@@ -840,9 +840,9 @@ IMG_VOID * IMG_CALLCONV DBGDrivCreateStream(IMG_CHAR *		pszName,
 
 		ui32Off++;
 	}
-	while ((pszName[ui32Off] != 0) && (ui32Off < (4096 - sizeof(DBG_STREAM))));
+	while ((pszName[ui32Off] != 0) && (ui32Off < (4096UL - sizeof(DBG_STREAM))));
 
-	psStream->szName[ui32Off] = pszName[ui32Off];
+	psStream->szName[ui32Off] = pszName[ui32Off];	
 
 	
 
@@ -1000,7 +1000,7 @@ IMG_VOID * IMG_CALLCONV DBGDrivFindStream(IMG_CHAR * pszName, IMG_BOOL bResetStr
 
 	if(bResetStream && psStream)
 	{
-		static char szComment[] = "-- Init phase terminated\r\n";
+		static IMG_CHAR szComment[] = "-- Init phase terminated\r\n";
 		psStream->psInitStream->ui32RPtr = 0;
 		psStream->ui32RPtr = 0;
 		psStream->ui32WPtr = 0;
@@ -1024,14 +1024,14 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWriteStringCM(PDBG_STREAM psStream,IMG_CHAR * psz
 
 	if (!StreamValid(psStream))
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
 
 	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
 	{
-		if	(!(psStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE))
+		if	((psStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE) == 0)
 		{
 			return(0);
 		}
@@ -1062,20 +1062,20 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWriteString(PDBG_STREAM psStream,IMG_CHAR * pszSt
 
 	if (!StreamValid(psStream))
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
 
-	if (!(psStream->ui32DebugLevel & ui32Level))
+	if ((psStream->ui32DebugLevel & ui32Level) == 0)
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
 
 
-	if (!(psStream->ui32OutMode & DEBUG_OUTMODE_ASYNC))
+	if ((psStream->ui32OutMode & DEBUG_OUTMODE_ASYNC) == 0)
 	{
 		if (psStream->ui32OutMode & DEBUG_OUTMODE_STANDARDDBG)
 		{
@@ -1096,12 +1096,12 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWriteString(PDBG_STREAM psStream,IMG_CHAR * pszSt
 
 	if	(
 			!(
-				(psStream->ui32OutMode & DEBUG_OUTMODE_STREAMENABLE) ||
-				(psStream->ui32OutMode & DEBUG_OUTMODE_ASYNC)
+				((psStream->ui32OutMode & DEBUG_OUTMODE_STREAMENABLE) != 0) ||
+				((psStream->ui32OutMode & DEBUG_OUTMODE_ASYNC) != 0)
 			)
 		)
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
@@ -1119,7 +1119,7 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWriteString(PDBG_STREAM psStream,IMG_CHAR * pszSt
 
 	while((pszString[ui32Len] != 0) && (ui32Len < ui32Space))
 	{
-		pui8Buffer[ui32WPtr] = pszString[ui32Len];
+		pui8Buffer[ui32WPtr] = (IMG_UINT8)pszString[ui32Len];
 		ui32Len++;
 		ui32WPtr++;
 		if (ui32WPtr == psStream->ui32Size)
@@ -1131,7 +1131,7 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWriteString(PDBG_STREAM psStream,IMG_CHAR * pszSt
 	if (ui32Len < ui32Space)
 	{
 		
-		pui8Buffer[ui32WPtr] = pszString[ui32Len];
+		pui8Buffer[ui32WPtr] = (IMG_UINT8)pszString[ui32Len];
 		ui32Len++;
 		ui32WPtr++;
 		if (ui32WPtr == psStream->ui32Size)
@@ -1213,7 +1213,7 @@ IMG_UINT32 IMG_CALLCONV DBGDrivReadString(PDBG_STREAM psStream,IMG_CHAR * pszStr
 
 	while ((pui8Buff[ui32Offset] != 0) && (ui32Len < ui32Limit))
 	{
-		pszString[ui32Len] = pui8Buff[ui32Offset];
+		pszString[ui32Len] = (IMG_CHAR)pui8Buff[ui32Offset];
 		ui32Offset++;
 		ui32Len++;
 
@@ -1225,7 +1225,7 @@ IMG_UINT32 IMG_CALLCONV DBGDrivReadString(PDBG_STREAM psStream,IMG_CHAR * pszStr
 		}
 	}
 
-	pszString[ui32Len] = pui8Buff[ui32Offset];
+	pszString[ui32Len] = (IMG_CHAR)pui8Buff[ui32Offset];
 
 	psStream->ui32RPtr = ui32Offset + 1;
 
@@ -1246,29 +1246,29 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWrite(PDBG_STREAM psMainStream,IMG_UINT8 * pui8In
 
 	if (!StreamValid(psMainStream))
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
 
-	if (!(psMainStream->ui32DebugLevel & ui32Level))
+	if ((psMainStream->ui32DebugLevel & ui32Level) == 0)
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
 
 	if (psMainStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
 	{
-		if	(!(psMainStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE))
+		if	((psMainStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE) == 0)
 		{
-			return(0xFFFFFFFF);
+			return(0xFFFFFFFFUL);
 		}
 	}
 	else if (psMainStream->ui32CapMode == DEBUG_CAPMODE_HOTKEY)
 	{
 		if ((psMainStream->ui32Current != g_ui32HotKeyFrame) || (g_bHotKeyPressed == IMG_FALSE))
-			return(0xFFFFFFFF);
+			return(0xFFFFFFFFUL);
 	}
 
 	if(psMainStream->bInitPhaseComplete)
@@ -1286,7 +1286,7 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWrite(PDBG_STREAM psMainStream,IMG_UINT8 * pui8In
 
 	
 
-	if (!(psStream->ui32OutMode & DEBUG_OUTMODE_STREAMENABLE))
+	if ((psStream->ui32OutMode & DEBUG_OUTMODE_STREAMENABLE) == 0)
 	{
 		return(0);
 	}
@@ -1323,16 +1323,16 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWriteCM(PDBG_STREAM psStream,IMG_UINT8 * pui8InBu
 
 	if (!StreamValid(psStream))
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
 
 	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
 	{
-		if	(!(psStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE))
+		if	((psStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE) == 0)
 		{
-			return(0xFFFFFFFF);
+			return(0xFFFFFFFFUL);
 		}
 	}
 	else
@@ -1341,7 +1341,7 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWriteCM(PDBG_STREAM psStream,IMG_UINT8 * pui8InBu
 		{
 			if ((psStream->ui32Current != g_ui32HotKeyFrame) || (g_bHotKeyPressed == IMG_FALSE))
 			{
-				return(0xFFFFFFFF);
+				return(0xFFFFFFFFUL);
 			}
 		}
 	}
@@ -1358,14 +1358,14 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWrite2(PDBG_STREAM psMainStream,IMG_UINT8 * pui8I
 
 	if (!StreamValid(psMainStream))
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
 
-	if (!(psMainStream->ui32DebugLevel & ui32Level))
+	if ((psMainStream->ui32DebugLevel & ui32Level) == 0)
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	if(psMainStream->bInitPhaseComplete)
@@ -1383,7 +1383,7 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWrite2(PDBG_STREAM psMainStream,IMG_UINT8 * pui8I
 
 	
 
-	if (!(psStream->ui32OutMode & DEBUG_OUTMODE_STREAMENABLE))
+	if ((psStream->ui32OutMode & DEBUG_OUTMODE_STREAMENABLE) == 0)
 	{
 		return(0);
 	}
@@ -1641,7 +1641,8 @@ void IMG_CALLCONV DBGDrivSetFrame(PDBG_STREAM psStream,IMG_UINT32 ui32Frame)
 
 		
 
-		if ((psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED) && (psStream->ui32CapMode & DEBUG_CAPMODE_HOTKEY))
+		if (((psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED) != 0) && 
+			((psStream->ui32CapMode & DEBUG_CAPMODE_HOTKEY) != 0))
 		{
 			if (!g_bHotkeyMiddump)
 			{
@@ -1681,7 +1682,7 @@ IMG_UINT32 IMG_CALLCONV DBGDrivGetFrame(PDBG_STREAM psStream)
 	return(psStream->ui32Current);
 }
 
-IMG_UINT32 IMG_CALLCONV DBGDrivIsLastCaptureFrame(PDBG_STREAM psStream)
+IMG_BOOL IMG_CALLCONV DBGDrivIsLastCaptureFrame(PDBG_STREAM psStream)
 {
 	IMG_UINT32	ui32NextFrame;
 
@@ -1703,9 +1704,9 @@ IMG_UINT32 IMG_CALLCONV DBGDrivIsLastCaptureFrame(PDBG_STREAM psStream)
 	return IMG_FALSE;
 }
 
-IMG_UINT32 IMG_CALLCONV DBGDrivIsCaptureFrame(PDBG_STREAM psStream, IMG_BOOL bCheckPreviousFrame)
+IMG_BOOL IMG_CALLCONV DBGDrivIsCaptureFrame(PDBG_STREAM psStream, IMG_BOOL bCheckPreviousFrame)
 {
-	IMG_UINT32 ui32FrameShift = bCheckPreviousFrame ? 1 : 0;
+	IMG_UINT32 ui32FrameShift = bCheckPreviousFrame ? 1UL : 0UL;
 
 	
 
@@ -1854,29 +1855,29 @@ IMG_UINT32 IMG_CALLCONV DBGDrivWriteLF(PDBG_STREAM psStream, IMG_UINT8 * pui8InB
 
 	if (!StreamValid(psStream))
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
 
-	if (!(psStream->ui32DebugLevel & ui32Level))
+	if ((psStream->ui32DebugLevel & ui32Level) == 0)
 	{
-		return(0xFFFFFFFF);
+		return(0xFFFFFFFFUL);
 	}
 
 	
 
-	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
+	if ((psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED) != 0)
 	{
-		if	(!(psStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE))
+		if	((psStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE) == 0)
 		{
-			return(0xFFFFFFFF);
+			return(0xFFFFFFFFUL);
 		}
 	}
 	else if (psStream->ui32CapMode == DEBUG_CAPMODE_HOTKEY)
 	{
 		if ((psStream->ui32Current != g_ui32HotKeyFrame) || (g_bHotKeyPressed == IMG_FALSE))
-			return(0xFFFFFFFF);
+			return(0xFFFFFFFFUL);
 	}
 
 	psLFBuffer = FindLFBuf(psStream);
@@ -1963,7 +1964,7 @@ IMG_BOOL ExpandStreamBuffer(PDBG_STREAM psStream, IMG_UINT32 ui32NewSize)
 
 	
 
-	ui32NewSizeInPages = ((ui32NewSize + 0xfff) & ~0xfff) / 4096;
+	ui32NewSizeInPages = ((ui32NewSize + 0xfffUL) & ~0xfffUL) / 4096UL;
 
 	if ((psStream->ui32Flags & DEBUG_FLAGS_USE_NONPAGED_MEM) != 0)
 	{

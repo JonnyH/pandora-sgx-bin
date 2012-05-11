@@ -458,11 +458,11 @@ PVRSRV_ERROR DevInitSGXPart2KM (PVRSRV_PER_PROCESS_DATA *psPerProc,
                                 IMG_HANDLE hDevHandle,
                                 SGX_BRIDGE_INIT_INFO *psInitInfo)
 {
-	PVRSRV_DEVICE_NODE	*psDeviceNode;
-	PVRSRV_SGXDEV_INFO	*psDevInfo;
-	PVRSRV_ERROR		eError;
-	SGX_DEVICE_MAP		*psSGXDeviceMap;
-	PVR_POWER_STATE		eDefaultPowerState;
+	PVRSRV_DEVICE_NODE		*psDeviceNode;
+	PVRSRV_SGXDEV_INFO		*psDevInfo;
+	PVRSRV_ERROR			eError;
+	SGX_DEVICE_MAP			*psSGXDeviceMap;
+	PVRSRV_DEV_POWER_STATE	eDefaultPowerState;
 
 	PDUMPCOMMENT("SGX Initialisation Part 2");
 
@@ -540,15 +540,15 @@ PVRSRV_ERROR DevInitSGXPart2KM (PVRSRV_PER_PROCESS_DATA *psPerProc,
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 	
 	psDevInfo->psSGXHostCtl->ui32PowerStatus |= PVRSRV_USSE_EDM_POWMAN_NO_WORK;
-	eDefaultPowerState = PVRSRV_POWER_STATE_D3;
+	eDefaultPowerState = PVRSRV_DEV_POWER_STATE_OFF;
 #else
-	eDefaultPowerState = PVRSRV_POWER_STATE_D0;
+	eDefaultPowerState = PVRSRV_DEV_POWER_STATE_ON;
 #endif 
 	eError = PVRSRVRegisterPowerDevice (psDeviceNode->sDevId.ui32DeviceIndex,
-										SGXPrePowerStateExt, SGXPostPowerStateExt,
+										SGXPrePowerState, SGXPostPowerState,
 										SGXPreClockSpeedChange, SGXPostClockSpeedChange,
 										(IMG_HANDLE)psDeviceNode,
-										PVRSRV_POWER_STATE_D3,
+										PVRSRV_DEV_POWER_STATE_OFF,
 										eDefaultPowerState);
 	if (eError != PVRSRV_OK)
 	{
@@ -1572,7 +1572,7 @@ PVRSRV_ERROR SGXReadDiffCountersKM(IMG_HANDLE					hDevHandle,
 	{
 		if (psPowerDevice->ui32DeviceIndex == psDeviceNode->sDevId.ui32DeviceIndex)
 		{
-			bPowered = (IMG_BOOL)(psPowerDevice->eCurrentPowerState == PVRSRV_POWER_STATE_D0);
+			bPowered = (IMG_BOOL)(psPowerDevice->eCurrentPowerState == PVRSRV_DEV_POWER_STATE_ON);
 			break;
 		}
 

@@ -51,8 +51,9 @@
 #include "pvr_debug.h"
 
 #include "dbgdrvif.h"
-#include "hostfunc.h"
+#include "dbgdriv/common/hostfunc.h"
 
+#if !defined(SUPPORT_DRI_DRM)
 IMG_UINT32	gPVRDebugLevel = DBGPRIV_WARNING;
 
 #define PVR_STRING_TERMINATOR		'\0'
@@ -144,6 +145,7 @@ void PVRSRVDebugPrintf	(
 		va_end (vaArgs);
 	}
 }
+#endif	
 
 IMG_VOID HostMemSet(IMG_VOID *pvDest, IMG_UINT8 ui8Value, IMG_UINT32 ui32Size)
 {

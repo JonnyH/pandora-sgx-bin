@@ -313,21 +313,21 @@ PVRSRV_ERROR SGXDeinitialise(IMG_HANDLE hDevCookie);
 IMG_VOID SGXStartTimer(PVRSRV_SGXDEV_INFO	*psDevInfo,
 					   IMG_BOOL				bStartOSTimer);
 
-PVRSRV_ERROR SGXPrePowerStateExt(IMG_HANDLE			hDevHandle,
-								 PVR_POWER_STATE	eNewPowerState,
-								 PVR_POWER_STATE	eCurrentPowerState);
+PVRSRV_ERROR SGXPrePowerState(IMG_HANDLE				hDevHandle, 
+							  PVRSRV_DEV_POWER_STATE	eNewPowerState, 
+							  PVRSRV_DEV_POWER_STATE	eCurrentPowerState);
 
-PVRSRV_ERROR SGXPostPowerStateExt(IMG_HANDLE		hDevHandle,
-								  PVR_POWER_STATE	eNewPowerState,
-								  PVR_POWER_STATE	eCurrentPowerState);
+PVRSRV_ERROR SGXPostPowerState(IMG_HANDLE				hDevHandle, 
+							   PVRSRV_DEV_POWER_STATE	eNewPowerState, 
+							   PVRSRV_DEV_POWER_STATE	eCurrentPowerState);
 
-PVRSRV_ERROR SGXPreClockSpeedChange(IMG_HANDLE		hDevHandle,
-									IMG_BOOL		bIdleDevice,
-									PVR_POWER_STATE	eCurrentPowerState);
+PVRSRV_ERROR SGXPreClockSpeedChange(IMG_HANDLE				hDevHandle,
+									IMG_BOOL				bIdleDevice,
+									PVRSRV_DEV_POWER_STATE	eCurrentPowerState);
 
-PVRSRV_ERROR SGXPostClockSpeedChange(IMG_HANDLE			hDevHandle,
-									 IMG_BOOL			bIdleDevice,
-									 PVR_POWER_STATE	eCurrentPowerState);
+PVRSRV_ERROR SGXPostClockSpeedChange(IMG_HANDLE				hDevHandle,
+									 IMG_BOOL				bIdleDevice,
+									 PVRSRV_DEV_POWER_STATE	eCurrentPowerState);
 
 PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode);
 

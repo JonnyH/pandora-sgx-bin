@@ -631,11 +631,11 @@ IMG_VOID SysClearInterrupts(SYS_DATA* psSysData, IMG_UINT32 ui32ClearBits)
 }
 
 
-PVRSRV_ERROR SysSystemPrePowerState(PVR_POWER_STATE eNewPowerState)
+PVRSRV_ERROR SysSystemPrePowerState(PVRSRV_SYS_POWER_STATE eNewPowerState)
 {
 	PVRSRV_ERROR eError = PVRSRV_OK;
 
-	if (eNewPowerState == PVRSRV_POWER_STATE_D3)
+	if (eNewPowerState == PVRSRV_SYS_POWER_STATE_D3)
 	{
 		PVR_TRACE(("SysSystemPrePowerState: Entering state D3"));
 
@@ -675,11 +675,11 @@ PVRSRV_ERROR SysSystemPrePowerState(PVR_POWER_STATE eNewPowerState)
 }
 
 
-PVRSRV_ERROR SysSystemPostPowerState(PVR_POWER_STATE eNewPowerState)
+PVRSRV_ERROR SysSystemPostPowerState(PVRSRV_SYS_POWER_STATE eNewPowerState)
 {
 	PVRSRV_ERROR eError = PVRSRV_OK;
 
-	if (eNewPowerState == PVRSRV_POWER_STATE_D0)
+	if (eNewPowerState == PVRSRV_SYS_POWER_STATE_D0)
 	{
 		PVR_TRACE(("SysSystemPostPowerState: Entering state D0"));
 
@@ -723,9 +723,9 @@ PVRSRV_ERROR SysSystemPostPowerState(PVR_POWER_STATE eNewPowerState)
 }
 
 
-PVRSRV_ERROR SysDevicePrePowerState(IMG_UINT32			ui32DeviceIndex,
-									PVR_POWER_STATE		eNewPowerState,
-									PVR_POWER_STATE		eCurrentPowerState)
+PVRSRV_ERROR SysDevicePrePowerState(IMG_UINT32				ui32DeviceIndex,
+									PVRSRV_DEV_POWER_STATE	eNewPowerState,
+									PVRSRV_DEV_POWER_STATE	eCurrentPowerState)
 {
 	PVR_UNREFERENCED_PARAMETER(eCurrentPowerState);
 
@@ -735,7 +735,7 @@ PVRSRV_ERROR SysDevicePrePowerState(IMG_UINT32			ui32DeviceIndex,
 	}
 
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
-	if (eNewPowerState == PVRSRV_POWER_STATE_D3)
+	if (eNewPowerState == PVRSRV_DEV_POWER_STATE_OFF)
 	{
 		PVR_DPF((PVR_DBG_MESSAGE, "SysDevicePrePowerState: SGX Entering state D3"));
 		DisableSGXClocks(gpsSysData);
@@ -748,9 +748,9 @@ PVRSRV_ERROR SysDevicePrePowerState(IMG_UINT32			ui32DeviceIndex,
 }
 
 
-PVRSRV_ERROR SysDevicePostPowerState(IMG_UINT32			ui32DeviceIndex,
-									 PVR_POWER_STATE	eNewPowerState,
-									 PVR_POWER_STATE	eCurrentPowerState)
+PVRSRV_ERROR SysDevicePostPowerState(IMG_UINT32				ui32DeviceIndex,
+									 PVRSRV_DEV_POWER_STATE	eNewPowerState,
+									 PVRSRV_DEV_POWER_STATE	eCurrentPowerState)
 {
 	PVRSRV_ERROR eError = PVRSRV_OK;
 
@@ -762,7 +762,7 @@ PVRSRV_ERROR SysDevicePostPowerState(IMG_UINT32			ui32DeviceIndex,
 	}
 
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
-	if (eCurrentPowerState == PVRSRV_POWER_STATE_D3)
+	if (eCurrentPowerState == PVRSRV_DEV_POWER_STATE_OFF)
 	{
 		PVR_DPF((PVR_DBG_MESSAGE, "SysDevicePostPowerState: SGX Leaving state D3"));
 		PVRSRVSetDCState(DC_STATE_RESUME_COMMANDS);

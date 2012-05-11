@@ -24,12 +24,17 @@
 #
 #
 
-include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common
+ifeq ($(SUPPORT_DRI_DRM),1)
+DBGDRV_SOURCES_ROOT = $(KBUILDROOT)/../tools/intern/debug/dbgdriv
+else
+DBGDRV_SOURCES_ROOT = ../..
+endif
 
-MODULE		= dbgdrv
+INCLUDES += 	-I$(EURASIAROOT)/include4 \
+			-I$(EURASIAROOT)/tools/intern/debug
 
-INCLUDES =
-
-SOURCES	=
-				
-include $(EURASIAROOT)/tools/intern/debug/dbgdriv/linux/makefile.linux.common
+SOURCES	+=	$(DBGDRV_SOURCES_ROOT)/linux/main.c \
+				$(DBGDRV_SOURCES_ROOT)/common/dbgdriv.c \
+				$(DBGDRV_SOURCES_ROOT)/common/ioctl.c \
+				$(DBGDRV_SOURCES_ROOT)/linux/hostfunc.c \
+				$(DBGDRV_SOURCES_ROOT)/common/hotkey.c

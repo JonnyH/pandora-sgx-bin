@@ -41,7 +41,7 @@ IMG_UINT32 DBGDIOCDrivCreateStream(IMG_VOID * pvInBuffer, IMG_VOID * pvOutBuffer
 	PDBG_IN_CREATESTREAM psIn;
 	IMG_VOID * *ppvOut;
 	#ifdef LINUX
-	static char name[32];
+	static IMG_CHAR name[32];
 	#endif
 
 	psIn = (PDBG_IN_CREATESTREAM) pvInBuffer;
@@ -50,7 +50,10 @@ IMG_UINT32 DBGDIOCDrivCreateStream(IMG_VOID * pvInBuffer, IMG_VOID * pvOutBuffer
 	#ifdef LINUX
 
 	if(copy_from_user(name, psIn->pszName, 32) != 0)
+	{
 		return IMG_FALSE;
+	}
+
 	*ppvOut = ExtDBGDrivCreateStream(name, psIn->ui32CapMode, psIn->ui32OutMode, 0, psIn->ui32Pages);
 
 	#else

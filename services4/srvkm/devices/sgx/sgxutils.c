@@ -103,7 +103,7 @@ IMG_VOID SGXTestActivePowerEvent (PVRSRV_DEVICE_NODE	*psDeviceNode,
 		eError = SysPowerDownMISR(psDeviceNode, ui32CallerID);
 #else
 		eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
-											 PVRSRV_POWER_STATE_D3,
+											 PVRSRV_DEV_POWER_STATE_OFF,
 											 ui32CallerID, IMG_FALSE);
 		if (eError == PVRSRV_OK)
 		{
@@ -336,7 +336,7 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE		*psDeviceNode,
 
 	
 	eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
-										 PVRSRV_POWER_STATE_D0,
+										 PVRSRV_DEV_POWER_STATE_ON,
 										 ui32CallerID,
 										 IMG_TRUE);
 
