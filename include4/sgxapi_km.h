@@ -53,26 +53,36 @@ extern "C" {
 #define SGX_SYNCINFO_HEAP_ID					8
 #define SGX_3DPARAMETERS_HEAP_ID				9
 #if defined(SUPPORT_SGX_GENERAL_MAPPING_HEAP)
-	#define SGX_GENERAL_MAPPING_HEAP_ID			10
-	#if defined(SGX_FEATURE_2D_HARDWARE)
-		#define SGX_2D_HEAP_ID					11
-		#define SGX_MAX_HEAP_ID					12
-	#else
-		#define SGX_MAX_HEAP_ID					11
-	#endif
-#else
-	#if defined(SGX_FEATURE_2D_HARDWARE)
-		#define SGX_2D_HEAP_ID					10
-		#define SGX_MAX_HEAP_ID					11
-	#else
-		#define SGX_MAX_HEAP_ID					10
-	#endif
+#define SGX_GENERAL_MAPPING_HEAP_ID				10
 #endif
+#if defined(SGX_FEATURE_2D_HARDWARE)
+#define SGX_2D_HEAP_ID							11
+#else
+#if defined(FIX_HW_BRN_26915)
+#define SGX_CGBUFFER_HEAP_ID					12
+#endif
+#endif
+#define SGX_MAX_HEAP_ID							13
+
 
 #define SGX_MAX_TA_STATUS_VALS	32
+#if 0
+#define SGX_MAX_3D_STATUS_VALS	3
+#else
 #define SGX_MAX_3D_STATUS_VALS	2
+#endif
 
-#define SGX_MAX_SRC_SYNCS			4
+#if defined(SUPPORT_SGX_GENERALISED_SYNCOBJECTS)
+#define SGX_MAX_TA_DST_SYNCS			1
+#define SGX_MAX_TA_SRC_SYNCS			1
+#define SGX_MAX_3D_SRC_SYNCS			4
+#else
+#if defined(ANDROID)
+#define SGX_MAX_SRC_SYNCS				8
+#else
+#define SGX_MAX_SRC_SYNCS				4
+#endif
+#endif
 
 #ifdef SUPPORT_SGX_HWPERF
 
@@ -163,12 +173,20 @@ typedef enum _SGX_MISC_INFO_REQUEST_
 	SGX_MISC_INFO_REQUEST_CLOCKSPEED = 0,
 	SGX_MISC_INFO_REQUEST_SGXREV,
 	SGX_MISC_INFO_REQUEST_DRIVER_SGXREV,
+#if defined(SUPPORT_SGX_EDM_MEMORY_DEBUG)
+	SGX_MISC_INFO_REQUEST_MEMREAD,
+#endif
 #if defined(SUPPORT_SGX_HWPERF)
 	SGX_MISC_INFO_REQUEST_SET_HWPERF_STATUS,
 	SGX_MISC_INFO_REQUEST_HWPERF_CB_ON, 
 	SGX_MISC_INFO_REQUEST_HWPERF_CB_OFF, 
 	SGX_MISC_INFO_REQUEST_HWPERF_RETRIEVE_CB, 
 #endif 
+#if defined(SGX_FEATURE_DATA_BREAKPOINTS)
+	SGX_MISC_INFO_REQUEST_SET_BREAKPOINT,
+#endif 
+	SGX_MISC_INFO_DUMP_DEBUG_INFO,
+	SGX_MISC_INFO_PANIC,
 	SGX_MISC_INFO_REQUEST_FORCE_I16 				=  0x7fff
 } SGX_MISC_INFO_REQUEST;
 
@@ -182,17 +200,41 @@ typedef struct _PVRSRV_SGX_MISCINFO_FEATURES
 	IMG_UINT32			ui32CoreIdSW;	
 	IMG_UINT32			ui32CoreRevSW;	
 	IMG_UINT32			ui32BuildOptions;	
+#if defined(SUPPORT_SGX_EDM_MEMORY_DEBUG)
+	IMG_UINT32			ui32DeviceMemValue;		
+#endif
 } PVRSRV_SGX_MISCINFO_FEATURES;
+
+
+#if defined(SGX_FEATURE_DATA_BREAKPOINTS)
+typedef struct _SGX_BREAKPOINT_INFO
+{
+	
+	IMG_BOOL					bBPEnable;
+	
+	
+	
+	IMG_UINT32					ui32BPIndex;
+	
+	IMG_DEV_VIRTADDR			sBPDevVAddr;
+} SGX_BREAKPOINT_INFO;
+#endif 
 
 typedef struct _SGX_MISC_INFO_
 {
 	SGX_MISC_INFO_REQUEST	eRequest;	
-
+#if defined(SUPPORT_SGX_EDM_MEMORY_DEBUG)
+	IMG_DEV_VIRTADDR			sDevVAddr;			
+	IMG_HANDLE					hDevMemContext;		
+#endif
 	union
 	{
 		IMG_UINT32	reserved;	
 		PVRSRV_SGX_MISCINFO_FEATURES						sSGXFeatures;
 		IMG_UINT32											ui32SGXClockSpeed;
+#if defined(SGX_FEATURE_DATA_BREAKPOINTS)
+		SGX_BREAKPOINT_INFO									sSGXBreakpointInfo;
+#endif
 #ifdef SUPPORT_SGX_HWPERF
 		IMG_UINT32											ui32NewHWPerfStatus;
 		SGX_MISC_INFO_HWPERF_RETRIEVE_CB					sRetrieveCB;

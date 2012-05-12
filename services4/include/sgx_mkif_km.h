@@ -52,9 +52,8 @@
 typedef struct _SGXMKIF_COMMAND_
 {
 	IMG_UINT32				ui32ServiceAddress;		
-	//IMG_UINT32				ui32CacheControl;		
-	//IMG_UINT32				ui32Data[2];			
-	IMG_UINT32				ui32Data[3];
+	IMG_UINT32				ui32Data[2];			
+	IMG_UINT32				ui32CacheControl;		
 } SGXMKIF_COMMAND;
 
 

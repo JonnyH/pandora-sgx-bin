@@ -105,10 +105,8 @@ extern "C" {
 #define PVRSRV_MAPEXTMEMORY_FLAGS_ALTERNATEVA			0x00000001
 #define PVRSRV_MAPEXTMEMORY_FLAGS_PHYSCONTIG			0x00000002
 
-#define PVRSRV_MODIFYSYNCOPS_FLAGS_WOP_INC			0x00000001
-#define PVRSRV_MODIFYSYNCOPS_FLAGS_ROP_INC			0x00000002
-#define PVRSRV_MODIFYSYNCOPS_FLAGS_WOC_INC			0x00000004
-#define PVRSRV_MODIFYSYNCOPS_FLAGS_ROC_INC			0x00000008
+#define PVRSRV_MODIFYSYNCOPS_FLAGS_WO_INC			0x00000001
+#define PVRSRV_MODIFYSYNCOPS_FLAGS_RO_INC			0x00000002
 
 typedef enum _PVRSRV_DEVICE_TYPE_
 {
@@ -198,6 +196,7 @@ typedef struct _PVRSRV_CONNECTION_
 {
 	IMG_HANDLE hServices;					
 	IMG_UINT32 ui32ProcessID;				
+	PVRSRV_CLIENT_DEV_DATA	sClientDevData;	
 }PVRSRV_CONNECTION;
 
 
@@ -275,6 +274,15 @@ typedef struct _PVRSRV_CLIENT_MEM_INFO_
 	
 	IMG_HANDLE							hResItem;
 
+#if defined(SUPPORT_MEMINFO_IDS)
+	#if !defined(USE_CODE)
+	
+	IMG_UINT64							ui64Stamp;
+	#else 
+	IMG_UINT32							dummy1;
+	IMG_UINT32							dummy2;
+	#endif 
+#endif 
 
 	
 
@@ -331,6 +339,17 @@ typedef struct _PVRSRV_MISC_INFO_
 
 	
 	IMG_UINT32	aui32DDKVersion[4];
+
+	
+#if 0
+	IMG_BOOL	bCPUCacheFlushAll;
+	
+	IMG_BOOL	bDeferCPUCacheFlush;
+	
+	IMG_PVOID	pvRangeAddrStart;
+	
+	IMG_PVOID	pvRangeAddrEnd;
+#endif
 } PVRSRV_MISC_INFO;
 
 
@@ -636,8 +655,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpMemPol(IMG_CONST PVRSRV_CONNECTION *psConne
 										  IMG_UINT32 ui32Offset,
 										  IMG_UINT32 ui32Value,
 										  IMG_UINT32 ui32Mask,
-										  IMG_BOOL bLastFrame,
-										  IMG_BOOL bOverwrite);
+										  IMG_UINT32 ui32Flags);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpSyncPol(IMG_CONST PVRSRV_CONNECTION *psConnection,
@@ -798,24 +816,28 @@ IMG_IMPORT PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyMutex(PVRSRV_MUTEX_HANDLE hMut
 IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVLockMutex(PVRSRV_MUTEX_HANDLE hMutex);
 IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVUnlockMutex(PVRSRV_MUTEX_HANDLE hMutex);
 
-#if (defined(DEBUG) && defined(__linux__))
-IMG_PVOID PVRSRVAllocUserModeMemTracking(IMG_UINT32 ui32Size, IMG_CHAR *pszFileName, IMG_UINT32 ui32LineNumber);
-IMG_PVOID PVRSRVCallocUserModeMemTracking(IMG_UINT32 ui32Size, IMG_CHAR *pszFileName, IMG_UINT32 ui32LineNumber);
+#if (defined(DEBUG_PVR) && defined(__linux__))
+IMG_PVOID PVRSRVAllocUserModeMemTracking(IMG_SIZE_T ui32Size, IMG_CHAR *pszFileName, IMG_UINT32 ui32LineNumber);
+IMG_PVOID PVRSRVCallocUserModeMemTracking(IMG_SIZE_T ui32Size, IMG_CHAR *pszFileName, IMG_UINT32 ui32LineNumber);
 IMG_VOID  PVRSRVFreeUserModeMemTracking(IMG_VOID *pvMem);
-IMG_PVOID PVRSRVReallocUserModeMemTracking(IMG_VOID *pvMem, IMG_UINT32 ui32NewSize, IMG_CHAR *pszFileName, IMG_UINT32 ui32LineNumber);
+IMG_PVOID PVRSRVReallocUserModeMemTracking(IMG_VOID *pvMem, IMG_SIZE_T ui32NewSize, IMG_CHAR *pszFileName, IMG_UINT32 ui32LineNumber);
 #endif 
 
 IMG_IMPORT PVRSRV_ERROR PVRSRVEventObjectWait(const PVRSRV_CONNECTION *psConnection, 
 									IMG_HANDLE hOSEvent);
 
 IMG_IMPORT
-PVRSRV_ERROR IMG_CALLCONV PVRSRVModifySyncOps(PVRSRV_CONNECTION *psConnection,
-											  IMG_HANDLE hKernelSyncInfo,
-											  IMG_UINT32 ui32ModifyFlags,
-											  IMG_UINT32 *pui32ReadOpsPending,
-											  IMG_UINT32 *pui32WriteOpsPending,
-											  IMG_UINT32 *pui32ReadOpsComplete,
-											  IMG_UINT32 *pui32WriteOpsComplete);
+PVRSRV_ERROR IMG_CALLCONV PVRSRVModifyPendingSyncOps(PVRSRV_CONNECTION *psConnection,
+													  IMG_HANDLE hKernelSyncInfo,
+													  IMG_UINT32 ui32ModifyFlags,
+													  IMG_UINT32 *pui32ReadOpsPending,
+													  IMG_UINT32 *pui32WriteOpsPending);
+
+IMG_IMPORT
+PVRSRV_ERROR IMG_CALLCONV PVRSRVModifyCompleteSyncOps(PVRSRV_CONNECTION *psConnection,
+													  IMG_HANDLE hKernelSyncInfo,
+													  IMG_UINT32 ui32ModifyFlags);
+
 
 #define TIME_NOT_PASSED_UINT32(a,b,c)		((a - b) < c)
 

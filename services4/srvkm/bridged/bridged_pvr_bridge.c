@@ -40,6 +40,9 @@
 #if defined(SUPPORT_VGX)
 #include "vgx_bridge.h"
 #endif
+#if defined(SUPPORT_MSVDX)
+#include "msvdx_bridge.h"
+#endif
 #include "perproc.h"
 #include "device.h"
 #include "buffer_manager.h"
@@ -54,11 +57,17 @@
 #if defined(SUPPORT_VGX)
 #include "bridged_vgx_bridge.h"
 #endif
+#if defined(SUPPORT_MSVDX)
+#include "bridged_msvdx_bridge.h"
+#endif
+
 #include "env_data.h"
 
 #if defined (__linux__)
 #include "mmap.h"
 #endif
+
+#include "srvkm.h"
 
 PVRSRV_BRIDGE_DISPATCH_TABLE_ENTRY g_BridgeDispatchTable[BRIDGE_DISPATCH_TABLE_ENTRY_COUNT];
 
@@ -550,15 +559,20 @@ PVRSRVFreeDeviceMemBW(IMG_UINT32 ui32BridgeID,
 
 	
 	psKernelMemInfo = (PVRSRV_KERNEL_MEM_INFO*)pvKernelMemInfo;
-	if (psKernelMemInfo->ui32RefCount != 1)
-	{
-		PVR_DPF((PVR_DBG_ERROR, "PVRSRVFreeDeviceMemBW: mappings are open in other processes"));
-		psRetOUT->eError = PVRSRV_ERROR_GENERIC;
-		return 0;
-	}
 
-	psRetOUT->eError =
-		PVRSRVFreeDeviceMemKM(hDevCookieInt, pvKernelMemInfo);
+	if (psKernelMemInfo->ui32RefCount == 1)
+	{
+		psRetOUT->eError =
+			PVRSRVFreeDeviceMemKM(hDevCookieInt, pvKernelMemInfo);
+	}
+	else
+	{
+		PVR_DPF((PVR_DBG_WARNING, "PVRSRVFreeDeviceMemBW: mappings are open "
+								  "in other processes, deferring free!"));
+		
+		psKernelMemInfo->bPendingFree = IMG_TRUE;
+		psRetOUT->eError = PVRSRV_OK;
+	}
 
 	if(psRetOUT->eError != PVRSRV_OK)
 	{
@@ -992,6 +1006,7 @@ PVRSRVWrapExtMemoryBW(IMG_UINT32 ui32BridgeID,
 							   ui32PageTableSize) != PVRSRV_OK)
 		{
 			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 	ui32PageTableSize, (IMG_VOID *)psSysPAddr, 0);
+			
 			return -EFAULT;
 		}
 	}
@@ -1011,6 +1026,7 @@ PVRSRVWrapExtMemoryBW(IMG_UINT32 ui32BridgeID,
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
 			  ui32PageTableSize,
 			  (IMG_VOID *)psSysPAddr, 0);
+		
 	}
 	if(psWrapExtMemOUT->eError != PVRSRV_OK)
 	{
@@ -1270,8 +1286,7 @@ PDumpMemPolBW(IMG_UINT32 ui32BridgeID,
 					  psPDumpMemPolIN->ui32Value,
 					  psPDumpMemPolIN->ui32Mask,
 					  PDUMP_POLL_OPERATOR_EQUAL,
-					  psPDumpMemPolIN->bLastFrame,
-					  psPDumpMemPolIN->bOverwrite,
+					  psPDumpMemPolIN->ui32Flags,
 					  MAKEUNIQUETAG(pvMemInfo));
 
 	return 0;
@@ -1444,8 +1459,7 @@ PDumpSyncPolBW(IMG_UINT32 ui32BridgeID,
 					  psPDumpSyncPolIN->ui32Value,
 					  psPDumpSyncPolIN->ui32Mask,
 					  PDUMP_POLL_OPERATOR_EQUAL,
-					  IMG_FALSE,
-					  IMG_FALSE,
+					  0,
 					  MAKEUNIQUETAG(((PVRSRV_KERNEL_SYNC_INFO *)pvSyncInfo)->psSyncDataMemInfoKM));
 
 	return 0;
@@ -1590,6 +1604,7 @@ PVRSRVGetMiscInfoBW(IMG_UINT32 ui32BridgeID,
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
 		          psGetMiscInfoOUT->sMiscInfo.ui32MemoryStrLen,
 		         (IMG_VOID *)psGetMiscInfoOUT->sMiscInfo.pszMemoryStr, 0);
+		psGetMiscInfoOUT->sMiscInfo.pszMemoryStr = IMG_NULL;
 	
 		
 		psGetMiscInfoOUT->sMiscInfo.pszMemoryStr = psGetMiscInfoIN->sMiscInfo.pszMemoryStr;	
@@ -1657,15 +1672,6 @@ PVRSRVConnectBW(IMG_UINT32 ui32BridgeID,
 	
 	psConnectServicesOUT->hKernelServices = psPerProc->hPerProcData;
 	psConnectServicesOUT->eError = PVRSRV_OK;
-
-#if defined(PDUMP)
-	
-	{
-		SYS_DATA *psSysData;	
-		SysAcquireData(&psSysData);
-		psSysData->bPowerUpPDumped = IMG_FALSE;
-	}
-#endif 
 
 	return 0;
 }
@@ -1873,6 +1879,7 @@ PVRSRVGetDCSystemBufferBW(IMG_UINT32 ui32BridgeID,
 		return 0;
 	}
 
+	 
 	PVRSRVAllocSubHandleNR(psPerProc->psHandleBase,
 						 &psGetDispClassSysBufferOUT->hBuffer,
 						 hBufferInt,
@@ -2205,6 +2212,7 @@ PVRSRVGetDCBuffersBW(IMG_UINT32 ui32BridgeID,
 	{
 		IMG_HANDLE hBufferExt;
 
+		 
 		PVRSRVAllocSubHandleNR(psPerProc->psHandleBase,
 							 &hBufferExt,
 							 psGetDispClassBuffersOUT->ahBuffer[i],
@@ -2439,6 +2447,7 @@ PVRSRVGetBCBufferBW(IMG_UINT32 ui32BridgeID,
 		return 0;
 	}
 
+	 
 	PVRSRVAllocSubHandleNR(psPerProc->psHandleBase,
 						 &psGetBufferClassBufferOUT->hBuffer,
 						 hBufferInt,
@@ -2643,65 +2652,6 @@ PVRSRVMapMemInfoMemBW(IMG_UINT32 ui32BridgeID,
 }
 
 
-static IMG_INT
-PVRSRVModifySyncOpsBW(IMG_UINT32							ui32BridgeID,
-				      PVRSRV_BRIDGE_IN_MODIFY_SYNC_OPS		*psModifySyncOpsIN,
-					  PVRSRV_BRIDGE_OUT_MODIFY_SYNC_OPS		*psModifySyncOpsOUT,
-					  PVRSRV_PER_PROCESS_DATA				*psPerProc)
-{
-	IMG_HANDLE				hKernelSyncInfo;
-	PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfo;
-
-	PVRSRV_BRIDGE_ASSERT_CMD(ui32BridgeID, PVRSRV_BRIDGE_MODIFY_SYNC_OPS);
-
-	psModifySyncOpsOUT->eError = PVRSRVLookupHandle(psPerProc->psHandleBase,
-													&hKernelSyncInfo,
-													psModifySyncOpsIN->hKernelSyncInfo,
-													PVRSRV_HANDLE_TYPE_SYNC_INFO);
-	if (psModifySyncOpsOUT->eError != PVRSRV_OK)
-	{
-		return 0;
-	}
-
-	psKernelSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)hKernelSyncInfo;
-
-	
-
-	psModifySyncOpsOUT->ui32ReadOpsPending =
-		psKernelSyncInfo->psSyncData->ui32ReadOpsPending;
-
-	psModifySyncOpsOUT->ui32WriteOpsPending =
-		psKernelSyncInfo->psSyncData->ui32WriteOpsPending;
-
-	psModifySyncOpsOUT->ui32ReadOpsComplete =
-		psKernelSyncInfo->psSyncData->ui32ReadOpsComplete;
-
-	psModifySyncOpsOUT->ui32WriteOpsComplete =
-		psKernelSyncInfo->psSyncData->ui32WriteOpsComplete;
-
-	if(psModifySyncOpsIN->ui32ModifyFlags & PVRSRV_MODIFYSYNCOPS_FLAGS_WOP_INC)
-	{
-		psKernelSyncInfo->psSyncData->ui32WriteOpsPending++;
-	}
-
-	if(psModifySyncOpsIN->ui32ModifyFlags & PVRSRV_MODIFYSYNCOPS_FLAGS_ROP_INC)
-	{
-		psKernelSyncInfo->psSyncData->ui32ReadOpsPending++;
-	}
-
-	if(psModifySyncOpsIN->ui32ModifyFlags & PVRSRV_MODIFYSYNCOPS_FLAGS_WOC_INC)
-	{
-		psKernelSyncInfo->psSyncData->ui32WriteOpsComplete++;
-	}
-
-	if(psModifySyncOpsIN->ui32ModifyFlags & PVRSRV_MODIFYSYNCOPS_FLAGS_ROC_INC)
-	{
-		psKernelSyncInfo->psSyncData->ui32ReadOpsComplete++;
-	}
-
-	return 0;
-}
-
 
 static IMG_INT
 MMU_GetPDDevPAddrBW(IMG_UINT32 ui32BridgeID,
@@ -2743,7 +2693,7 @@ DummyBW(IMG_UINT32 ui32BridgeID,
 		IMG_VOID *psBridgeOut,
 		PVRSRV_PER_PROCESS_DATA *psPerProc)
 {
-#if !defined(DEBUG)
+#if !defined(DEBUG_PVR)
 	PVR_UNREFERENCED_PARAMETER(ui32BridgeID);
 #endif
 	PVR_UNREFERENCED_PARAMETER(psBridgeIn);
@@ -2770,7 +2720,7 @@ _SetDispatchTableEntry(IMG_UINT32 ui32Index,
 					   const IMG_CHAR *pszFunctionName)
 {
 	static IMG_UINT32 ui32PrevIndex = ~0UL;		
-#if !defined(DEBUG)
+#if !defined(DEBUG_PVR)
 	PVR_UNREFERENCED_PARAMETER(pszIOCName);
 #endif
 #if !defined(DEBUG_BRIDGE_KM_DISPATCH_TABLE) && !defined(DEBUG_BRIDGE_KM)
@@ -2877,7 +2827,10 @@ PVRSRVInitSrvDisconnectBW(IMG_UINT32 ui32BridgeID,
 
 	psRetOUT->eError = PVRSRVFinaliseSystem(psInitSrvDisconnectIN->bInitSuccesful);
 
-	PVRSRVSetInitServerState( PVRSRV_INIT_SERVER_SUCCESSFUL ,(IMG_BOOL)(((psRetOUT->eError == PVRSRV_OK) && (psInitSrvDisconnectIN->bInitSuccesful))));
+	PVRSRVSetInitServerState( PVRSRV_INIT_SERVER_SUCCESSFUL,
+				(((psRetOUT->eError == PVRSRV_OK) && (psInitSrvDisconnectIN->bInitSuccesful)))
+				? IMG_TRUE : IMG_FALSE);
+
 	return 0;
 }
 
@@ -2984,6 +2937,188 @@ PVRSRVEventObjectCloseBW(IMG_UINT32 ui32BridgeID,
 	return 0;
 }
 
+#if 0
+typedef struct _MODIFY_SYNC_OP_INFO
+{
+	PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfo;
+	IMG_UINT32 	ui32ModifyFlags;
+	IMG_UINT32	ui32ReadOpsPendingSnapShot;
+	IMG_UINT32	ui32WriteOpsPendingSnapShot;
+} MODIFY_SYNC_OP_INFO;
+
+
+static PVRSRV_ERROR ModifyCompleteSyncOpsCallBack(IMG_PVOID		pvParam,
+													IMG_UINT32	ui32Param)
+{
+	MODIFY_SYNC_OP_INFO		*psModSyncOpInfo;
+	PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfo;
+
+	PVR_UNREFERENCED_PARAMETER(ui32Param);
+	
+	if (!pvParam)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "ModifyCompleteSyncOpsCallBack: invalid parameter"));
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+	
+	psModSyncOpInfo = (MODIFY_SYNC_OP_INFO*)pvParam;
+	psKernelSyncInfo = psModSyncOpInfo->psKernelSyncInfo;
+
+	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
+	{
+		if((psModSyncOpInfo->ui32WriteOpsPendingSnapShot == psKernelSyncInfo->psSyncData->ui32WriteOpsComplete)
+		&& (psModSyncOpInfo->ui32ReadOpsPendingSnapShot == psKernelSyncInfo->psSyncData->ui32ReadOpsComplete))
+		{
+			goto OpFlushedComplete;
+		}
+		PVR_DPF((PVR_DBG_ERROR, "ModifyCompleteSyncOpsCallBack: waiting for old Ops to flush"));
+		OSWaitus(MAX_HW_TIME_US/WAIT_TRY_COUNT);
+	} END_LOOP_UNTIL_TIMEOUT();
+
+	PVR_DPF((PVR_DBG_ERROR, "ModifyCompleteSyncOpsCallBack: waiting for old Ops to flush timed out"));
+	
+	return PVRSRV_ERROR_TIMEOUT;
+
+OpFlushedComplete:
+	
+	
+	if(psModSyncOpInfo->ui32ModifyFlags & PVRSRV_MODIFYSYNCOPS_FLAGS_WO_INC)
+	{
+		psKernelSyncInfo->psSyncData->ui32WriteOpsComplete++;
+	}
+
+	
+	if(psModSyncOpInfo->ui32ModifyFlags & PVRSRV_MODIFYSYNCOPS_FLAGS_RO_INC)
+	{
+		psKernelSyncInfo->psSyncData->ui32ReadOpsComplete++;
+	}
+	
+	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 	sizeof(MODIFY_SYNC_OP_INFO), (IMG_VOID *)psModSyncOpInfo, 0);
+	
+
+		
+	PVRSRVCommandCompleteCallbacks();
+	
+	return PVRSRV_OK;
+}
+
+
+static IMG_INT
+PVRSRVModifyPendingSyncOpsBW(IMG_UINT32									ui32BridgeID,
+						      PVRSRV_BRIDGE_IN_MODIFY_PENDING_SYNC_OPS	*psModifySyncOpsIN,
+							  PVRSRV_BRIDGE_OUT_MODIFY_PENDING_SYNC_OPS	*psModifySyncOpsOUT,
+							  PVRSRV_PER_PROCESS_DATA					*psPerProc)
+{
+	IMG_HANDLE				hKernelSyncInfo;
+	PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfo;
+	MODIFY_SYNC_OP_INFO		*psModSyncOpInfo;
+
+	PVRSRV_BRIDGE_ASSERT_CMD(ui32BridgeID, PVRSRV_BRIDGE_MODIFY_PENDING_SYNC_OPS);
+
+	psModifySyncOpsOUT->eError = PVRSRVLookupHandle(psPerProc->psHandleBase,
+													&hKernelSyncInfo,
+													psModifySyncOpsIN->hKernelSyncInfo,
+													PVRSRV_HANDLE_TYPE_SYNC_INFO);
+	if (psModifySyncOpsOUT->eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "PVRSRVModifyPendingSyncOpsBW: PVRSRVLookupHandle failed"));
+		return 0;
+	}
+
+	psKernelSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)hKernelSyncInfo;
+
+	if(psKernelSyncInfo->hResItem != IMG_NULL)
+	{
+		
+		psModifySyncOpsOUT->eError = PVRSRV_ERROR_RETRY;
+		return 0;
+	}
+
+	ASSIGN_AND_EXIT_ON_ERROR(psModifySyncOpsOUT->eError,
+			  OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
+			  sizeof(MODIFY_SYNC_OP_INFO),
+			  (IMG_VOID **)&psModSyncOpInfo, 0,
+			  "ModSyncOpInfo (MODIFY_SYNC_OP_INFO)"));
+
+	
+	psModSyncOpInfo->psKernelSyncInfo = psKernelSyncInfo;
+	psModSyncOpInfo->ui32ModifyFlags = psModifySyncOpsIN->ui32ModifyFlags;
+	psModSyncOpInfo->ui32ReadOpsPendingSnapShot = psKernelSyncInfo->psSyncData->ui32ReadOpsPending;
+	psModSyncOpInfo->ui32WriteOpsPendingSnapShot = psKernelSyncInfo->psSyncData->ui32WriteOpsPending;
+	
+	
+
+	psModifySyncOpsOUT->ui32ReadOpsPending = psKernelSyncInfo->psSyncData->ui32ReadOpsPending;
+	psModifySyncOpsOUT->ui32WriteOpsPending = psKernelSyncInfo->psSyncData->ui32WriteOpsPending;
+
+	if(psModifySyncOpsIN->ui32ModifyFlags & PVRSRV_MODIFYSYNCOPS_FLAGS_WO_INC)
+	{
+		psKernelSyncInfo->psSyncData->ui32WriteOpsPending++;
+	}
+
+	if(psModifySyncOpsIN->ui32ModifyFlags & PVRSRV_MODIFYSYNCOPS_FLAGS_RO_INC)
+	{
+		psKernelSyncInfo->psSyncData->ui32ReadOpsPending++;
+	}
+
+	psKernelSyncInfo->hResItem = ResManRegisterRes(psPerProc->hResManContext,
+													RESMAN_TYPE_MODIFY_SYNC_OPS,
+													psModSyncOpInfo,
+													0,
+													ModifyCompleteSyncOpsCallBack);
+	return 0;
+}
+
+
+static IMG_INT
+PVRSRVModifyCompleteSyncOpsBW(IMG_UINT32							ui32BridgeID,
+				      PVRSRV_BRIDGE_IN_MODIFY_COMPLETE_SYNC_OPS		*psModifySyncOpsIN,
+					  PVRSRV_BRIDGE_RETURN							*psModifySyncOpsOUT,
+					  PVRSRV_PER_PROCESS_DATA						*psPerProc)
+{
+	PVRSRV_ERROR eError;
+	PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfo;
+
+	PVRSRV_BRIDGE_ASSERT_CMD(ui32BridgeID, PVRSRV_BRIDGE_MODIFY_COMPLETE_SYNC_OPS);
+
+	psModifySyncOpsOUT->eError = PVRSRVLookupHandle(psPerProc->psHandleBase,
+													(IMG_VOID**)&psKernelSyncInfo,
+													psModifySyncOpsIN->hKernelSyncInfo,
+													PVRSRV_HANDLE_TYPE_SYNC_INFO);
+	if (psModifySyncOpsOUT->eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "PVRSRVModifyCompleteSyncOpsBW: PVRSRVLookupHandle failed"));
+		return 0;
+	}
+
+	if(psKernelSyncInfo->hResItem == IMG_NULL)
+	{
+		
+		psModifySyncOpsOUT->eError = PVRSRV_ERROR_INVALID_PARAMS;
+		return 0;
+	}
+
+	
+
+
+
+
+
+
+
+
+	eError = ResManFreeResByPtr(psKernelSyncInfo->hResItem);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "PVRSRVModifyCompleteSyncOpsBW: ResManFreeResByPtr failed"));
+		return 0;
+	}
+
+	psKernelSyncInfo->hResItem = IMG_NULL;
+
+	return 0;
+}
+#endif
 
 PVRSRV_ERROR
 CommonBridgeInit(IMG_VOID)
@@ -3113,16 +3248,20 @@ CommonBridgeInit(IMG_VOID)
 	SetDispatchTableEntry(PVRSRV_BRIDGE_EVENT_OBJECT_WAIT,	PVRSRVEventObjectWaitBW);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_EVENT_OBJECT_OPEN,	PVRSRVEventObjectOpenBW);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_EVENT_OBJECT_CLOSE, PVRSRVEventObjectCloseBW);
-
-	
-	SetDispatchTableEntry(PVRSRV_BRIDGE_MODIFY_SYNC_OPS, PVRSRVModifySyncOpsBW);
-
+#if 0
+	SetDispatchTableEntry(PVRSRV_BRIDGE_MODIFY_PENDING_SYNC_OPS, PVRSRVModifyPendingSyncOpsBW);
+	SetDispatchTableEntry(PVRSRV_BRIDGE_MODIFY_COMPLETE_SYNC_OPS, PVRSRVModifyCompleteSyncOpsBW);
+#endif
 #if defined (SUPPORT_SGX)
 	SetSGXDispatchTableEntry();
 #endif
 #if defined (SUPPORT_VGX)
 	SetVGXDispatchTableEntry();
 #endif
+#if defined (SUPPORT_MSVDX)
+	SetMSVDXDispatchTableEntry();
+#endif
+
 
 	
 	
@@ -3211,10 +3350,7 @@ IMG_INT BridgedDispatchKM(PVRSRV_PER_PROCESS_DATA * psPerProc,
 		
 		SYS_DATA *psSysData;
 
-		if(SysAcquireData(&psSysData) != PVRSRV_OK)
-		{
-			goto return_fault;
-		}
+		SysAcquireData(&psSysData);
 
 		
 		psBridgeIn = ((ENV_DATA *)psSysData->pvEnvSpecificData)->pvBridgeData;
