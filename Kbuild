@@ -58,7 +58,7 @@ pvrsrvkm-y	:= $(FILES:.c=.o)
 ifeq ($(TI_PLATFORM),ti8168)
 obj-y := services4/3rdparty/dc_ti8168_linux/
 else
-obj-y := services4/3rdparty/dc_omap3430_linux/
+obj-y := services4/3rdparty/dc_omap3_linux/
 endif
 obj-y += services4/3rdparty/bufferclass_ti/
 

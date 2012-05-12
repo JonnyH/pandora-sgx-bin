@@ -1,4 +1,5 @@
-export KERNELDIR = /opt/oe/stuff/build/tmp/work/beagleboard-angstrom-linux-gnueabi/linux-omap-2.6.29-r44/git/
+#export KERNELDIR = /opt/oe/stuff/build/tmp/work/beagleboard-angstrom-linux-gnueabi/linux-omap-2.6.29-r44/git/
+export TI_PLATFORM ?= omap3
 
 export KERNEL_PATH=$(KERNELDIR)
 export KERNEL_SRC=$(KERNELDIR)
