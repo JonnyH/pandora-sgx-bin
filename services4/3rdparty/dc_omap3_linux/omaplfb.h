@@ -27,44 +27,11 @@
 #ifndef __OMAPLFB_H__
 #define __OMAPLFB_H__
 
+#if defined(SGX_EARLYSUSPEND)
+#include <linux/earlysuspend.h>
+#endif
+
 extern IMG_BOOL PVRGetDisplayClassJTable(PVRSRV_DC_DISP2SRV_KMJTABLE *psJTable);
-
-#define OMAPLCD_IRQ			25
-
-#define OMAPLCD_SYSCONFIG           0x0410
-#define OMAPLCD_CONFIG              0x0444
-#define OMAPLCD_DEFAULT_COLOR0      0x044C
-#define OMAPLCD_TIMING_H            0x0464
-#define OMAPLCD_TIMING_V            0x0468
-#define OMAPLCD_POL_FREQ            0x046C
-#define OMAPLCD_DIVISOR             0x0470
-#define OMAPLCD_SIZE_DIG            0x0478
-#define OMAPLCD_SIZE_LCD            0x047C
-#define OMAPLCD_GFX_POSITION        0x0488
-#define OMAPLCD_GFX_SIZE            0x048C
-#define OMAPLCD_GFX_ATTRIBUTES      0x04a0
-#define OMAPLCD_GFX_FIFO_THRESHOLD  0x04a4
-#define OMAPLCD_GFX_WINDOW_SKIP     0x04b4
-
-#define OMAPLCD_IRQSTATUS       0x0418
-#define OMAPLCD_IRQENABLE       0x041c
-#define OMAPLCD_CONTROL         0x0440
-#define OMAPLCD_GFX_BA0         0x0480
-#define OMAPLCD_GFX_BA1         0x0484
-#define OMAPLCD_GFX_ROW_INC     0x04ac
-#define OMAPLCD_GFX_PIX_INC     0x04b0
-#define OMAPLCD_VID1_BA0        0x04bc
-#define OMAPLCD_VID1_BA1        0x04c0
-#define OMAPLCD_VID1_ROW_INC    0x04d8
-#define OMAPLCD_VID1_PIX_INC    0x04dc
-
-#define	OMAP_CONTROL_GODIGITAL      (1 << 6)
-#define	OMAP_CONTROL_GOLCD          (1 << 5)
-#define	OMAP_CONTROL_DIGITALENABLE  (1 << 1)
-#define	OMAP_CONTROL_LCDENABLE      (1 << 0)
-
-#define OMAPLCD_INTMASK_VSYNC       (1 << 1)
-#define OMAPLCD_INTMASK_OFF		0
 
 typedef void *       OMAP_HANDLE;
 
@@ -126,9 +93,6 @@ typedef struct PVRPDP_SWAPCHAIN_TAG
 	unsigned long       ulRemoveIndex;
 
 	
-	void *pvRegs;
-
-	
 	PVRSRV_DC_DISP2SRV_KMJTABLE	*psPVRJTable;
 
 	
@@ -140,8 +104,8 @@ typedef struct PVRPDP_SWAPCHAIN_TAG
 	
 	OMAP_BOOL           bBlanked;
 
-	
-	spinlock_t         *psSwapChainLock;
+
+	void*	pvDevInfo;
 } OMAPLFB_SWAPCHAIN;
 
 typedef struct OMAPLFB_FBINFO_TAG
@@ -152,14 +116,16 @@ typedef struct OMAPLFB_FBINFO_TAG
 	unsigned long       ulWidth;
 	unsigned long       ulHeight;
 	unsigned long       ulByteStride;
-
-	
 	
 	IMG_SYS_PHYADDR     sSysAddr;
 	IMG_CPU_VIRTADDR    sCPUVAddr;
 
-	
 	PVRSRV_PIXEL_FORMAT ePixelFormat;
+
+#if defined(SGX_EARLYSUSPEND)
+        struct early_suspend early_suspend;
+#endif
+
 }OMAPLFB_FBINFO;
 
 typedef struct OMAPLFB_DEVINFO_TAG
@@ -189,29 +155,24 @@ typedef struct OMAPLFB_DEVINFO_TAG
 
 	
 	struct fb_info         *psLINFBInfo;
-
 	
 	struct notifier_block   sLINNotifBlock;
-
 	
 	OMAP_BOOL               bDeviceSuspended;
-
 	
-	spinlock_t             sSwapChainLock;
-
-	
-	
-
+        struct mutex            sSwapChainLockMutex;	
 	
 	IMG_DEV_VIRTADDR		sDisplayDevVAddr;
 
 	DISPLAY_INFO            sDisplayInfo;
-
 	
 	DISPLAY_FORMAT          sDisplayFormat;
 	
-	
 	DISPLAY_DIMS            sDisplayDim;
+
+	struct workqueue_struct *vsync_isr_wq;
+
+	struct work_struct	vsync_work;
 
 }  OMAPLFB_DEVINFO;
 
@@ -221,7 +182,7 @@ typedef struct OMAPLFB_DEVINFO_TAG
 
 #define	OMAPLFB_PAGE_ROUNDUP(x) (((x) + OMAPLFB_PAGE_MASK) & OMAPLFB_PAGE_TRUNC)
 
-#ifdef	DEBUG
+#ifdef	DEBUG_PVR
 #define	DEBUG_PRINTK(x) printk x
 #else
 #define	DEBUG_PRINTK(x)
@@ -261,20 +222,13 @@ void OMAPLFBDriverResume(void);
 void *OMAPLFBAllocKernelMem(unsigned long ulSize);
 void OMAPLFBFreeKernelMem(void *pvMem);
 OMAP_ERROR OMAPLFBGetLibFuncAddr(char *szFunctionName, PFN_DC_GET_PVRJTABLE *ppfnFuncTable);
-OMAP_ERROR OMAPLFBInstallVSyncISR (OMAPLFB_SWAPCHAIN *psSwapChain);
-OMAP_ERROR OMAPLFBUninstallVSyncISR(OMAPLFB_SWAPCHAIN *psSwapChain);
-OMAP_BOOL OMAPLFBVSyncIHandler(OMAPLFB_SWAPCHAIN *psSwapChain);
-void OMAPLFBEnableVSyncInterrupt(OMAPLFB_SWAPCHAIN *psSwapChain);
-void OMAPLFBDisableVSyncInterrupt(OMAPLFB_SWAPCHAIN *psSwapChain);
-#if defined (SUPPORT_TI_DSS_FW)
-void OMAPLFBEnableDisplayRegisterAccess(void);
-void OMAPLFBDisableDisplayRegisterAccess(void);
-#endif
+void OMAPLFBWaitForVSync(void);
 #if defined (CONFIG_OMAP2_DSS)
 IMG_VOID OMAPLFBFlipDSS2(OMAPLFB_SWAPCHAIN *psSwapChain,
 						  IMG_UINT32 aPhyAddr);
 #endif
 void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr);
+OMAPLFB_DEVINFO * GetAnchorPtr(void);
 
 #endif 
 

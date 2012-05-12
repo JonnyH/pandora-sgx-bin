@@ -232,6 +232,7 @@ typedef struct _SGX_TIMING_INFORMATION_
 {
 	IMG_UINT32			ui32CoreClockSpeed;
 	IMG_UINT32			ui32HWRecoveryFreq;
+	IMG_BOOL			bEnableActivePM;
 	IMG_UINT32			ui32ActivePowManLatencyms;
 	IMG_UINT32			ui32uKernelFreq;
 } SGX_TIMING_INFORMATION;
