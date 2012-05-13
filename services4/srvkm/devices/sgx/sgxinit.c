@@ -156,12 +156,12 @@ static PVRSRV_ERROR InitDevInfo(PVRSRV_PER_PROCESS_DATA *psPerProc,
 #if defined(SGX_FEATURE_SPM_MODE_0)
 	psDevInfo->psKernelTmpDPMStateMemInfo = (PVRSRV_KERNEL_MEM_INFO *)psInitInfo->hKernelTmpDPMStateMemInfo;
 #endif
-#if 0	
+	
 	psDevInfo->ui32ClientBuildOptions = psInitInfo->ui32ClientBuildOptions;
 
 	
 	psDevInfo->sSGXStructSizes = psInitInfo->sSGXStructSizes;
-#endif
+
 	
 
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
@@ -185,17 +185,8 @@ static PVRSRV_ERROR InitDevInfo(PVRSRV_PER_PROCESS_DATA *psPerProc,
 
 	
 
-	//OSMemCopy(psDevInfo->aui32HostKickAddr, psInitInfo->aui32HostKickAddr,
-	//		  SGXMKIF_CMD_MAX * sizeof(psDevInfo->aui32HostKickAddr[0]));
-	memset(psDevInfo->aui32HostKickAddr, 0,
+	OSMemCopy(psDevInfo->aui32HostKickAddr, psInitInfo->aui32HostKickAddr,
 			  SGXMKIF_CMD_MAX * sizeof(psDevInfo->aui32HostKickAddr[0]));
-    psDevInfo->aui32HostKickAddr[SGXMKIF_CMD_TA] =
-    psDevInfo->aui32HostKickAddr[SGXMKIF_CMD_TRANSFER] =
-    psDevInfo->aui32HostKickAddr[SGXMKIF_CMD_2D] =
-    psDevInfo->aui32HostKickAddr[SGXMKIF_CMD_POWER] =
-    //psDevInfo->aui32HostKickAddr[SGXMKIF_CMD_CLEANUP] =
-    psDevInfo->aui32HostKickAddr[SGXMKIF_CMD_PROCESS_QUEUES] = psInitInfo->ui32HostKickAddress;
-    psDevInfo->aui32HostKickAddr[SGXMKIF_CMD_GETMISCINFO] = psInitInfo->ui32GetMiscInfoAddress;
 
  	psDevInfo->bForcePTOff = IMG_FALSE;
 
@@ -270,10 +261,8 @@ static PVRSRV_ERROR SGXRunScript(PVRSRV_SGXDEV_INFO *psDevInfo, SGX_INIT_COMMAND
 PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo)
 {
 	PVRSRV_ERROR			eError;
-#if 0
 	PVRSRV_KERNEL_MEM_INFO	*psSGXHostCtlMemInfo = psDevInfo->psKernelSGXHostCtlMemInfo;
 	SGXMKIF_HOST_CTL		*psSGXHostCtl = psSGXHostCtlMemInfo->pvLinAddrKM;
-#endif
 #if defined(PDUMP)
 	static IMG_BOOL			bFirstTime = IMG_TRUE;
 #endif 
@@ -333,16 +322,9 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo)
 	PDUMPCOMMENTWITHFLAGS(PDUMP_FLAGS_CONTINUOUS, "End of SGX initialisation script part 2\n");
 
 	if(cpu_is_omap3630())
-		OSWriteHWReg(psDevInfo->pvRegsBaseKM, 0xFF08, 0x80000000);//OCP Bypass mode
+		OSWriteHWReg(psDevInfo->pvRegsBaseKM, 0xFF08, 0x80000000);
 
-{
-	extern IMG_VOID SGXStartTimer(PVRSRV_SGXDEV_INFO *psDevInfo);
-	SGXStartTimer(psDevInfo);
-}
-
-#if 0
 	psSGXHostCtl->ui32InitStatus = 0;
-#endif
 #if defined(PDUMP)
 	PDUMPCOMMENTWITHFLAGS(PDUMP_FLAGS_CONTINUOUS,
 						  "Reset the SGX microkernel initialisation status\n");
@@ -380,7 +362,7 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo)
 	}
 #endif 
 
-#if 0 // !defined(NO_HARDWARE)
+#if !defined(NO_HARDWARE)
 	
 
 	if (PollForValueKM(&psSGXHostCtl->ui32InitStatus,
@@ -1509,7 +1491,6 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 	PPVRSRV_KERNEL_MEM_INFO			psMemInfo;
 	PVRSRV_SGX_MISCINFO_INFO		*psSGXMiscInfoInt; 	
 	PVRSRV_SGX_MISCINFO_FEATURES	*psSGXFeatures;
-#if 0
 	SGX_MISCINFO_STRUCT_SIZES		*psSGXStructSizes;	
 	IMG_BOOL						bStructSizesFailed;
 
@@ -1521,7 +1502,6 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 		};
 	const IMG_UINT32	ui32NumCoreExceptions = sizeof(aui32CoreRevExceptions) / (2*sizeof(IMG_UINT32));
 	IMG_UINT	i;
-#endif
 #endif
 
 	
@@ -1535,7 +1515,7 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 	psDevInfo = psDeviceNode->pvDevice;
 
 	
-#if 0	
+	
 	ui32BuildOptions = (SGX_BUILD_OPTIONS);
 	if (ui32BuildOptions != psDevInfo->ui32ClientBuildOptions)
 	{
@@ -1560,7 +1540,7 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 	{
 		PVR_DPF((PVR_DBG_MESSAGE, "SGXInit: Client-side and KM driver build options match. [ OK ]"));
 	}
-#endif
+
 #if !defined (NO_HARDWARE)
 	psMemInfo = psDevInfo->psKernelSGXMiscMemInfo;
 
@@ -1595,7 +1575,7 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 				PVRVERSION_BUILD, psSGXFeatures->ui32DDKBuild));
 	}
 
-#if 0	
+	
 	if (psSGXFeatures->ui32CoreRevSW == 0)
 	{
 		
@@ -1635,8 +1615,8 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 			}
 		}
 	}
-#endif
-#if 0	
+
+	
 	psSGXStructSizes = &((PVRSRV_SGX_MISCINFO_INFO*)(psMemInfo->pvLinAddrKM))->sSGXStructSizes;
 
 	bStructSizesFailed = IMG_FALSE;
@@ -1670,7 +1650,7 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 	{
 		PVR_DPF((PVR_DBG_MESSAGE, "SGXInit: SGXMKIF structure sizes match. [ OK ]"));
 	}
-#endif 
+
 	
 	ui32BuildOptions = psSGXFeatures->ui32BuildOptions;
 	if (ui32BuildOptions != (SGX_BUILD_OPTIONS))
@@ -1715,9 +1695,8 @@ PVRSRV_ERROR SGXGetMiscInfoUkernel(PVRSRV_SGXDEV_INFO	*psDevInfo,
 	SGXMKIF_COMMAND		sCommandData;  
 	PVRSRV_SGX_MISCINFO_INFO			*psSGXMiscInfoInt; 	
 	PVRSRV_SGX_MISCINFO_FEATURES		*psSGXFeatures;		
-#if 0
 	SGX_MISCINFO_STRUCT_SIZES			*psSGXStructSizes;	
-#endif
+
 	PPVRSRV_KERNEL_MEM_INFO	psMemInfo = psDevInfo->psKernelSGXMiscMemInfo;
 
 	if (! psMemInfo->pvLinAddrKM)
@@ -1727,16 +1706,13 @@ PVRSRV_ERROR SGXGetMiscInfoUkernel(PVRSRV_SGXDEV_INFO	*psDevInfo,
 	}
 	psSGXMiscInfoInt = psMemInfo->pvLinAddrKM;
 	psSGXFeatures = &psSGXMiscInfoInt->sSGXFeatures;
-#if 0
 	psSGXStructSizes = &psSGXMiscInfoInt->sSGXStructSizes;
-#endif
+
 	psSGXMiscInfoInt->ui32MiscInfoFlags &= ~PVRSRV_USSE_MISCINFO_READY;
 
 	
 	OSMemSet(psSGXFeatures, 0, sizeof(*psSGXFeatures));
-#if 0
 	OSMemSet(psSGXStructSizes, 0, sizeof(*psSGXStructSizes));
-#endif
 
 	
 	sCommandData.ui32Data[1] = psMemInfo->sDevVAddr.uiAddr; 
@@ -2185,9 +2161,8 @@ PVRSRV_ERROR SGXReadDiffCountersKM(IMG_HANDLE				hDevHandle,
 
 		psDiffs->ui32Time[0] = OSClockus();
 		psDiffs->ui32Time[1] = psDevInfo->psSGXHostCtl->ui32TimeWraps;
-#if 0
 		psDiffs->ui32Time[2] = ui32rval;
-#endif
+
 		psDiffs->ui32Marker[0] = psDevInfo->ui32KickTACounter;
 		psDiffs->ui32Marker[1] = psDevInfo->ui32KickTARenderCounter;
 	}

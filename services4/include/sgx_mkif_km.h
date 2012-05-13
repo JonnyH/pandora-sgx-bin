@@ -52,8 +52,8 @@
 typedef struct _SGXMKIF_COMMAND_
 {
 	IMG_UINT32				ui32ServiceAddress;		
-	IMG_UINT32				ui32Data[2];			
 	IMG_UINT32				ui32CacheControl;		
+	IMG_UINT32				ui32Data[2];			
 } SGXMKIF_COMMAND;
 
 
@@ -72,19 +72,24 @@ typedef struct _PVRSRV_SGX_CCB_CTL_
 
 typedef struct _SGXMKIF_HOST_CTL_
 {
+#if defined(PVRSRV_USSE_EDM_BREAKPOINTS)
+	IMG_UINT32				ui32BreakpointDisable;
+	IMG_UINT32				ui32Continue;
+#endif
 
-	volatile IMG_UINT32		ui32PowerStatus; 
+	volatile IMG_UINT32		ui32InitStatus;				
+	volatile IMG_UINT32		ui32PowerStatus;			
+	volatile IMG_UINT32		ui32CleanupStatus;			
 #if defined(SUPPORT_HW_RECOVERY)
-	IMG_UINT32				ui32uKernelDetectedLockups;		
-	IMG_UINT32				ui32HostDetectedLockups;		
-	IMG_UINT32				ui32HWRecoverySampleRate;		
+	IMG_UINT32				ui32uKernelDetectedLockups;	
+	IMG_UINT32				ui32HostDetectedLockups;	
+	IMG_UINT32				ui32HWRecoverySampleRate;	
 #endif 
-	IMG_UINT32				ui32ActivePowManSampleRate;		
-	IMG_UINT32				ui32InterruptFlags; 
-	IMG_UINT32				ui32InterruptClearFlags; 
+	IMG_UINT32				ui32uKernelTimerClock;		
+	IMG_UINT32				ui32ActivePowManSampleRate;	
+	IMG_UINT32				ui32InterruptFlags; 		
+	IMG_UINT32				ui32InterruptClearFlags; 	
 
-	IMG_UINT32				ui32ResManFlags; 		
-	IMG_DEV_VIRTADDR		sResManCleanupData;		
 
 	IMG_UINT32				ui32NumActivePowerEvents;	
 
@@ -99,6 +104,8 @@ typedef struct _SGXMKIF_HOST_CTL_
 #define	SGXMKIF_CMDTA_CTRLFLAGS_READY			0x00000001
 typedef struct _SGXMKIF_CMDTA_SHARED_
 {
+	IMG_UINT32			ui32CtrlFlags;
+	
 	IMG_UINT32			ui32NumTAStatusVals;
 	IMG_UINT32			ui32Num3DStatusVals;
 
@@ -130,10 +137,10 @@ typedef struct _SGXMKIF_CMDTA_SHARED_
 #endif
 
 	
+	PVRSRV_DEVICE_SYNC_OBJECT	sTA3DDependency;
+
 	CTL_STATUS			sCtlTAStatusInfo[SGX_MAX_TA_STATUS_VALS];
 	CTL_STATUS			sCtl3DStatusInfo[SGX_MAX_3D_STATUS_VALS];
-
-	PVRSRV_DEVICE_SYNC_OBJECT	sTA3DDependency;
 
 } SGXMKIF_CMDTA_SHARED;
 
@@ -233,24 +240,6 @@ typedef struct _SGXMKIF_HWDEVICE_SYNC_LIST_
 #endif
 
 
-typedef enum _SGXMKIF_COMMAND_TYPE_
-{
-	SGXMKIF_COMMAND_EDM_KICK    = 0,
-	SGXMKIF_COMMAND_VIDEO_KICK	= 1,
-	SGXMKIF_COMMAND_REQUEST_SGXMISCINFO	= 2,
-
-	SGXMKIF_COMMAND_FORCE_I32   = -1,
-
-}SGXMKIF_COMMAND_TYPE;
-
-#define PVRSRV_CCBFLAGS_RASTERCMD			0x1
-#define PVRSRV_CCBFLAGS_TRANSFERCMD			0x2
-#define PVRSRV_CCBFLAGS_PROCESS_QUEUESCMD	0x3
-#if defined(SGX_FEATURE_2D_HARDWARE)
-#define PVRSRV_CCBFLAGS_2DCMD				0x4
-#endif
-#define	PVRSRV_CCBFLAGS_POWERCMD			0x5
-
 #define	PVRSRV_CLEANUPCMD_RT		0x1
 #define	PVRSRV_CLEANUPCMD_RC		0x2
 #define	PVRSRV_CLEANUPCMD_TC		0x3
@@ -307,6 +296,7 @@ typedef struct _PVRSRV_SGX_MISCINFO_INFO
 {
 	IMG_UINT32						ui32MiscInfoFlags;
 	PVRSRV_SGX_MISCINFO_FEATURES	sSGXFeatures;
+	SGX_MISCINFO_STRUCT_SIZES		sSGXStructSizes;	
 #if defined(SUPPORT_SGX_EDM_MEMORY_DEBUG)
 	PVRSRV_SGX_MISCINFO_MEMREAD		sSGXMemReadData;	
 #endif

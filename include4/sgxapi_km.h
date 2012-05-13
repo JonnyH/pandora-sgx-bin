@@ -66,11 +66,7 @@ extern "C" {
 
 
 #define SGX_MAX_TA_STATUS_VALS	32
-#if 0
 #define SGX_MAX_3D_STATUS_VALS	3
-#else
-#define SGX_MAX_3D_STATUS_VALS	2
-#endif
 
 #if defined(SUPPORT_SGX_GENERALISED_SYNCOBJECTS)
 #define SGX_MAX_TA_DST_SYNCS			1

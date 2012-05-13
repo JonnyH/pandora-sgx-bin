@@ -372,13 +372,13 @@ SGXAddSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 	{
 		goto NoAdd;
 	}
-#if 0
+	
 	if(PVRSRVDissociateMemFromResmanKM(psHWBlockKernelMemInfo)
 	   != PVRSRV_OK)
 	{
 		goto NoAdd;
 	}
-#endif	
+		
 	psStubPBDesc->ui32RefCount = 1;
 	psStubPBDesc->ui32TotalPBSize = ui32TotalPBSize;
 	psStubPBDesc->psSharedPBDescKernelMemInfo = psSharedPBDescKernelMemInfo;

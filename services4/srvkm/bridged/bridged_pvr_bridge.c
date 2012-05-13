@@ -2937,7 +2937,7 @@ PVRSRVEventObjectCloseBW(IMG_UINT32 ui32BridgeID,
 	return 0;
 }
 
-#if 0
+
 typedef struct _MODIFY_SYNC_OP_INFO
 {
 	PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfo;
@@ -3118,7 +3118,7 @@ PVRSRVModifyCompleteSyncOpsBW(IMG_UINT32							ui32BridgeID,
 
 	return 0;
 }
-#endif
+
 
 PVRSRV_ERROR
 CommonBridgeInit(IMG_VOID)
@@ -3248,10 +3248,10 @@ CommonBridgeInit(IMG_VOID)
 	SetDispatchTableEntry(PVRSRV_BRIDGE_EVENT_OBJECT_WAIT,	PVRSRVEventObjectWaitBW);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_EVENT_OBJECT_OPEN,	PVRSRVEventObjectOpenBW);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_EVENT_OBJECT_CLOSE, PVRSRVEventObjectCloseBW);
-#if 0
+
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MODIFY_PENDING_SYNC_OPS, PVRSRVModifyPendingSyncOpsBW);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MODIFY_COMPLETE_SYNC_OPS, PVRSRVModifyCompleteSyncOpsBW);
-#endif
+
 #if defined (SUPPORT_SGX)
 	SetSGXDispatchTableEntry();
 #endif

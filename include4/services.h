@@ -341,7 +341,7 @@ typedef struct _PVRSRV_MISC_INFO_
 	IMG_UINT32	aui32DDKVersion[4];
 
 	
-#if 0
+	
 	IMG_BOOL	bCPUCacheFlushAll;
 	
 	IMG_BOOL	bDeferCPUCacheFlush;
@@ -349,7 +349,7 @@ typedef struct _PVRSRV_MISC_INFO_
 	IMG_PVOID	pvRangeAddrStart;
 	
 	IMG_PVOID	pvRangeAddrEnd;
-#endif
+
 } PVRSRV_MISC_INFO;
 
 

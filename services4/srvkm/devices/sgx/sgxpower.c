@@ -124,9 +124,8 @@ static PVRSRV_ERROR SGXUpdateTimingInfo(PVRSRV_DEVICE_NODE	*psDeviceNode)
 	psDevInfo->ui32CoreClockSpeed = psSGXTimingInfo->ui32CoreClockSpeed;
 	psDevInfo->ui32uKernelTimerClock = psSGXTimingInfo->ui32CoreClockSpeed / psSGXTimingInfo->ui32uKernelFreq;
 
-#if 0	
+	
 	psDevInfo->psSGXHostCtl->ui32uKernelTimerClock = psDevInfo->ui32uKernelTimerClock;
-#endif
 #if defined(PDUMP)
 	PDUMPCOMMENT("Host Control - Microkernel clock");
 	PDUMPMEM(IMG_NULL, psDevInfo->psKernelSGXHostCtlMemInfo,
@@ -166,25 +165,18 @@ static PVRSRV_ERROR SGXUpdateTimingInfo(PVRSRV_DEVICE_NODE	*psDeviceNode)
 }
 
 
-IMG_VOID SGXStartTimer(PVRSRV_SGXDEV_INFO	*psDevInfo)
+static IMG_VOID SGXStartTimer(PVRSRV_SGXDEV_INFO	*psDevInfo)
 {
-	IMG_UINT32		ui32RegVal;
-
-	ui32RegVal = EUR_CR_EVENT_TIMER_ENABLE_MASK | psDevInfo->ui32uKernelTimerClock;
-	OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_EVENT_TIMER, ui32RegVal);
-	PDUMPREGWITHFLAGS(EUR_CR_EVENT_TIMER, ui32RegVal, PDUMP_FLAGS_CONTINUOUS);
-
 	#if defined(SUPPORT_HW_RECOVERY)
-	if (1)
+	PVRSRV_ERROR	eError;
+	
+	eError = OSEnableTimer(psDevInfo->hTimer);
+	if (eError != PVRSRV_OK)
 	{
-		PVRSRV_ERROR	eError;
-		
-		eError = OSEnableTimer(psDevInfo->hTimer);
-		if (eError != PVRSRV_OK)
-		{
-			PVR_DPF((PVR_DBG_ERROR,"SGXStartTimer : Failed to enable host timer"));
-		}
+		PVR_DPF((PVR_DBG_ERROR,"SGXStartTimer : Failed to enable host timer"));
 	}
+	#else
+	PVR_UNREFERENCED_PARAMETER(psDevInfo);
 	#endif 
 }
 
@@ -373,12 +365,9 @@ PVRSRV_ERROR SGXPostPowerState (IMG_HANDLE				hDevHandle,
 			
 
 			SGXMKIF_COMMAND		sCommand = {0};
-#if 0
+
 			sCommand.ui32Data[1] = PVRSRV_POWERCMD_RESUME;
 			eError = SGXScheduleCCBCommand(psDevInfo, SGXMKIF_CMD_POWER, &sCommand, ISR_ID, 0);
-#else
-			eError = SGXScheduleCCBCommand(psDevInfo, SGXMKIF_CMD_PROCESS_QUEUES, &sCommand, ISR_ID, 0);
-#endif
 			if (eError != PVRSRV_OK)
 			{
 				PVR_DPF((PVR_DBG_ERROR,"SGXPostPowerState failed to schedule CCB command: %lu", eError));

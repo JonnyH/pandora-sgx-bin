@@ -359,7 +359,6 @@ SGXDoKickBW(IMG_UINT32 ui32BridgeID,
 
 	if(ui32NumDstSyncs > 0)
 	{
-#if 0
 		if(!OSAccessOK(PVR_VERIFY_READ,
 						psDoKickIN->sCCBKick.pahDstSyncHandles,
 						ui32NumDstSyncs * sizeof(IMG_HANDLE)))
@@ -406,17 +405,7 @@ SGXDoKickBW(IMG_UINT32 ui32BridgeID,
 			}
 			
 		}
-#else
-		psRetOUT->eError = PVRSRVLookupHandle(psPerProc->psHandleBase,
-											&psDoKickIN->sCCBKick.sDstSyncHandle,
-									   		psDoKickIN->sCCBKick.sDstSyncHandle,
-									   		PVRSRV_HANDLE_TYPE_SYNC_INFO);
 
-			if(psRetOUT->eError != PVRSRV_OK)
-			{
-				goto PVRSRV_BRIDGE_SGX_DOKICK_RETURN_RESULT;
-			}
-#endif
 		psRetOUT->eError =
 					PVRSRVLookupHandle(psPerProc->psHandleBase,
 									   &psDoKickIN->sCCBKick.hKernelHWSyncListMemInfo,
@@ -847,11 +836,7 @@ SGXReadDiffCountersBW(IMG_UINT32									ui32BridgeID,
 							psSGXReadDiffCountersIN->ui32New,
 							psSGXReadDiffCountersIN->ui32NewReset,
 							psSGXReadDiffCountersIN->ui32CountersReg,
-#if 0
 							psSGXReadDiffCountersIN->ui32Reg2,
-#else
-							0,
-#endif
 							&psSGXReadDiffCountersOUT->bActive,
 							&psSGXReadDiffCountersOUT->sDiffs);
 
@@ -1625,14 +1610,14 @@ SGXFindSharedPBDescBW(IMG_UINT32 ui32BridgeID,
 				  PVRSRV_HANDLE_TYPE_MEM_INFO_REF,
 				  PVRSRV_HANDLE_ALLOC_FLAG_MULTI,
 				  psSGXFindSharedPBDescOUT->hSharedPBDesc);
-#if 0	  
+				  
 	PVRSRVAllocSubHandleNR(psPerProc->psHandleBase,
 				  &psSGXFindSharedPBDescOUT->hHWBlockKernelMemInfoHandle,
 				  psHWBlockKernelMemInfo,
 				  PVRSRV_HANDLE_TYPE_MEM_INFO_REF,
 				  PVRSRV_HANDLE_ALLOC_FLAG_MULTI,
 				  psSGXFindSharedPBDescOUT->hSharedPBDesc);
-#endif
+
 
 	for(i=0; i<ui32SharedPBDescSubKernelMemInfosCount; i++)
 	{
@@ -1773,7 +1758,7 @@ SGXAddSharedPBDescBW(IMG_UINT32 ui32BridgeID,
 	{
 		goto PVRSRV_BRIDGE_SGX_ADDSHAREDPBDESC_RETURN_RESULT;
 	}
-#if 0
+
 	eError = PVRSRVLookupHandle(psPerProc->psHandleBase,
 								(IMG_VOID **)&psHWBlockKernelMemInfo,
 								psSGXAddSharedPBDescIN->hHWBlockKernelMemInfo,
@@ -1782,9 +1767,7 @@ SGXAddSharedPBDescBW(IMG_UINT32 ui32BridgeID,
 	{
 		goto PVRSRV_BRIDGE_SGX_ADDSHAREDPBDESC_RETURN_RESULT;
 	}
-#else
-	psHWBlockKernelMemInfo = NULL;
-#endif
+
 
 	if(!OSAccessOK(PVR_VERIFY_READ,
 				   psSGXAddSharedPBDescIN->phKernelMemInfoHandles,
@@ -1858,12 +1841,12 @@ SGXAddSharedPBDescBW(IMG_UINT32 ui32BridgeID,
 								PVRSRV_HANDLE_TYPE_SHARED_SYS_MEM_INFO);
 	PVR_ASSERT(eError == PVRSRV_OK);
 	
-#if 0 
+	 
 	eError = PVRSRVReleaseHandle(psPerProc->psHandleBase,
 								psSGXAddSharedPBDescIN->hHWBlockKernelMemInfo,
 								PVRSRV_HANDLE_TYPE_MEM_INFO);
 	PVR_ASSERT(eError == PVRSRV_OK);
-#endif
+
 	for(i=0; i<ui32KernelMemInfoHandlesCount; i++)
 	{
 		 

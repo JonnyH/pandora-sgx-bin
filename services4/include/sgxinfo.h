@@ -47,7 +47,6 @@ typedef struct _SGX_BRIDGE_INFO_FOR_SRVINIT
 
 typedef enum _SGXMKIF_CMD_TYPE_
 {
-#if 0
 	SGXMKIF_CMD_TA				= 0,
 	SGXMKIF_CMD_TRANSFER		= 1,
 	SGXMKIF_CMD_2D				= 2,
@@ -56,16 +55,7 @@ typedef enum _SGXMKIF_CMD_TYPE_
 	SGXMKIF_CMD_GETMISCINFO		= 5,
 	SGXMKIF_CMD_PROCESS_QUEUES	= 6,
 	SGXMKIF_CMD_MAX				= 7,
-#else
-	SGXMKIF_CMD_GETMISCINFO		= 0,
-	SGXMKIF_CMD_TA				= 1,
-	SGXMKIF_CMD_TRANSFER		= 2,
-	SGXMKIF_CMD_PROCESS_QUEUES	= 3,
-	SGXMKIF_CMD_2D				= 4,
-	SGXMKIF_CMD_POWER			= 5,
-//	SGXMKIF_CMD_CLEANUP			= 0,
-	SGXMKIF_CMD_MAX				= 6,
-#endif
+
 	SGXMKIF_CMD_FORCE_I32   	= -1,
 
 } SGXMKIF_CMD_TYPE;
@@ -79,8 +69,14 @@ typedef struct _SGX_BRIDGE_INIT_INFO_
 	IMG_HANDLE	hKernelSGXHostCtlMemInfo;
 	IMG_HANDLE	hKernelSGXTA3DCtlMemInfo;
 	IMG_HANDLE	hKernelSGXMiscMemInfo;
-	IMG_UINT32	ui32HostKickAddress;
-	IMG_UINT32	ui32GetMiscInfoAddress;
+
+	IMG_UINT32	aui32HostKickAddr[SGXMKIF_CMD_MAX];
+
+	SGX_INIT_SCRIPTS sScripts;
+
+	IMG_UINT32	ui32ClientBuildOptions;
+	SGX_MISCINFO_STRUCT_SIZES	sSGXStructSizes;
+
 #if defined(SGX_SUPPORT_HWPROFILING)
 	IMG_HANDLE	hKernelHWProfilingMemInfo;
 #endif
@@ -111,8 +107,6 @@ typedef struct _SGX_BRIDGE_INIT_INFO_
 
 	IMG_UINT32	asInitDevData[SGX_MAX_DEV_DATA];
 	IMG_HANDLE	asInitMemHandles[SGX_MAX_INIT_MEM_HANDLES];
-
-	SGX_INIT_SCRIPTS sScripts;
 
 } SGX_BRIDGE_INIT_INFO;
 
@@ -146,17 +140,14 @@ typedef struct _SGX_INTERNEL_STATUS_UPDATE_
 
 typedef struct _SGX_CCB_KICK_
 {
-	SGXMKIF_COMMAND_TYPE		eCommand;
 	SGXMKIF_COMMAND		sCommand;
 	IMG_HANDLE			hCCBKernelMemInfo;
 
 	IMG_UINT32	ui32NumDstSyncObjects;
 	IMG_HANDLE	hKernelHWSyncListMemInfo;
-#if defined(SGX_FEATURE_RENDER_TARGET_ARRAYS)
-	IMG_HANDLE	*pasDstSyncHandles;
-#else
-	IMG_HANDLE	sDstSyncHandle;
-#endif
+
+	
+	IMG_HANDLE	*pahDstSyncHandles;
 
 	IMG_UINT32	ui32NumTAStatusVals;
 	IMG_UINT32	ui32Num3DStatusVals;
@@ -288,7 +279,7 @@ typedef struct _PVRSRV_2D_SGX_KICK_
 typedef struct _PVRSRV_SGXDEV_DIFF_INFO_
 {
 	IMG_UINT32	aui32Counters[PVRSRV_SGX_DIFF_NUM_COUNTERS];
-	IMG_UINT32	ui32Time[2];
+	IMG_UINT32	ui32Time[3];
 	IMG_UINT32	ui32Marker[2];
 } PVRSRV_SGXDEV_DIFF_INFO, *PPVRSRV_SGXDEV_DIFF_INFO;
 

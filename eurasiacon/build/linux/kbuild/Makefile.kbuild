@@ -48,7 +48,9 @@ include $(EURASIAROOT)/eurasiacon/build/linux/makefile.shared_conf
 
 
 ifeq ($(PDUMP),1)
+ifneq ($(SUPPORT_DRI_DRM),1)
 PDUMP_SUBDIRS += $(EURASIAROOT)/tools/intern/debug/dbgdriv/linux
+endif
 endif
 
 KBUILD_SUBDIRS = \

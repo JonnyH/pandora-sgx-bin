@@ -139,6 +139,12 @@ typedef struct _PVRSRV_SGXDEV_INFO_
 	IMG_UINT32				ui32CacheControl;
 
 	
+	IMG_UINT32				ui32ClientBuildOptions;
+
+	
+	SGX_MISCINFO_STRUCT_SIZES	sSGXStructSizes;
+
+	
 
 
 	IMG_VOID				*pvMMUContextList;

@@ -46,10 +46,6 @@
 #include <stdio.h>
 #endif
 
-#define PVRSRV_USSE_EDM_RESMAN_CLEANUP_INVALPD		0x20UL	
-#define PVRSRV_USSE_EDM_RESMAN_CLEANUP_INVALPT		0x40UL	
-#define PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE 	0x80UL	
-
 
 #if defined(SYS_CUSTOM_POWERDOWN)
 PVRSRV_ERROR SysPowerDownMISR(PVRSRV_DEVICE_NODE	* psDeviceNode, IMG_UINT32 ui32CallerID);
@@ -215,7 +211,6 @@ PVRSRV_ERROR SGXScheduleCCBCommand(PVRSRV_SGXDEV_INFO 	*psDevInfo,
 	}
 #endif 
 
-	psSGXCommand->ui32Data[0] = eCmdType;
 	psSGXCommand->ui32ServiceAddress = psDevInfo->aui32HostKickAddr[eCmdType];	 
 
 #if defined(PDUMP)
@@ -472,48 +467,6 @@ IMG_VOID SGXCleanupRequest(PVRSRV_DEVICE_NODE	*psDeviceNode,
 	}
 	else
 	{
-#if 1
-		if (psSGXDevInfo->ui32CacheControl & SGX_BIF_INVALIDATE_PDCACHE)
-		{
-			psSGXHostCtl->ui32ResManFlags |= PVRSRV_USSE_EDM_RESMAN_CLEANUP_INVALPD;
-			psSGXDevInfo->ui32CacheControl ^= SGX_BIF_INVALIDATE_PDCACHE;
-		}
-		if (psSGXDevInfo->ui32CacheControl & SGX_BIF_INVALIDATE_PTCACHE)
-		{
-			psSGXHostCtl->ui32ResManFlags |= PVRSRV_USSE_EDM_RESMAN_CLEANUP_INVALPT;
-			psSGXDevInfo->ui32CacheControl ^= SGX_BIF_INVALIDATE_PTCACHE;
-		}
-
-		if(psHWDataDevVAddr == IMG_NULL)
-		{
-			psSGXHostCtl->sResManCleanupData.uiAddr = 0;
-		}
-		else
-		{
-			
-			psSGXHostCtl->sResManCleanupData.uiAddr = psHWDataDevVAddr->uiAddr;
-		}
-
-		
-		psSGXHostCtl->ui32ResManFlags |= 1 << (ui32CleanupType - 1);
-		
-		eError = SGXScheduleProcessQueuesKM(psDeviceNode);
-
-		
-		#if !defined(NO_HARDWARE)
-		if(PollForValueKM ((volatile IMG_UINT32 *)(&psSGXHostCtl->ui32ResManFlags),
-					PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE,
-					PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE,
-					MAX_HW_TIME_US/WAIT_TRY_COUNT,
-					WAIT_TRY_COUNT) != PVRSRV_OK)
-		{
-			PVR_DPF((PVR_DBG_ERROR,"SGXCleanupRequest: Wait for uKernel to clean up failed"));
-			PVR_DBG_BREAK;
-		}
-		#endif
-
-		psSGXHostCtl->ui32ResManFlags &= ~(PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE);
-#else
 		SGXMKIF_COMMAND		sCommand = {0};
 		
 		PDUMPCOMMENTWITHFLAGS(0, "Request ukernel resouce clean-up");
@@ -554,7 +507,6 @@ IMG_VOID SGXCleanupRequest(PVRSRV_DEVICE_NODE	*psDeviceNode,
 
 		psSGXHostCtl->ui32CleanupStatus &= ~(PVRSRV_USSE_EDM_CLEANUPCMD_COMPLETE);
 		PDUMPMEM(IMG_NULL, psSGXHostCtlMemInfo, offsetof(SGXMKIF_HOST_CTL, ui32CleanupStatus), sizeof(IMG_UINT32), 0, MAKEUNIQUETAG(psSGXHostCtlMemInfo));
-#endif
 	}
 }
 

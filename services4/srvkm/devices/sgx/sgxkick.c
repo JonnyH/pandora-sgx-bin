@@ -222,16 +222,11 @@ PVRSRV_ERROR SGXDoKickKM(IMG_HANDLE hDevHandle, SGX_CCB_KICK *psCCBKick)
 					 MAKEUNIQUETAG(psHWDstSyncListMemInfo));
 		}
 #endif
-#if 0
+
 		for (i=0; i<ui32NumDstSyncs; i++)
-#endif
 		{
-#if 0
 			psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->pahDstSyncHandles[i];
-#else
-			psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->sDstSyncHandle;
-			i = 0;
-#endif
+
 			if (psSyncInfo)
 			{
 				psHWDeviceSyncList->asSyncData[i].sWriteOpsCompleteDevVAddr = psSyncInfo->sWriteOpsCompleteDevVAddr;
@@ -319,9 +314,9 @@ PVRSRV_ERROR SGXDoKickKM(IMG_HANDLE hDevHandle, SGX_CCB_KICK *psCCBKick)
 	
 	
 
-#if 0
+
 	psTACmd->ui32CtrlFlags |= SGXMKIF_CMDTA_CTRLFLAGS_READY;
-#endif
+
 #if defined(PDUMP)
 	if (PDumpIsCaptureFrameKM())
 	{
@@ -587,22 +582,15 @@ PVRSRV_ERROR SGXDoKickKM(IMG_HANDLE hDevHandle, SGX_CCB_KICK *psCCBKick)
 #endif	
 
 	eError = SGXScheduleCCBCommandKM(hDevHandle, SGXMKIF_CMD_TA, &psCCBKick->sCommand, KERNEL_ID, 0);
-//	eError = SGXScheduleCCBCommandKM(hDevHandle, psCCBKick->eCommand, &psCCBKick->sCommand, KERNEL_ID, 0);
 	if (eError == PVRSRV_ERROR_RETRY)
 	{
 		if (psCCBKick->bFirstKickOrResume && psCCBKick->ui32NumDstSyncObjects > 0)
 		{
-#if 0
 			for (i=0; i < psCCBKick->ui32NumDstSyncObjects; i++)
-#endif
 			{
-#if 0	
-
+				
 				psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->pahDstSyncHandles[i];
-#else
 
-				psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->sDstSyncHandle;
-#endif
 				if (psSyncInfo)
 				{
 					psSyncInfo->psSyncData->ui32WriteOpsPending--;
