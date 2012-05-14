@@ -23,7 +23,7 @@
 # 
 #
 
-MODULE		?= pvrsrvkm
+MODULE		?= $(PVRSRV_MODNAME)
 
 MODULE_CFLAGS = 
 
@@ -79,7 +79,8 @@ SOURCES	     += $(KBUILDROOT)/srvkm/common/buffer_manager.c \
 				$(KBUILDROOT)/../services4/system/$(PVR_SYSTEM)/sysconfig.c \
 				$(KBUILDROOT)/../services4/system/$(PVR_SYSTEM)/sysutils.c \
 				$(KBUILDROOT)/srvkm/common/lists.c \
-				$(KBUILDROOT)/srvkm/common/mem_debug.c
+				$(KBUILDROOT)/srvkm/common/mem_debug.c \
+				$(KBUILDROOT)/srvkm/common/osfunc_common.c
 
 INCLUDES += -I$(EURASIAROOT)/services4/srvkm/hwdefs 
 
@@ -121,7 +122,9 @@ SOURCES		+= 	$(KBUILDROOT)/srvkm/bridged/vgx/bridged_vgx_bridge.c \
 				$(KBUILDROOT)/srvkm/devices/vgx/vgxreset.c \
 				$(KBUILDROOT)/srvkm/devices/vgx/mmu.c \
 				$(KBUILDROOT)/srvkm/devices/vgx/pb.c \
-				$(KBUILDROOT)/srvkm/env/linux/pdump_vgx.c
+				$(KBUILDROOT)/srvkm/devices/vgx/dma.c	\
+				$(KBUILDROOT)/srvkm/devices/vgx/dmacbuff.c	\
+				$(KBUILDROOT)/srvkm/devices/vgx/linkedlist.c
 endif
 
 endif # SUPPORT_SGX
@@ -137,6 +140,11 @@ endif
 
 ifeq ($(PDUMP),1)
 include $(EURASIAROOT)/tools/intern/debug/dbgdriv/linux/makefile.linux.common
+endif
+
+ifeq ($(SUPPORT_DRI_DRM_NOT_PCI),1)
+	INCLUDES += -I$(EURASIAROOT)/services4/3rdparty/linux_drm
+	KBUILD_EXTRA_SYMBOLS = $(EURASIAROOT)/services4/3rdparty/linux_drm/kbuild/Module.symvers
 endif
 
 endif

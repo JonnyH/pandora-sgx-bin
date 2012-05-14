@@ -38,28 +38,44 @@ extern "C" {
 
 #define DRIVERNAME_MAXLENGTH	(100)
 
+#define	ALIGNSIZE(size, alignshift)	(((size) + ((1UL << (alignshift))-1)) & ~((1UL << (alignshift))-1))
 
+#ifndef MAX
+#define MAX(a,b) 					(((a) > (b)) ? (a) : (b))
+#endif
+#ifndef MIN
+#define MIN(a,b) 					(((a) < (b)) ? (a) : (b))
+#endif
+
+typedef enum _PVRSRV_MEMTYPE_
+{
+	PVRSRV_MEMTYPE_UNKNOWN		= 0,
+	PVRSRV_MEMTYPE_DEVICE		= 1,
+	PVRSRV_MEMTYPE_DEVICECLASS	= 2,
+	PVRSRV_MEMTYPE_WRAPPED		= 3,
+	PVRSRV_MEMTYPE_MAPPED		= 4,
+} PVRSRV_MEMTYPE;
 
 typedef struct _PVRSRV_KERNEL_MEM_INFO_
 {
 	
 	IMG_PVOID				pvLinAddrKM;
-	
+
 	
 	IMG_DEV_VIRTADDR		sDevVAddr;
-										
-		
-	IMG_UINT32				ui32Flags;
-										 
-	
-	IMG_SIZE_T				ui32AllocSize;		
 
-													
+	
+	IMG_UINT32				ui32Flags;
+
+	
+	IMG_SIZE_T				ui32AllocSize;
+
+	
 	PVRSRV_MEMBLK			sMemBlk;
+
 	
-	
-	IMG_PVOID				pvSysBackupBuffer;	
-	
+	IMG_PVOID				pvSysBackupBuffer;
+
 	
 	IMG_UINT32				ui32RefCount;
 
@@ -67,7 +83,7 @@ typedef struct _PVRSRV_KERNEL_MEM_INFO_
 	IMG_BOOL				bPendingFree;
 
 
-	#if defined(ANDROID)
+#if defined(SUPPORT_MEMINFO_IDS)
 	#if !defined(USE_CODE)
 	
 	IMG_UINT64				ui64Stamp;
@@ -75,11 +91,12 @@ typedef struct _PVRSRV_KERNEL_MEM_INFO_
 	IMG_UINT32				dummy1;
 	IMG_UINT32				dummy2;
 	#endif 
-	#endif 
+#endif 
 
 	
 	struct _PVRSRV_KERNEL_SYNC_INFO_	*psKernelSyncInfo;
 
+	PVRSRV_MEMTYPE				memType;
 } PVRSRV_KERNEL_MEM_INFO;
 
 
@@ -87,7 +104,7 @@ typedef struct _PVRSRV_KERNEL_SYNC_INFO_
 {
 	
 	PVRSRV_SYNC_DATA		*psSyncData;
-	
+
 	
 	IMG_DEV_VIRTADDR		sWriteOpsCompleteDevVAddr;
 
@@ -98,8 +115,11 @@ typedef struct _PVRSRV_KERNEL_SYNC_INFO_
 	PVRSRV_KERNEL_MEM_INFO	*psSyncDataMemInfoKM;
 
 	
-	IMG_HANDLE				hResItem;
 	
+	IMG_UINT32              ui32RefCount;
+
+	
+	IMG_HANDLE hResItem;
 } PVRSRV_KERNEL_SYNC_INFO;
 
 typedef struct _PVRSRV_DEVICE_SYNC_OBJECT_
@@ -148,10 +168,10 @@ typedef struct _PVRSRV_QUEUE_INFO_
 
 	IMG_HANDLE			hMemBlock[2];
 
-	struct _PVRSRV_QUEUE_INFO_ *psNextKM;		 
+	struct _PVRSRV_QUEUE_INFO_ *psNextKM;		
 }PVRSRV_QUEUE_INFO;
 
-typedef PVRSRV_ERROR (*PFN_INSERT_CMD) (PVRSRV_QUEUE_INFO*, 
+typedef PVRSRV_ERROR (*PFN_INSERT_CMD) (PVRSRV_QUEUE_INFO*,
 										PVRSRV_COMMAND**,
 										IMG_UINT32,
 										IMG_UINT16,
@@ -159,12 +179,12 @@ typedef PVRSRV_ERROR (*PFN_INSERT_CMD) (PVRSRV_QUEUE_INFO*,
 										PVRSRV_KERNEL_SYNC_INFO*[],
 										IMG_UINT32,
 										PVRSRV_KERNEL_SYNC_INFO*[],
-										IMG_UINT32); 
+										IMG_UINT32);
 typedef PVRSRV_ERROR (*PFN_SUBMIT_CMD) (PVRSRV_QUEUE_INFO*, PVRSRV_COMMAND*, IMG_BOOL);
 
 
 typedef struct PVRSRV_DEVICECLASS_BUFFER_TAG
-{	
+{
 	PFN_GET_BUFFER_ADDR		pfnGetBufferAddr;
 	IMG_HANDLE				hDevMemContext;
 	IMG_HANDLE				hExtDevice;
@@ -173,7 +193,7 @@ typedef struct PVRSRV_DEVICECLASS_BUFFER_TAG
 
 } PVRSRV_DEVICECLASS_BUFFER;
 
-		
+
 typedef struct PVRSRV_CLIENT_DEVICECLASS_INFO_TAG
 {
 	IMG_HANDLE hDeviceKM;
@@ -187,7 +207,7 @@ typedef struct PVRSRV_CLIENT_DEVICECLASS_INFO_TAG
 static INLINE
 IMG_UINT32 PVRSRVGetWriteOpsPending(PVRSRV_KERNEL_SYNC_INFO *psSyncInfo, IMG_BOOL bIsReadOp)
 {
-	IMG_UINT32 ui32WriteOpsPending;			
+	IMG_UINT32 ui32WriteOpsPending;
 
 	if(bIsReadOp)
 	{
@@ -210,7 +230,7 @@ IMG_UINT32 PVRSRVGetWriteOpsPending(PVRSRV_KERNEL_SYNC_INFO *psSyncInfo, IMG_BOO
 static INLINE
 IMG_UINT32 PVRSRVGetReadOpsPending(PVRSRV_KERNEL_SYNC_INFO *psSyncInfo, IMG_BOOL bIsReadOp)
 {
-	IMG_UINT32 ui32ReadOpsPending;			
+	IMG_UINT32 ui32ReadOpsPending;
 
 	if(bIsReadOp)
 	{
@@ -225,7 +245,7 @@ IMG_UINT32 PVRSRVGetReadOpsPending(PVRSRV_KERNEL_SYNC_INFO *psSyncInfo, IMG_BOOL
 }
 
 IMG_IMPORT
-PVRSRV_ERROR PVRSRVQueueCommand(IMG_HANDLE hQueueInfo, 
+PVRSRV_ERROR PVRSRVQueueCommand(IMG_HANDLE hQueueInfo,
 								PVRSRV_COMMAND *psCommand);
 
 

@@ -36,7 +36,7 @@ SYS_EXE_LDFLAGS = -Xlinker -rpath-link=$(TOOLCHAIN)/arm-none-linux-gnueabi/lib
 
 # Cross-compile extra settings.
 #
-PVR_SYSTEM	  =			omap3430
+PVR_SYSTEM	  =			omap3
 DISPLAY_CONTROLLER =	omaplfb
 
 ARCH_CFLAGS		= -march=armv7-a
@@ -46,20 +46,8 @@ SYS_CFLAGS		= -DSGX_DYNAMIC_TIMING_INFO \
 				-DSYS_CUSTOM_POWERLOCK_WRAP
 
 # The version of the kernel that is required for compilation
-REQUIREDKERNELVERSION = 2.6.24
+REQUIREDKERNELVERSION = 2.6.34
 
-#
-# OPTIM contains the optimisation level in timing and release builds
-OPTIM			= -Os
-
-SGXCORE = 530
-SUPPORT_SGX = 1
-
-SUPPORT_HW_RECOVERY = 1
-SUPPORT_SGX_HWPERF = 1
-SYS_USING_INTERRUPTS = 1
-
-PVR2D_ALT_2DHW = 1
 LDM_PLATFORM ?= 1
 
 # Only enable active power management if passive power management is
@@ -73,3 +61,33 @@ SUPPORT_ACTIVE_POWER_MANAGEMENT ?= 1
 else
 SUPPORT_ACTIVE_POWER_MANAGEMENT = 0
 endif
+
+OMAP_KERNEL_VER		:= $(shell grep "^VERSION = " \
+	 				$(KERNELDIR)/Makefile | cut -f3 -d' ')
+OMAP_KERNEL_REL		:= $(shell grep "^PATCHLEVEL = " \
+	 				$(KERNELDIR)/Makefile | cut -f3 -d' ')
+OMAP_KERNEL_SUBREL		:= $(shell grep "^SUBLEVEL = " \
+	 				$(KERNELDIR)/Makefile | cut -f3 -d' ')
+
+OMAP_KERNEL_AT_LEAST_2_6_29 := $(shell test $(OMAP_KERNEL_VER) -ge 2 -a \
+			$(OMAP_KERNEL_REL) -ge 6 -a \
+			$(OMAP_KERNEL_SUBREL) -ge 29 && echo 1 || echo 0)
+
+ifeq ($(OMAP_KERNEL_AT_LEAST_2_6_29),1)
+SUPPORT_OMAP3430_OMAPFB3 = 1
+SUPPORT_LINUX_USING_WORKQUEUES = 1
+SYS_CFLAGS += -DPVR_HAS_BROKEN_OMAPFB_H
+endif
+
+#
+# OPTIM contains the optimisation level in timing and release builds
+OPTIM			= -Os
+
+SGXCORE = 530
+SUPPORT_SGX = 1
+
+SUPPORT_HW_RECOVERY = 1
+SUPPORT_SGX_HWPERF = 1
+SYS_USING_INTERRUPTS = 1
+
+PVR2D_ALT_2DHW = 1

@@ -141,6 +141,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVWrapExtMemoryKM(IMG_HANDLE				hDevCookie,
 												IMG_BOOL				bPhysContig,
 												IMG_SYS_PHYADDR	 		*psSysAddr,
 												IMG_VOID 				*pvLinAddr,
+												IMG_UINT32				ui32Flags,
 												PVRSRV_KERNEL_MEM_INFO **ppsMemInfo);
 
 IMG_IMPORT
@@ -263,9 +264,6 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFreeSyncInfoKM(PVRSRV_KERNEL_SYNC_INFO	*psKernel
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo);
-
-PVRSRV_ERROR PVRSRVGetFBStatsKM(IMG_SIZE_T	*pui32Total,
-								IMG_SIZE_T	*pui32Available);
 
 IMG_IMPORT PVRSRV_ERROR
 PVRSRVAllocSharedSysMemoryKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,

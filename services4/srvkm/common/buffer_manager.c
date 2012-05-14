@@ -30,25 +30,7 @@
 #include "hash.h"
 #include "ra.h"
 #include "pdump_km.h"
-
-#define MIN(a,b)       (a > b ? b : a)
-
-
 #include "lists.h"
-
-DECLARE_LIST_ANY_VA(BM_HEAP);
-DECLARE_LIST_ANY_2(BM_HEAP, PVRSRV_ERROR, PVRSRV_OK);
-DECLARE_LIST_ANY_VA_2(BM_HEAP, PVRSRV_ERROR, PVRSRV_OK);
-DECLARE_LIST_FOR_EACH_VA(BM_HEAP);
-DECLARE_LIST_INSERT(BM_HEAP);
-DECLARE_LIST_REMOVE(BM_HEAP);
-
-DECLARE_LIST_FOR_EACH(BM_CONTEXT);
-DECLARE_LIST_ANY_VA(BM_CONTEXT);
-DECLARE_LIST_ANY_VA_2(BM_CONTEXT, IMG_HANDLE, IMG_NULL);
-DECLARE_LIST_INSERT(BM_CONTEXT);
-DECLARE_LIST_REMOVE(BM_CONTEXT);
-
 
 static IMG_BOOL
 ZeroBuf(BM_BUF *pBuf, BM_MAPPING *pMapping, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui32Flags);
@@ -61,7 +43,7 @@ BM_ImportMemory(IMG_VOID *pH, IMG_SIZE_T uSize,
 
 static IMG_BOOL
 DevMemoryAlloc (BM_CONTEXT *pBMContext,
-				BM_MAPPING *pMapping, 
+				BM_MAPPING *pMapping,
 				IMG_SIZE_T *pActualSize,
 				IMG_UINT32 uFlags,
 				IMG_UINT32 dev_vaddr_alignment,
@@ -83,8 +65,8 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 	RA_ARENA			*pArena = IMG_NULL;
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			  "AllocMemory (pBMContext=%08X, uSize=0x%x, uFlags=0x%x, align=0x%x, pBuf=%08X)",
-			  pBMContext, uSize, uFlags, uDevVAddrAlignment, pBuf));
+			  "AllocMemory (uSize=0x%x, uFlags=0x%x, align=0x%x)",
+			  uSize, uFlags, uDevVAddrAlignment));
 
 	
 
@@ -94,7 +76,7 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 		if(uFlags & PVRSRV_MEM_USER_SUPPLIED_DEVVADDR)
 		{
 			
-			PVR_DPF ((PVR_DBG_ERROR, "AllocMemory: combination of DevVAddr management and RAM backing mode unsupported"));			
+			PVR_DPF ((PVR_DBG_ERROR, "AllocMemory: combination of DevVAddr management and RAM backing mode unsupported"));
 			return IMG_FALSE;
 		}
 
@@ -107,6 +89,7 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 		{
 			
 			pArena = psBMHeap->pImportArena;
+			PVR_ASSERT(psBMHeap->sDevArena.psDeviceMemoryHeapInfo->ui32Attribs & PVRSRV_MEM_RAM_BACKED_ALLOCATION);
 		}
 		else
 		{
@@ -209,7 +192,7 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 							(IMG_PVOID *)&pMapping, IMG_NULL,
 							"Buffer Manager Mapping") != PVRSRV_OK)
 		{
-			PVR_DPF((PVR_DBG_ERROR, "AllocMemory: OSAllocMem(0x%x) FAILED"));
+			PVR_DPF((PVR_DBG_ERROR, "AllocMemory: OSAllocMem(0x%x) FAILED", sizeof(*pMapping)));
 			return IMG_FALSE;
 		}
 
@@ -236,18 +219,18 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 
 	
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"AllocMemory: pMapping=%08X: DevV=%08X CpuV=%08X CpuP=%08X uSize=0x%x",
-				pMapping,
+				"AllocMemory: pMapping=%08x: DevV=%08X CpuV=%08x CpuP=%08X uSize=0x%x",
+				(IMG_UINTPTR_T)pMapping,
 				pMapping->DevVAddr.uiAddr,
-				pMapping->CpuVAddr,
+				(IMG_UINTPTR_T)pMapping->CpuVAddr,
 				pMapping->CpuPAddr.uiAddr,
 				pMapping->uSize));
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"AllocMemory: pBuf=%08X: DevV=%08X CpuV=%08X CpuP=%08X uSize=0x%x",
-				pBuf,
+				"AllocMemory: pBuf=%08x: DevV=%08X CpuV=%08x CpuP=%08X uSize=0x%x",
+				(IMG_UINTPTR_T)pBuf,
 				pBuf->DevVAddr.uiAddr,
-				pBuf->CpuVAddr,
+				(IMG_UINTPTR_T)pBuf->CpuVAddr,
 				pBuf->CpuPAddr.uiAddr,
 				uSize));
 
@@ -274,8 +257,8 @@ WrapMemory (BM_HEAP *psBMHeap,
 	IMG_SIZE_T const ui32PageSize = HOST_PAGESIZE();
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			  "WrapMemory(psBMHeap=%08X, size=0x%x, offset=0x%x, bPhysContig=0x%x, pvCPUVAddr = 0x%x, flags=0x%x, pBuf=%08X)",
-			  psBMHeap, uSize, ui32BaseOffset, bPhysContig, pvCPUVAddr, uFlags, pBuf));
+			  "WrapMemory(psBMHeap=%08X, size=0x%x, offset=0x%x, bPhysContig=0x%x, pvCPUVAddr = 0x%08x, flags=0x%x)",
+			  (IMG_UINTPTR_T)psBMHeap, uSize, ui32BaseOffset, bPhysContig, (IMG_UINTPTR_T)pvCPUVAddr, uFlags));
 
 	PVR_ASSERT((psAddr->uiAddr & (ui32PageSize - 1)) == 0);
 	
@@ -295,27 +278,27 @@ WrapMemory (BM_HEAP *psBMHeap,
 	}
 
 	OSMemSet(pMapping, 0, sizeof (*pMapping));
-	
+
 	pMapping->uSize = uSize;
 	pMapping->pBMHeap = psBMHeap;
 
 	if(pvCPUVAddr)
 	{
 		pMapping->CpuVAddr = pvCPUVAddr;
-	
+
 		if (bPhysContig)
 		{
 			pMapping->eCpuMemoryOrigin = hm_wrapped_virtaddr;
 			pMapping->CpuPAddr = SysSysPAddrToCpuPAddr(psAddr[0]);
 
-			if(OSRegisterMem(pMapping->CpuPAddr, 
+			if(OSRegisterMem(pMapping->CpuPAddr,
 							pMapping->CpuVAddr,
 							pMapping->uSize,
 							uFlags,
 							&pMapping->hOSMemHandle) != PVRSRV_OK)
 			{
-				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSRegisterMem Phys=0x%08X, CpuVAddr = 0x%08X, Size=%d) failed",
-					pMapping->CpuPAddr, pMapping->CpuVAddr, pMapping->uSize));
+				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSRegisterMem Phys=0x%08X, Size=%d) failed",
+					pMapping->CpuPAddr.uiAddr, pMapping->uSize));
 				goto fail_cleanup;
 			}
 		}
@@ -324,14 +307,14 @@ WrapMemory (BM_HEAP *psBMHeap,
 			pMapping->eCpuMemoryOrigin = hm_wrapped_scatter_virtaddr;
 			pMapping->psSysAddr = psAddr;
 
-			if(OSRegisterDiscontigMem(pMapping->psSysAddr, 
+			if(OSRegisterDiscontigMem(pMapping->psSysAddr,
 							pMapping->CpuVAddr,
 							pMapping->uSize,
 							uFlags,
 							&pMapping->hOSMemHandle) != PVRSRV_OK)
 			{
-				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSRegisterDiscontigMem CpuVAddr = 0x%08X, Size=%d) failed",
-					pMapping->CpuVAddr, pMapping->uSize));
+				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSRegisterDiscontigMem Size=%d) failed",
+					pMapping->uSize));
 				goto fail_cleanup;
 			}
 		}
@@ -350,7 +333,7 @@ WrapMemory (BM_HEAP *psBMHeap,
 							 &pMapping->hOSMemHandle) != PVRSRV_OK)
 			{
 				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSReservePhys Phys=0x%08X, Size=%d) failed",
-					pMapping->CpuPAddr, pMapping->uSize));
+					pMapping->CpuPAddr.uiAddr, pMapping->uSize));
 				goto fail_cleanup;
 			}
 		}
@@ -421,13 +404,11 @@ WrapMemory (BM_HEAP *psBMHeap,
 
 	PVR_DPF ((PVR_DBG_MESSAGE, "DevVaddr.uiAddr=%08X", DevVAddr.uiAddr));
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"WrapMemory: pMapping=%08X: DevV=%08X CpuV=%08X CpuP=%08X uSize=0x%x",
-				pMapping, pMapping->DevVAddr.uiAddr,
-				pMapping->CpuVAddr, pMapping->CpuPAddr.uiAddr, pMapping->uSize));
+				"WrapMemory: DevV=%08X CpuP=%08X uSize=0x%x",
+				pMapping->DevVAddr.uiAddr, pMapping->CpuPAddr.uiAddr, pMapping->uSize));
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"WrapMemory: pBuf=%08X: DevV=%08X CpuV=%08X CpuP=%08X uSize=0x%x",
-				pBuf, pBuf->DevVAddr.uiAddr,
-				pBuf->CpuVAddr, pBuf->CpuPAddr.uiAddr, uSize));
+				"WrapMemory: DevV=%08X CpuP=%08X uSize=0x%x",
+				pBuf->DevVAddr.uiAddr, pBuf->CpuPAddr.uiAddr, uSize));
 
 	pBuf->pMapping = pMapping;
 	return IMG_TRUE;
@@ -513,7 +494,7 @@ ZeroBuf(BM_BUF *pBuf, BM_MAPPING *pMapping, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui3
 			if(CpuPAddr.uiAddr & (HOST_PAGESIZE() -1))
 			{
 				ui32BlockBytes =
-					MIN(ui32BytesRemaining, HOST_PAGEALIGN(CpuPAddr.uiAddr) - CpuPAddr.uiAddr);
+					MIN(ui32BytesRemaining, (IMG_UINT32)(HOST_PAGEALIGN(CpuPAddr.uiAddr) - CpuPAddr.uiAddr));
 			}
 
 			pvCpuVAddr = OSMapPhysToLin(CpuPAddr,
@@ -542,13 +523,14 @@ ZeroBuf(BM_BUF *pBuf, BM_MAPPING *pMapping, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui3
 }
 
 static IMG_VOID
-FreeBuf (BM_BUF *pBuf, IMG_UINT32 ui32Flags)
+FreeBuf (BM_BUF *pBuf, IMG_UINT32 ui32Flags, IMG_BOOL bFromAllocator)
 {
 	BM_MAPPING *pMapping;
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			"FreeBuf: pBuf=%08X: DevVAddr=%08X CpuVAddr=%08X CpuPAddr=%08X",
-			pBuf, pBuf->DevVAddr.uiAddr, pBuf->CpuVAddr, pBuf->CpuPAddr.uiAddr));
+			"FreeBuf: pBuf=0x%x: DevVAddr=%08X CpuVAddr=0x%x CpuPAddr=%08X",
+			(IMG_UINTPTR_T)pBuf, pBuf->DevVAddr.uiAddr,
+			(IMG_UINTPTR_T)pBuf->CpuVAddr, pBuf->CpuPAddr.uiAddr));
 
 	
 	pMapping = pBuf->pMapping;
@@ -556,16 +538,20 @@ FreeBuf (BM_BUF *pBuf, IMG_UINT32 ui32Flags)
 	if(ui32Flags & PVRSRV_MEM_USER_SUPPLIED_DEVVADDR)
 	{
 		
-		if(ui32Flags & PVRSRV_MEM_RAM_BACKED_ALLOCATION)
+		if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
 		{
 			
-			PVR_DPF ((PVR_DBG_ERROR, "FreeBuf: combination of DevVAddr management and RAM backing mode unsupported"));
-		}
-		else
-		{
-			
-			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_MAPPING), pMapping, IMG_NULL);
-			pBuf->pMapping = IMG_NULL; 
+			if(ui32Flags & PVRSRV_MEM_RAM_BACKED_ALLOCATION)
+			{
+				
+				PVR_DPF ((PVR_DBG_ERROR, "FreeBuf: combination of DevVAddr management and RAM backing mode unsupported"));
+			}
+			else
+			{
+				
+				OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_MAPPING), pMapping, IMG_NULL);
+				pBuf->pMapping = IMG_NULL; 
+			}
 		}
 	}
 	else
@@ -573,50 +559,71 @@ FreeBuf (BM_BUF *pBuf, IMG_UINT32 ui32Flags)
 		
 		if(pBuf->hOSMemHandle != pMapping->hOSMemHandle)
 		{
-			OSReleaseSubMemHandle(pBuf->hOSMemHandle, ui32Flags);
+            
+			if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
+			{
+				
+				OSReleaseSubMemHandle(pBuf->hOSMemHandle, ui32Flags);
+			}
 		}
 		if(ui32Flags & PVRSRV_MEM_RAM_BACKED_ALLOCATION)
 		{
 			
+            
+			if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
+			{
+				
 
 
-			RA_Free (pBuf->pMapping->pArena, pBuf->DevVAddr.uiAddr, IMG_FALSE);
+				PVR_ASSERT(pBuf->ui32ExportCount == 0)
+				RA_Free (pBuf->pMapping->pArena, pBuf->DevVAddr.uiAddr, IMG_FALSE);
+			}
 		}
 		else
 		{
-			switch (pMapping->eCpuMemoryOrigin)
+			if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
 			{
-				case hm_wrapped:
-					OSUnReservePhys(pMapping->CpuVAddr, pMapping->uSize, ui32Flags, pMapping->hOSMemHandle);
-					break;
-				case hm_wrapped_virtaddr:
-					OSUnRegisterMem(pMapping->CpuVAddr, pMapping->uSize, ui32Flags, pMapping->hOSMemHandle);
-					break;
-				case hm_wrapped_scatter:
-					OSUnReserveDiscontigPhys(pMapping->CpuVAddr, pMapping->uSize, ui32Flags, pMapping->hOSMemHandle);
-					break;
-				case hm_wrapped_scatter_virtaddr:
-					OSUnRegisterDiscontigMem(pMapping->CpuVAddr, pMapping->uSize, ui32Flags, pMapping->hOSMemHandle);
-					break;
-				default:
-					break;
+				switch (pMapping->eCpuMemoryOrigin)
+				{
+					case hm_wrapped:
+						OSUnReservePhys(pMapping->CpuVAddr, pMapping->uSize, ui32Flags, pMapping->hOSMemHandle);
+						break;
+					case hm_wrapped_virtaddr:
+						OSUnRegisterMem(pMapping->CpuVAddr, pMapping->uSize, ui32Flags, pMapping->hOSMemHandle);
+						break;
+					case hm_wrapped_scatter:
+						OSUnReserveDiscontigPhys(pMapping->CpuVAddr, pMapping->uSize, ui32Flags, pMapping->hOSMemHandle);
+						break;
+					case hm_wrapped_scatter_virtaddr:
+						OSUnRegisterDiscontigMem(pMapping->CpuVAddr, pMapping->uSize, ui32Flags, pMapping->hOSMemHandle);
+						break;
+					default:
+						break;
+				}
 			}
-			
-			DevMemoryFree (pMapping);
+			if (bFromAllocator)
+				DevMemoryFree (pMapping);
 
-			
-			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_MAPPING), pMapping, IMG_NULL);
-			pBuf->pMapping = IMG_NULL; 
+			if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
+			{
+				
+				OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_MAPPING), pMapping, IMG_NULL);
+				pBuf->pMapping = IMG_NULL; 
+			}
 		}
 	}
 
-	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_BUF), pBuf, IMG_NULL);
-	
+
+	if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
+	{
+		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_BUF), pBuf, IMG_NULL);
+		
+	}
 }
 
-PVRSRV_ERROR BM_DestroyContext_AnyCb(BM_HEAP *psBMHeap)
+static PVRSRV_ERROR BM_DestroyContext_AnyCb(BM_HEAP *psBMHeap)
 {
-	if(psBMHeap->ui32Attribs 
+	if(psBMHeap->ui32Attribs
 	& 	(PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG
 		|PVRSRV_BACKINGSTORE_LOCALMEM_CONTIG))
 	{
@@ -626,7 +633,7 @@ PVRSRV_ERROR BM_DestroyContext_AnyCb(BM_HEAP *psBMHeap)
 			if (!bTestDelete)
 			{
 				PVR_DPF ((PVR_DBG_ERROR, "BM_DestroyContext_AnyCb: RA_TestDelete failed"));
-				return PVRSRV_ERROR_GENERIC;
+				return PVRSRV_ERROR_UNABLE_TO_DESTROY_BM_HEAP;
 			}
 		}
 	}
@@ -667,7 +674,7 @@ BM_DestroyContext(IMG_HANDLE	hBMContext,
 	
 
 
-	eError = List_BM_HEAP_PVRSRV_ERROR_Any(pBMContext->psBMHeap, BM_DestroyContext_AnyCb);
+	eError = List_BM_HEAP_PVRSRV_ERROR_Any(pBMContext->psBMHeap, &BM_DestroyContext_AnyCb);
 	if(eError != PVRSRV_OK)
 	{
 		PVR_DPF ((PVR_DBG_ERROR, "BM_DestroyContext: List_BM_HEAP_PVRSRV_ERROR_Any failed"));
@@ -683,7 +690,7 @@ BM_DestroyContext(IMG_HANDLE	hBMContext,
 		}
 		
 #endif
-		return eError;	
+		return eError;
 	}
 	else
 	{
@@ -692,27 +699,27 @@ BM_DestroyContext(IMG_HANDLE	hBMContext,
 		if(eError != PVRSRV_OK)
 		{
 			PVR_DPF ((PVR_DBG_ERROR, "BM_DestroyContext: ResManFreeResByPtr failed %d",eError));
-			return eError;		
+			return eError;
 		}
-	
+
 		
 		if (pbDestroyed != IMG_NULL)
 		{
 			*pbDestroyed = IMG_TRUE;
 		}
 	}
-	
+
 	return PVRSRV_OK;
 }
 
 
-PVRSRV_ERROR BM_DestroyContextCallBack_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
+static PVRSRV_ERROR BM_DestroyContextCallBack_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
 	psDeviceNode = va_arg(va, PVRSRV_DEVICE_NODE*);
+
 	
-	
-	if(psBMHeap->ui32Attribs 
+	if(psBMHeap->ui32Attribs
 	& 	(PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG
 		|PVRSRV_BACKINGSTORE_LOCALMEM_CONTIG))
 	{
@@ -724,9 +731,9 @@ PVRSRV_ERROR BM_DestroyContextCallBack_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
 	else
 	{
 		PVR_DPF((PVR_DBG_ERROR, "BM_DestroyContext: backing store type unsupported"));
-		return PVRSRV_ERROR_GENERIC;
+		return PVRSRV_ERROR_UNSUPPORTED_BACKING_STORE;
 	}
-	
+
 	
 	psDeviceNode->pfnMMUDelete(psBMHeap->pMMUHeap);
 
@@ -743,6 +750,7 @@ static PVRSRV_ERROR BM_DestroyContextCallBack(IMG_PVOID		pvParam,
 {
 	BM_CONTEXT *pBMContext = pvParam;
 	PVRSRV_DEVICE_NODE *psDeviceNode;
+	PVRSRV_ERROR eError;
 	PVR_UNREFERENCED_PARAMETER(ui32Param);
 
 	
@@ -751,11 +759,12 @@ static PVRSRV_ERROR BM_DestroyContextCallBack(IMG_PVOID		pvParam,
 
 	
 
-	if(List_BM_HEAP_PVRSRV_ERROR_Any_va(pBMContext->psBMHeap,
-										BM_DestroyContextCallBack_AnyVaCb,
-										psDeviceNode) != PVRSRV_OK)
+	eError = List_BM_HEAP_PVRSRV_ERROR_Any_va(pBMContext->psBMHeap,
+										&BM_DestroyContextCallBack_AnyVaCb,
+										psDeviceNode);
+	if (eError != PVRSRV_OK)
 	{
-		return PVRSRV_ERROR_GENERIC;
+		return eError;
 	}
 	
 
@@ -763,7 +772,7 @@ static PVRSRV_ERROR BM_DestroyContextCallBack(IMG_PVOID		pvParam,
 	{
 		psDeviceNode->pfnMMUFinalise(pBMContext->psMMUContext);
 	}
-	
+
 	
 
 	if (pBMContext->pBufferHash)
@@ -789,7 +798,7 @@ static PVRSRV_ERROR BM_DestroyContextCallBack(IMG_PVOID		pvParam,
 }
 
 
-IMG_HANDLE BM_CreateContext_IncRefCount_AnyVaCb(BM_CONTEXT *pBMContext, va_list va)
+static IMG_HANDLE BM_CreateContext_IncRefCount_AnyVaCb(BM_CONTEXT *pBMContext, va_list va)
 {
 	PRESMAN_CONTEXT	hResManContext;
 	hResManContext = va_arg(va, PRESMAN_CONTEXT);
@@ -802,7 +811,7 @@ IMG_HANDLE BM_CreateContext_IncRefCount_AnyVaCb(BM_CONTEXT *pBMContext, va_list 
 	return IMG_NULL;
 }
 
-IMG_VOID BM_CreateContext_InsertHeap_ForEachVaCb(BM_HEAP *psBMHeap, va_list va)
+static IMG_VOID BM_CreateContext_InsertHeap_ForEachVaCb(BM_HEAP *psBMHeap, va_list va)
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
 	BM_CONTEXT *pBMContext;
@@ -820,7 +829,7 @@ IMG_VOID BM_CreateContext_InsertHeap_ForEachVaCb(BM_HEAP *psBMHeap, va_list va)
 	}
 }
 
-IMG_HANDLE 
+IMG_HANDLE
 BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 				 IMG_DEV_PHYADDR			*psPDDevPAddr,
 				 PVRSRV_PER_PROCESS_DATA	*psPerProc,
@@ -855,7 +864,7 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 	if (bKernelContext == IMG_FALSE)
 	{
 		IMG_HANDLE res = (IMG_HANDLE) List_BM_CONTEXT_Any_va(psDevMemoryInfo->pBMContext,
-															BM_CreateContext_IncRefCount_AnyVaCb,
+															&BM_CreateContext_IncRefCount_AnyVaCb,
 															hResManContext);
 		if (res)
 		{
@@ -922,12 +931,12 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 
 
 		pBMContext->psBMSharedHeap = psDevMemoryInfo->pBMKernelContext->psBMHeap;
-		
+
 		
 
 
 		List_BM_HEAP_ForEach_va(pBMContext->psBMSharedHeap,
-								BM_CreateContext_InsertHeap_ForEachVaCb,
+								&BM_CreateContext_InsertHeap_ForEachVaCb,
 								psDeviceNode,
 								pBMContext);
 
@@ -943,7 +952,7 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 											RESMAN_TYPE_DEVICEMEM_CONTEXT,
 											pBMContext,
 											0,
-											BM_DestroyContextCallBack);
+											&BM_DestroyContextCallBack);
 	if (pBMContext->hResItem == IMG_NULL)
 	{
 		PVR_DPF ((PVR_DBG_ERROR, "BM_CreateContext: ResManRegisterRes failed"));
@@ -963,7 +972,7 @@ cleanup:
 }
 
 
-IMG_VOID *BM_CreateHeap_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
+static IMG_VOID *BM_CreateHeap_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
 {
 	DEVICE_MEMORY_HEAP_INFO *psDevMemHeapInfo;
 	psDevMemHeapInfo = va_arg(va, DEVICE_MEMORY_HEAP_INFO*);
@@ -983,15 +992,18 @@ BM_CreateHeap (IMG_HANDLE hBMContext,
 			   DEVICE_MEMORY_HEAP_INFO *psDevMemHeapInfo)
 {
 	BM_CONTEXT *pBMContext = (BM_CONTEXT*)hBMContext;
-	PVRSRV_DEVICE_NODE *psDeviceNode = pBMContext->psDeviceNode;
+	PVRSRV_DEVICE_NODE *psDeviceNode;
 	BM_HEAP *psBMHeap;
 
 	PVR_DPF((PVR_DBG_MESSAGE, "BM_CreateHeap"));
 
 	if(!pBMContext)
 	{
+		PVR_DPF((PVR_DBG_ERROR, "BM_CreateHeap: BM_CONTEXT null"));
 		return IMG_NULL;
 	}
+
+	psDeviceNode = pBMContext->psDeviceNode;
 
 	
 
@@ -1001,7 +1013,7 @@ BM_CreateHeap (IMG_HANDLE hBMContext,
 	if(pBMContext->ui32RefCount > 0)
 	{
 		psBMHeap = (BM_HEAP*)List_BM_HEAP_Any_va(pBMContext->psBMHeap,
-												 BM_CreateHeap_AnyVaCb,
+												 &BM_CreateHeap_AnyVaCb,
 												 psDevMemHeapInfo);
 
 		if (psBMHeap)
@@ -1036,7 +1048,8 @@ BM_CreateHeap (IMG_HANDLE hBMContext,
 
 	psBMHeap->pMMUHeap = psDeviceNode->pfnMMUCreate (pBMContext->psMMUContext,
 													&psBMHeap->sDevArena,
-													&psBMHeap->pVMArena);
+													&psBMHeap->pVMArena,
+													&psBMHeap->psMMUAttrib);
 	if (!psBMHeap->pMMUHeap)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "BM_CreateHeap: MMUCreate failed"));
@@ -1046,9 +1059,9 @@ BM_CreateHeap (IMG_HANDLE hBMContext,
 	
 	psBMHeap->pImportArena = RA_Create (psDevMemHeapInfo->pszBSName,
 										0, 0, IMG_NULL,
-										psBMHeap->sDevArena.ui32DataPageSize,
-										BM_ImportMemory, 
-										BM_FreeMemory, 
+										MAX(HOST_PAGESIZE(), psBMHeap->sDevArena.ui32DataPageSize),
+										&BM_ImportMemory,
+										&BM_FreeMemory,
 										IMG_NULL,
 										psBMHeap);
 	if(psBMHeap->pImportArena == IMG_NULL)
@@ -1102,9 +1115,9 @@ BM_DestroyHeap (IMG_HANDLE hDevMemHeap)
 	PVR_DPF((PVR_DBG_MESSAGE, "BM_DestroyHeap"));
 
 	if(psBMHeap)
-	{	
+	{
 		
-		if(psBMHeap->ui32Attribs 
+		if(psBMHeap->ui32Attribs
 		&	(PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG
 			|PVRSRV_BACKINGSTORE_LOCALMEM_CONTIG))
 		{
@@ -1121,7 +1134,7 @@ BM_DestroyHeap (IMG_HANDLE hDevMemHeap)
 
 		
 		psDeviceNode->pfnMMUDelete (psBMHeap->pMMUHeap);
-		
+
 		
 		List_BM_HEAP_Remove(psBMHeap);
 		
@@ -1135,7 +1148,7 @@ BM_DestroyHeap (IMG_HANDLE hDevMemHeap)
 }
 
 
-IMG_BOOL 
+IMG_BOOL
 BM_Reinitialise (PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 
@@ -1166,7 +1179,7 @@ BM_Alloc (  IMG_HANDLE			hDevMemHeap,
 		PVR_DBG_BREAK;
 		return IMG_FALSE;
 	}
-	
+
 	uFlags = *pui32Flags;
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
@@ -1210,8 +1223,8 @@ BM_Alloc (  IMG_HANDLE			hDevMemHeap,
 	}
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-		  "BM_Alloc (uSize=0x%x, uFlags=0x%x)=%08X",
-		  uSize, uFlags, pBuf));
+		  "BM_Alloc (uSize=0x%x, uFlags=0x%x)",
+		  uSize, uFlags));
 
 	
 	pBuf->ui32RefCount = 1;
@@ -1314,7 +1327,7 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
 		  "BM_Wrap (uSize=0x%x, uOffset=0x%x, bPhysContig=0x%x, pvCPUVAddr=0x%x, uFlags=0x%x)",
-			ui32Size, ui32Offset, bPhysContig, pvCPUVAddr, uFlags));
+			ui32Size, ui32Offset, bPhysContig, (IMG_UINTPTR_T)pvCPUVAddr, uFlags));
 
 	SysAcquireData(&psSysData);
 
@@ -1329,7 +1342,7 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 	}
 	else
 	{
-		IMG_SIZE_T ui32HostPageSize = HOST_PAGESIZE();	
+		IMG_SIZE_T ui32HostPageSize = HOST_PAGESIZE();
 
 		if (!ValidSysPAddrArrayForDev(psBMContext->psDeviceNode, psSysAddr, WRAP_PAGE_COUNT(ui32Size, ui32Offset, ui32HostPageSize), ui32HostPageSize))
 		{
@@ -1340,12 +1353,12 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 #endif
 	
 	sHashAddress = psSysAddr[0];
-	
+
 	
 	sHashAddress.uiAddr += ui32Offset;
 
 	
-	pBuf = (BM_BUF *)HASH_Retrieve(psBMContext->pBufferHash, (IMG_UINTPTR_T) sHashAddress.uiAddr);
+	pBuf = (BM_BUF *)HASH_Retrieve(psBMContext->pBufferHash, sHashAddress.uiAddr);
 
 	if(pBuf)
 	{
@@ -1394,17 +1407,17 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 		
 		PVR_ASSERT(SysSysPAddrToCpuPAddr(sHashAddress).uiAddr == pBuf->CpuPAddr.uiAddr);
 
-		if (!HASH_Insert (psBMContext->pBufferHash, (IMG_UINTPTR_T) sHashAddress.uiAddr, (IMG_UINTPTR_T)pBuf))
+		if (!HASH_Insert (psBMContext->pBufferHash, sHashAddress.uiAddr, (IMG_UINTPTR_T)pBuf))
 		{
-			FreeBuf (pBuf, uFlags);
+			FreeBuf (pBuf, uFlags, IMG_TRUE);
 			PVR_DPF((PVR_DBG_ERROR, "BM_Wrap: HASH_Insert FAILED"));
 			return IMG_FALSE;
 		}
 	}
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			"BM_Wrap (uSize=0x%x, uFlags=0x%x)=%08X(devVAddr=%08X)",
-			ui32Size, uFlags, pBuf, pBuf->DevVAddr.uiAddr));
+			"BM_Wrap (uSize=0x%x, uFlags=0x%x, devVAddr=%08X)",
+			ui32Size, uFlags, pBuf->DevVAddr.uiAddr));
 
 	
 	pBuf->ui32RefCount = 1;
@@ -1418,6 +1431,23 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 	return IMG_TRUE;
 }
 
+IMG_VOID
+BM_Export (BM_HANDLE hBuf)
+{
+	BM_BUF *pBuf = (BM_BUF *)hBuf;
+
+	pBuf->ui32ExportCount++;
+}
+
+IMG_VOID
+BM_FreeExport(BM_HANDLE hBuf,
+		IMG_UINT32 ui32Flags)
+{
+	BM_BUF *pBuf = (BM_BUF *)hBuf;
+
+	pBuf->ui32ExportCount--;
+	FreeBuf (pBuf, ui32Flags, IMG_FALSE);
+}
 
 IMG_VOID
 BM_Free (BM_HANDLE hBuf,
@@ -1427,7 +1457,7 @@ BM_Free (BM_HANDLE hBuf,
 	SYS_DATA *psSysData;
 	IMG_SYS_PHYADDR sHashAddr;
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "BM_Free (h=%08X)", hBuf));
+	PVR_DPF ((PVR_DBG_MESSAGE, "BM_Free (h=0x%x)", (IMG_UINTPTR_T)hBuf));
 	PVR_ASSERT (pBuf!=IMG_NULL);
 
 	if (pBuf == IMG_NULL)
@@ -1448,7 +1478,7 @@ BM_Free (BM_HANDLE hBuf,
 
 			HASH_Remove (pBuf->pMapping->pBMHeap->pBMContext->pBufferHash,	(IMG_UINTPTR_T)sHashAddr.uiAddr);
 		}
-		FreeBuf (pBuf, ui32Flags);
+		FreeBuf (pBuf, ui32Flags, IMG_TRUE);
 	}
 }
 
@@ -1466,8 +1496,8 @@ BM_HandleToCpuVaddr (BM_HANDLE hBuf)
 	}
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"BM_HandleToCpuVaddr(h=%08X)=%08X",
-				hBuf, pBuf->CpuVAddr));
+				"BM_HandleToCpuVaddr(h=0x%x)=0x%x",
+				(IMG_UINTPTR_T)hBuf, (IMG_UINTPTR_T)pBuf->CpuVAddr));
 	return pBuf->CpuVAddr;
 }
 
@@ -1485,7 +1515,7 @@ BM_HandleToDevVaddr (BM_HANDLE hBuf)
 		return DevVAddr;
 	}
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "BM_HandleToDevVaddr(h=%08X)=%08X", hBuf, pBuf->DevVAddr));
+	PVR_DPF ((PVR_DBG_MESSAGE, "BM_HandleToDevVaddr(h=0x%x)=%08X", (IMG_UINTPTR_T)hBuf, pBuf->DevVAddr.uiAddr));
 	return pBuf->DevVAddr;
 }
 
@@ -1504,7 +1534,7 @@ BM_HandleToSysPaddr (BM_HANDLE hBuf)
 		return PhysAddr;
 	}
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "BM_HandleToSysPaddr(h=%08X)=%08X", hBuf, pBuf->CpuPAddr.uiAddr));
+	PVR_DPF ((PVR_DBG_MESSAGE, "BM_HandleToSysPaddr(h=0x%x)=%08X", (IMG_UINTPTR_T)hBuf, pBuf->CpuPAddr.uiAddr));
 	return SysCpuPAddrToSysPAddr (pBuf->CpuPAddr);
 }
 
@@ -1522,24 +1552,14 @@ BM_HandleToOSMemHandle(BM_HANDLE hBuf)
 	}
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"BM_HandleToOSMemHandle(h=%08X)=%08X",
-				hBuf, pBuf->hOSMemHandle));
+				"BM_HandleToOSMemHandle(h=0x%x)=0x%x",
+				(IMG_UINTPTR_T)hBuf, (IMG_UINTPTR_T)pBuf->hOSMemHandle));
 	return pBuf->hOSMemHandle;
 }
 
-IMG_BOOL
-BM_ContiguousStatistics (IMG_UINT32 uFlags,
-						 IMG_UINT32 *pTotalBytes,
-						 IMG_UINT32 *pAvailableBytes)
-{
-	if (pAvailableBytes || pTotalBytes || uFlags);
-	return IMG_FALSE;
-}
-
-
 static IMG_BOOL
 DevMemoryAlloc (BM_CONTEXT *pBMContext,
-				BM_MAPPING *pMapping, 
+				BM_MAPPING *pMapping,
 				IMG_SIZE_T *pActualSize,
 				IMG_UINT32 uFlags,
 				IMG_UINT32 dev_vaddr_alignment,
@@ -1557,7 +1577,7 @@ DevMemoryAlloc (BM_CONTEXT *pBMContext,
 		
 		pMapping->uSize *= 2;
 	}
-	
+
 #ifdef PDUMP
 	if(uFlags & PVRSRV_MEM_DUMMY)
 	{
@@ -1567,11 +1587,11 @@ DevMemoryAlloc (BM_CONTEXT *pBMContext,
 #endif
 
 	
-	if (!psDeviceNode->pfnMMUAlloc (pMapping->pBMHeap->pMMUHeap, 
-									pMapping->uSize, 
-									pActualSize, 
+	if (!psDeviceNode->pfnMMUAlloc (pMapping->pBMHeap->pMMUHeap,
+									pMapping->uSize,
+									pActualSize,
 									0,
-									dev_vaddr_alignment, 
+									dev_vaddr_alignment,
 									&(pMapping->DevVAddr)))
 	{
 		PVR_DPF((PVR_DBG_ERROR, "DevMemoryAlloc ERROR MMU_Alloc"));
@@ -1582,9 +1602,21 @@ DevMemoryAlloc (BM_CONTEXT *pBMContext,
 	EnableHostAccess(pBMContext->psMMUContext);
 #endif
 
+#if defined(PDUMP)
 	
-	
-	PDUMPMALLOCPAGES(psDeviceNode->sDevId.eDeviceType, pMapping->DevVAddr.uiAddr, pMapping->CpuVAddr, pMapping->hOSMemHandle, ui32PDumpSize, pMapping->pBMHeap->sDevArena.ui32DataPageSize, (IMG_HANDLE)pMapping);
+	PDUMPMALLOCPAGES(&psDeviceNode->sDevId,
+					 pMapping->DevVAddr.uiAddr,
+					 pMapping->CpuVAddr,
+					 pMapping->hOSMemHandle,
+					 ui32PDumpSize,
+					 pMapping->pBMHeap->sDevArena.ui32DataPageSize,
+#if defined(SUPPORT_PDUMP_MULTI_PROCESS)
+					 psDeviceNode->pfnMMUIsHeapShared(pMapping->pBMHeap->pMMUHeap),
+#else
+					 IMG_FALSE, 
+#endif 
+					 (IMG_HANDLE)pMapping);
+#endif
 
 	switch (pMapping->eCpuMemoryOrigin)
 	{
@@ -1663,7 +1695,7 @@ DevMemoryFree (BM_MAPPING *pMapping)
 
 	PDUMPFREEPAGES(pMapping->pBMHeap,
                     pMapping->DevVAddr,
-                    ui32PSize, 
+                    ui32PSize,
                     pMapping->pBMHeap->sDevArena.ui32DataPageSize,
                     (IMG_HANDLE)pMapping,
                     (pMapping->ui32Flags & PVRSRV_MEM_INTERLEAVED) ? IMG_TRUE : IMG_FALSE);
@@ -1691,8 +1723,8 @@ BM_ImportMemory (IMG_VOID *pH,
 	IMG_UINT32 uDevVAddrAlignment = 0;
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			  "BM_ImportMemory (pBMContext=%08X, uRequestSize=0x%x, uFlags=0x%x, uAlign=0x%x)",
-			  pBMContext, uRequestSize, uFlags, uDevVAddrAlignment));
+			  "BM_ImportMemory (pBMContext=0x%x, uRequestSize=0x%x, uFlags=0x%x, uAlign=0x%x)",
+			  (IMG_UINTPTR_T)pBMContext, uRequestSize, uFlags, uDevVAddrAlignment));
 
 	PVR_ASSERT (ppsMapping != IMG_NULL);
 	PVR_ASSERT (pBMContext != IMG_NULL);
@@ -1728,7 +1760,7 @@ BM_ImportMemory (IMG_VOID *pH,
 	{
 		*pActualSize = uSize;
 	}
-	
+
 	
 	if(pMapping->ui32Flags & PVRSRV_MEM_DUMMY)
 	{
@@ -1774,14 +1806,14 @@ BM_ImportMemory (IMG_VOID *pH,
 		IMG_UINT32 ui32Attribs = pBMHeap->ui32Attribs;
 
 		
+		PVR_ASSERT(pBMHeap->pLocalDevMemArena != IMG_NULL);
+
+		
 		if (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK)
 		{
 			ui32Attribs &= ~PVRSRV_HAP_CACHETYPE_MASK;
 			ui32Attribs |= (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK);
 		}
-
-		
-		PVR_ASSERT(pBMHeap->pLocalDevMemArena != IMG_NULL);
 
 		if (!RA_Alloc (pBMHeap->pLocalDevMemArena,
 					   uPSize,
@@ -1819,10 +1851,10 @@ BM_ImportMemory (IMG_VOID *pH,
 
 	
 	bResult = DevMemoryAlloc (pBMContext,
-								pMapping, 
-								IMG_NULL, 
+								pMapping,
+								IMG_NULL,
 								uFlags,
-								uDevVAddrAlignment, 
+								uDevVAddrAlignment,
 								&pMapping->DevVAddr);
 	if (!bResult)
 	{
@@ -1833,7 +1865,7 @@ BM_ImportMemory (IMG_VOID *pH,
 	}
 
 	
-	 
+	
 	PVR_ASSERT (uDevVAddrAlignment>1?(pMapping->DevVAddr.uiAddr%uDevVAddrAlignment)==0:1);
 
 	*pBase = pMapping->DevVAddr.uiAddr;
@@ -1862,8 +1894,8 @@ fail_dev_mem_alloc:
 
 		if(pBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG)
 		{
-			OSFreePages(pBMHeap->ui32Attribs, 
-						  uPSize, 
+			OSFreePages(pBMHeap->ui32Attribs,
+						  uPSize,
 						  (IMG_VOID *)pMapping->CpuVAddr,
 						  pMapping->hOSMemHandle);
 		}
@@ -1878,8 +1910,8 @@ fail_dev_mem_alloc:
 								pBMHeap->ui32Attribs,
 								pMapping->hOSMemHandle);
 			}
-			sSysPAddr = SysCpuPAddrToSysPAddr(pMapping->CpuPAddr);		
-			RA_Free (pBMHeap->pLocalDevMemArena, sSysPAddr.uiAddr, IMG_FALSE);	
+			sSysPAddr = SysCpuPAddrToSysPAddr(pMapping->CpuPAddr);
+			RA_Free (pBMHeap->pLocalDevMemArena, sSysPAddr.uiAddr, IMG_FALSE);
 		}
 	}
 fail_mapping_alloc:
@@ -1899,7 +1931,8 @@ BM_FreeMemory (IMG_VOID *h, IMG_UINTPTR_T _base, BM_MAPPING *psMapping)
 	PVR_UNREFERENCED_PARAMETER (_base);
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			  "BM_FreeMemory (h=%08X, base=0x%x, psMapping=0x%x)", h, _base, psMapping));
+			  "BM_FreeMemory (h=0x%x, base=0x%x, psMapping=0x%x)",
+			  (IMG_UINTPTR_T)h, _base, (IMG_UINTPTR_T)psMapping));
 
 	PVR_ASSERT (psMapping != IMG_NULL);
 
@@ -1916,7 +1949,7 @@ BM_FreeMemory (IMG_VOID *h, IMG_UINTPTR_T _base, BM_MAPPING *psMapping)
 	{
 		psMapping->uSize /= 2;
 	}
-	
+
 	if(psMapping->ui32Flags & PVRSRV_MEM_DUMMY)
 	{
 		uPSize = psMapping->pBMHeap->sDevArena.ui32DataPageSize;
@@ -1925,7 +1958,7 @@ BM_FreeMemory (IMG_VOID *h, IMG_UINTPTR_T _base, BM_MAPPING *psMapping)
 	{
 		uPSize = psMapping->uSize;
 	}
-	
+
 	if(pBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG)
 	{
 		OSFreePages(pBMHeap->ui32Attribs,
@@ -1952,8 +1985,8 @@ BM_FreeMemory (IMG_VOID *h, IMG_UINTPTR_T _base, BM_MAPPING *psMapping)
 	
 
 	PVR_DPF((PVR_DBG_MESSAGE,
-			"..BM_FreeMemory (h=%08X, base=0x%x, psMapping=0x%x)",
-			h, _base, psMapping));
+			"..BM_FreeMemory (h=0x%x, base=0x%x)",
+			(IMG_UINTPTR_T)h, _base));
 }
 
 IMG_VOID BM_GetPhysPageAddr(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
@@ -1971,23 +2004,8 @@ IMG_VOID BM_GetPhysPageAddr(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 
 	psDeviceNode = ((BM_BUF*)psMemInfo->sMemBlk.hBuffer)->pMapping->pBMHeap->pBMContext->psDeviceNode;
 
-	*psDevPAddr = psDeviceNode->pfnMMUGetPhysPageAddr(((BM_BUF*)psMemInfo->sMemBlk.hBuffer)->pMapping->pBMHeap->pMMUHeap, 
+	*psDevPAddr = psDeviceNode->pfnMMUGetPhysPageAddr(((BM_BUF*)psMemInfo->sMemBlk.hBuffer)->pMapping->pBMHeap->pMMUHeap,
 												sDevVPageAddr);
-}
-
-
-PVRSRV_ERROR BM_GetHeapInfo(IMG_HANDLE hDevMemHeap, PVRSRV_HEAP_INFO *psHeapInfo)
-{
-	BM_HEAP *psBMHeap = (BM_HEAP *)hDevMemHeap;
-
-	PVR_DPF((PVR_DBG_VERBOSE, "BM_GetHeapInfo"));
-
-	psHeapInfo->hDevMemHeap = hDevMemHeap;
-	psHeapInfo->sDevVAddrBase = psBMHeap->sDevArena.BaseDevVAddr;
-	psHeapInfo->ui32HeapByteSize = psBMHeap->sDevArena.ui32Size;
-	psHeapInfo->ui32Attribs = psBMHeap->ui32Attribs;
-
-	return PVRSRV_OK;
 }
 
 

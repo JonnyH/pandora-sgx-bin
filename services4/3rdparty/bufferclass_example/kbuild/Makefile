@@ -24,8 +24,6 @@
 #
 #
 
-include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common
-
 MODULE		= bc_example
 
 INCLUDES = 	-I$(EURASIAROOT)/include4 \
@@ -39,4 +37,4 @@ SOURCES =	../bufferclass_example.c \
 
 SYM_VERS_DEPS = $(EURASIAROOT)/services4/srvkm/env/linux
 
-
+include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common

@@ -46,15 +46,19 @@ include $(EURASIAROOT)/eurasiacon/build/linux/$(PVR_BUILD_DIR)/makefile.core
 #
 include $(EURASIAROOT)/eurasiacon/build/linux/makefile.shared_conf
 
+KBUILD_SUBDIRS =
+
+ifeq ($(SUPPORT_DRI_DRM_NOT_PCI),1)
+KBUILD_SUBDIRS += $(EURASIAROOT)/services4/3rdparty/linux_drm
+endif
 
 ifeq ($(PDUMP),1)
 ifneq ($(SUPPORT_DRI_DRM),1)
-PDUMP_SUBDIRS += $(EURASIAROOT)/tools/intern/debug/dbgdriv/linux
+KBUILD_SUBDIRS += $(EURASIAROOT)/tools/intern/debug/dbgdriv/linux
 endif
 endif
 
-KBUILD_SUBDIRS = \
-	$(PDUMP_SUBDIRS) \
+KBUILD_SUBDIRS += \
 	$(EURASIAROOT)/services4/srvkm/env/linux \
 	$(EXTRA_SUBDIRS)
 

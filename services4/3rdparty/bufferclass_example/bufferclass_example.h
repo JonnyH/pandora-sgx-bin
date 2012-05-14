@@ -35,17 +35,23 @@
 extern "C" {
 #endif
 
-extern IMG_IMPORT IMG_BOOL PVRGetBufferClassJTable(PVRSRV_BC_BUFFER2SRV_KMJTABLE *psJTable);
-
 #define BC_EXAMPLE_NUM_BUFFERS  3
 
-#define YUV420 1
-#ifdef YUV420
+#define NV12 1
+#ifdef NV12
 
 #define BC_EXAMPLE_WIDTH        (320)
 #define BC_EXAMPLE_HEIGHT       (160)
 #define BC_EXAMPLE_STRIDE       (320)
 #define BC_EXAMPLE_PIXELFORMAT	(PVRSRV_PIXEL_FORMAT_NV12)
+
+#else
+#ifdef I420
+
+#define BC_EXAMPLE_WIDTH        (320)
+#define BC_EXAMPLE_HEIGHT       (160)
+#define BC_EXAMPLE_STRIDE       (320)
+#define BC_EXAMPLE_PIXELFORMAT	(PVRSRV_PIXEL_FORMAT_I420)
 
 #else
 #ifdef YUV422
@@ -62,6 +68,7 @@ extern IMG_IMPORT IMG_BOOL PVRGetBufferClassJTable(PVRSRV_BC_BUFFER2SRV_KMJTABLE
 #define BC_EXAMPLE_STRIDE       (320*2)
 #define BC_EXAMPLE_PIXELFORMAT  (PVRSRV_PIXEL_FORMAT_RGB565)
 
+#endif
 #endif
 #endif
 
@@ -82,8 +89,12 @@ typedef struct BC_EXAMPLE_BUFFER_TAG
 
 	
 	
-	IMG_SYS_PHYADDR         sSysAddr;
+#if defined(BC_DISCONTIG_BUFFERS)
+	IMG_SYS_PHYADDR				*psSysAddr;
+#else
+	IMG_SYS_PHYADDR				sSysAddr;
 	IMG_SYS_PHYADDR         sPageAlignSysAddr;
+#endif
 	IMG_CPU_VIRTADDR        sCPUVAddr;
 	PVRSRV_SYNC_DATA        *psSyncData;
 
@@ -156,6 +167,18 @@ BCE_ERROR BCClosePVRServices(BCE_HANDLE hPVRServices);
 
 void *BCAllocKernelMem(unsigned long ulSize);
 void BCFreeKernelMem(void *pvMem);
+#if defined(BC_DISCONTIG_BUFFERS)
+BCE_ERROR BCAllocDiscontigMemory(unsigned long ulSize,
+                              BCE_HANDLE unref__ *phMemHandle,
+                              IMG_CPU_VIRTADDR *pLinAddr,
+                              IMG_SYS_PHYADDR **ppPhysAddr);
+
+void BCFreeDiscontigMemory(unsigned long ulSize,
+                         BCE_HANDLE unref__ hMemHandle,
+                         IMG_CPU_VIRTADDR LinAddr,
+                         IMG_SYS_PHYADDR *pPhysAddr);
+
+#else
 
 BCE_ERROR BCAllocContigMemory(unsigned long    ulSize,
                               BCE_HANDLE       *phMemHandle,
@@ -166,6 +189,7 @@ void BCFreeContigMemory(unsigned long ulSize,
                         BCE_HANDLE hMemHandle,
                         IMG_CPU_VIRTADDR LinAddr,
                         IMG_CPU_PHYADDR PhysAddr);
+#endif
 
 IMG_SYS_PHYADDR CpuPAddrToSysPAddrBC(IMG_CPU_PHYADDR cpu_paddr);
 IMG_CPU_PHYADDR SysPAddrToCpuPAddrBC(IMG_SYS_PHYADDR sys_paddr);

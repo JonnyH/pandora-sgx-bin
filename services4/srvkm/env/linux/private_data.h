@@ -27,6 +27,15 @@
 #ifndef __INCLUDED_PRIVATE_DATA_H_
 #define __INCLUDED_PRIVATE_DATA_H_
 
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+#include <linux/list.h>
+#include <drm/drmP.h>
+#endif
+
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_LINUX_USING_WORKQUEUES)
+#include <linux/workqueue.h>
+#endif
+
 typedef struct
 {
 	
@@ -37,6 +46,23 @@ typedef struct
 	IMG_HANDLE hKernelMemInfo;
 #endif 
 
+#if defined(SUPPORT_DRI_DRM)
+#if defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	struct drm_file *psDRMFile;
+
+	
+	struct list_head sDRMAuthListItem;
+#endif
+
+#if defined(PVR_LINUX_USING_WORKQUEUES)
+	struct work_struct sReleaseWork;
+#endif
+
+#if defined(SUPPORT_DRI_DRM_EXT)
+	IMG_PVOID pPriv;	
+#endif
+#endif	
+
 #if defined(SUPPORT_MEMINFO_IDS)
 	
 	IMG_UINT64 ui64Stamp;
@@ -44,10 +70,6 @@ typedef struct
 
 	
 	IMG_HANDLE hBlockAlloc;
-
-#if defined(SUPPORT_DRI_DRM_EXT)
-	IMG_PVOID pPriv;	
-#endif
 }
 PVRSRV_FILE_PRIVATE_DATA;
 

@@ -51,13 +51,15 @@
 #endif
 
 #include "img_types.h"
-#include "client/linuxsrv.h"
-#include "dbgdriv/common/ioctl.h"
+#include "linuxsrv.h"
+#include "dbgdriv_ioctl.h"
 #include "dbgdrvif.h"
-#include "dbgdriv/common/dbgdriv.h"
-#include "dbgdriv/common/hostfunc.h"
+#include "dbgdriv.h"
+#include "hostfunc.h"
+#include "hotkey.h"
 #include "pvr_debug.h"
 #include "pvrmodule.h"
+#include "pvr_uaccess.h"
 
 #if defined(SUPPORT_DRI_DRM)
 
@@ -102,7 +104,9 @@ static struct file_operations dbgdrv_fops = {
 
 #endif  
 
-void DBGDrvGetServiceTable(void **fn_table)
+IMG_VOID DBGDrvGetServiceTable(IMG_VOID **fn_table);
+
+IMG_VOID DBGDrvGetServiceTable(IMG_VOID **fn_table)
 {
 	extern DBGKM_SERVICE_TABLE g_sDBGKMServices;
 
@@ -206,7 +210,7 @@ ErrDestroyClass:
 }
 
 #if defined(SUPPORT_DRI_DRM)
-IMG_INT dbgdrv_ioctl(struct drm_device *dev, IMG_VOID *arg, struct drm_file *pFile)
+int dbgdrv_ioctl(struct drm_device *dev, IMG_VOID *arg, struct drm_file *pFile)
 #else
 long dbgdrv_ioctl(struct file *file, unsigned int ioctlCmd, unsigned long arg)
 #endif
@@ -231,7 +235,7 @@ long dbgdrv_ioctl(struct file *file, unsigned int ioctlCmd, unsigned long arg)
 	in = buffer;
 	out = buffer + (PAGE_SIZE >>1);
 
-	if(copy_from_user(in, pIP->pInBuffer, pIP->ui32InBufferSize) != 0)
+	if(pvr_copy_from_user(in, pIP->pInBuffer, pIP->ui32InBufferSize) != 0)
 	{
 		goto init_failed;
 	}
@@ -240,9 +244,10 @@ long dbgdrv_ioctl(struct file *file, unsigned int ioctlCmd, unsigned long arg)
 
 	if(pIP->ui32Cmd == DEBUG_SERVICE_READ)
 	{
-		IMG_CHAR *ui8Tmp;
 		IMG_UINT32 *pui32BytesCopied = (IMG_UINT32 *)out;
 		DBG_IN_READ *psReadInParams = (DBG_IN_READ *)in;
+		DBG_STREAM *psStream;
+		IMG_CHAR *ui8Tmp;
 
 		ui8Tmp = vmalloc(psReadInParams->ui32OutBufferSize);
 
@@ -251,12 +256,18 @@ long dbgdrv_ioctl(struct file *file, unsigned int ioctlCmd, unsigned long arg)
 			goto init_failed;
 		}
 
-		*pui32BytesCopied = ExtDBGDrivRead((DBG_STREAM *)psReadInParams->pvStream,
+		psStream = SID2PStream(psReadInParams->hStream);
+		if(!psStream)
+		{
+			goto init_failed;
+		}
+
+		*pui32BytesCopied = ExtDBGDrivRead(psStream,
 										   psReadInParams->bReadInitBuffer,
 										   psReadInParams->ui32OutBufferSize,
 										   ui8Tmp);
 
-		if(copy_to_user(psReadInParams->pui8OutBuffer,
+		if(pvr_copy_to_user(psReadInParams->u.pui8OutBuffer,
 						ui8Tmp,
 						*pui32BytesCopied) != 0)
 		{
@@ -285,14 +296,16 @@ init_failed:
 }
 
 
-void RemoveHotKey(unsigned hHotKey)
+IMG_VOID RemoveHotKey (IMG_UINT32 hHotKey)
 {
-
+	PVR_UNREFERENCED_PARAMETER(hHotKey);
 }
 
-void DefineHotKey(unsigned ScanCode, unsigned ShiftState, void *pInfo)
+IMG_VOID DefineHotKey (IMG_UINT32 ui32ScanCode, IMG_UINT32 ui32ShiftState, PHOTKEYINFO psInfo)
 {
-
+	PVR_UNREFERENCED_PARAMETER(ui32ScanCode);
+	PVR_UNREFERENCED_PARAMETER(ui32ShiftState);
+	PVR_UNREFERENCED_PARAMETER(psInfo);
 }
 
 EXPORT_SYMBOL(DBGDrvGetServiceTable);

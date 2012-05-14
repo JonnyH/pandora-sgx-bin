@@ -24,8 +24,17 @@
  *
  ******************************************************************************/
 
+#if defined(__linux__)
+#include <linux/string.h>
+#else
+#include <string.h>
+#endif
+
 #include "bufferclass_example.h"
 
+
+
+#define BUFFERCLASS_DEVICE_NAME "Example Bufferclass Device (SW)"
 
 static void *gpvAnchor = NULL;
 static PFN_BC_GET_PVRJTABLE pfnGetPVRJTable = IMG_NULL;
@@ -41,9 +50,14 @@ static void SetAnchorPtr(BC_EXAMPLE_DEVINFO *psDevInfo)
 }
 
 
-static PVRSRV_ERROR OpenBCDevice(IMG_HANDLE *phDevice)
+static PVRSRV_ERROR OpenBCDevice(IMG_UINT32 ui32DeviceID, IMG_HANDLE *phDevice)
 {
 	BC_EXAMPLE_DEVINFO *psDevInfo;
+	
+	
+
+
+	UNREFERENCED_PARAMETER(ui32DeviceID);
 
 	psDevInfo = GetAnchorPtr();
 
@@ -54,8 +68,9 @@ static PVRSRV_ERROR OpenBCDevice(IMG_HANDLE *phDevice)
 }
 
 
-static PVRSRV_ERROR CloseBCDevice(IMG_HANDLE hDevice)
+static PVRSRV_ERROR CloseBCDevice(IMG_UINT32 ui32DeviceID, IMG_HANDLE hDevice)
 {
+	UNREFERENCED_PARAMETER(ui32DeviceID);
 	UNREFERENCED_PARAMETER(hDevice);
 
 	return (PVRSRV_OK);
@@ -112,9 +127,12 @@ static PVRSRV_ERROR GetBCBufferAddr(IMG_HANDLE      hDevice,
                                     IMG_UINT32      *pui32ByteSize,
                                     IMG_VOID        **ppvCpuVAddr,
                                     IMG_HANDLE      *phOSMapInfo,
-                                    IMG_BOOL        *pbIsContiguous)
+                                    IMG_BOOL        *pbIsContiguous,
+                                    IMG_UINT32      *pui32TilingStride)
 {
 	BC_EXAMPLE_BUFFER *psBuffer;
+
+	PVR_UNREFERENCED_PARAMETER(pui32TilingStride);
 
 	if(!hDevice || !hBuffer || !ppsSysAddr || !pui32ByteSize)
 	{
@@ -123,13 +141,18 @@ static PVRSRV_ERROR GetBCBufferAddr(IMG_HANDLE      hDevice,
 
 	psBuffer = (BC_EXAMPLE_BUFFER *) hBuffer;
 
-	*ppsSysAddr  = &psBuffer->sPageAlignSysAddr;
 	*ppvCpuVAddr = psBuffer->sCPUVAddr;
 
+	*phOSMapInfo    = IMG_NULL;
 	*pui32ByteSize = (IMG_UINT32)psBuffer->ulSize;
 
-	*phOSMapInfo    = IMG_NULL;
+#if defined(BC_DISCONTIG_BUFFERS)
+	*ppsSysAddr = psBuffer->psSysAddr;
+	*pbIsContiguous = IMG_FALSE;
+#else
+	*ppsSysAddr = &psBuffer->sPageAlignSysAddr;
 	*pbIsContiguous = IMG_TRUE;
+#endif
 
 	return (PVRSRV_OK);
 }
@@ -202,6 +225,8 @@ BCE_ERROR BC_Example_Register(void)
 		psDevInfo->sBufferInfo.ui32BufferDeviceID = BC_EXAMPLE_DEVICEID;
 		psDevInfo->sBufferInfo.ui32Flags          = 0;
 		psDevInfo->sBufferInfo.ui32BufferCount    = (IMG_UINT32)psDevInfo->ulNumBuffers;
+		
+		strncpy(psDevInfo->sBufferInfo.szDeviceName, BUFFERCLASS_DEVICE_NAME, MAX_BUFFER_DEVICE_NAME_SIZE);
 
 		
 
@@ -216,7 +241,7 @@ BCE_ERROR BC_Example_Register(void)
 		
 		
 		if(psDevInfo->sPVRJTable.pfnPVRSRVRegisterBCDevice (&psDevInfo->sBCJTable,
-															&psDevInfo->ulDeviceID ) != PVRSRV_OK)
+															(IMG_UINT32*)&psDevInfo->ulDeviceID ) != PVRSRV_OK)
 		{
 			return (BCE_ERROR_DEVICE_REGISTER_FAILED);
 		}
@@ -281,8 +306,10 @@ BCE_ERROR BC_Example_Unregister(void)
 BCE_ERROR BC_Example_Buffers_Create(void)
 {
 	BC_EXAMPLE_DEVINFO  *psDevInfo;
-	IMG_CPU_PHYADDR     sSystemBufferCPUPAddr;
 	unsigned long       i;
+#if !defined(BC_DISCONTIG_BUFFERS)
+	IMG_CPU_PHYADDR     sSystemBufferCPUPAddr;
+#endif
 
 	
 
@@ -315,7 +342,24 @@ BCE_ERROR BC_Example_Buffers_Create(void)
 			
 			ulSize += ((BC_EXAMPLE_STRIDE >> 1) * (BC_EXAMPLE_HEIGHT >> 1) << 1);
 		}
+		else if(psDevInfo->sBufferInfo.pixelformat == PVRSRV_PIXEL_FORMAT_I420)
+		{
+			
+			ulSize += (BC_EXAMPLE_STRIDE >> 1) * (BC_EXAMPLE_HEIGHT >> 1);
+			
+			
+			ulSize += (BC_EXAMPLE_STRIDE >> 1) * (BC_EXAMPLE_HEIGHT >> 1);
+		}
 
+#if defined(BC_DISCONTIG_BUFFERS)
+		if (BCAllocDiscontigMemory(ulSize,
+									&psDevInfo->psSystemBuffer[i].hMemHandle,
+									&psDevInfo->psSystemBuffer[i].sCPUVAddr,
+									&psDevInfo->psSystemBuffer[i].psSysAddr) != BCE_OK)
+		{
+			break;
+		}
+#else
 		
 		if (BCAllocContigMemory(ulSize,
 		                        &psDevInfo->psSystemBuffer[i].hMemHandle,
@@ -324,12 +368,13 @@ BCE_ERROR BC_Example_Buffers_Create(void)
 		{
 			break;
 		}
+		psDevInfo->psSystemBuffer[i].sSysAddr = CpuPAddrToSysPAddrBC(sSystemBufferCPUPAddr);
+		psDevInfo->psSystemBuffer[i].sPageAlignSysAddr.uiAddr = (psDevInfo->psSystemBuffer[i].sSysAddr.uiAddr & 0xFFFFF000);
+#endif
 
 		psDevInfo->ulNumBuffers++;
 
 		psDevInfo->psSystemBuffer[i].ulSize = ulSize;
-		psDevInfo->psSystemBuffer[i].sSysAddr = CpuPAddrToSysPAddrBC(sSystemBufferCPUPAddr);
-		psDevInfo->psSystemBuffer[i].sPageAlignSysAddr.uiAddr = (psDevInfo->psSystemBuffer[i].sSysAddr.uiAddr & 0xFFFFF000);
 		psDevInfo->psSystemBuffer[i].psSyncData = NULL;
 	}
 
@@ -367,10 +412,17 @@ BCE_ERROR BC_Example_Buffers_Destroy(void)
 
 	for(i = 0; i < psDevInfo->ulNumBuffers; i++)
 	{
+#if defined(BC_DISCONTIG_BUFFERS)
+		BCFreeDiscontigMemory(psDevInfo->psSystemBuffer[i].ulSize,
+			 psDevInfo->psSystemBuffer[i].hMemHandle,
+			 psDevInfo->psSystemBuffer[i].sCPUVAddr,
+			 psDevInfo->psSystemBuffer[i].psSysAddr);
+#else
 		BCFreeContigMemory(psDevInfo->psSystemBuffer[i].ulSize,
 				psDevInfo->psSystemBuffer[i].hMemHandle,
 				psDevInfo->psSystemBuffer[i].sCPUVAddr,
 				SysPAddrToCpuPAddrBC(psDevInfo->psSystemBuffer[i].sSysAddr));
+#endif
 	}
 	psDevInfo->ulNumBuffers = 0;
 

@@ -51,10 +51,11 @@
 #include "pvr_debug.h"
 
 #include "dbgdrvif.h"
-#include "dbgdriv/common/hostfunc.h"
+#include "hostfunc.h"
+#include "dbgdriv.h"
 
-#if !defined(SUPPORT_DRI_DRM)
-IMG_UINT32	gPVRDebugLevel = DBGPRIV_WARNING;
+#if defined(DEBUG) && !defined(SUPPORT_DRI_DRM)
+IMG_UINT32	gPVRDebugLevel = (DBGPRIV_FATAL | DBGPRIV_ERROR | DBGPRIV_WARNING);
 
 #define PVR_STRING_TERMINATOR		'\0'
 #define PVR_IS_FILE_SEPARATOR(character) ( ((character) == '\\') || ((character) == '/') )
@@ -67,22 +68,21 @@ void PVRSRVDebugPrintf	(
 						...
 					)
 {
-	IMG_BOOL bTrace, bDebug;
+	IMG_BOOL bTrace;
 #if !defined(__sh__)
 	IMG_CHAR *pszLeafName;
-	
+
 	pszLeafName = (char *)strrchr (pszFileName, '\\');
-	
+
 	if (pszLeafName)
 	{
 		pszFileName = pszLeafName;
 	}
 #endif 
-		
-	bTrace = gPVRDebugLevel & ui32DebugLevel & DBGPRIV_CALLTRACE;
-	bDebug = ((gPVRDebugLevel & DBGPRIV_ALLLEVELS) >= ui32DebugLevel);
 
-	if (bTrace || bDebug)
+	bTrace = (IMG_BOOL)(ui32DebugLevel & DBGPRIV_CALLTRACE) ? IMG_TRUE : IMG_FALSE;
+
+	if (gPVRDebugLevel & ui32DebugLevel)
 	{
 		va_list vaArgs;
 		static char szBuffer[256];
@@ -90,7 +90,7 @@ void PVRSRVDebugPrintf	(
 		va_start (vaArgs, pszFormat);
 
 		
-		if (bDebug)
+		if (bTrace == IMG_FALSE)
 		{
 			switch(ui32DebugLevel)
 			{
@@ -134,8 +134,7 @@ void PVRSRVDebugPrintf	(
 		vsprintf (&szBuffer[strlen(szBuffer)], pszFormat, vaArgs);
 
  		
-
- 		if (!bTrace)
+ 		if (bTrace == IMG_FALSE)
 		{
 			sprintf (&szBuffer[strlen(szBuffer)], " [%d, %s]", (int)ui32Line, pszFileName);
 		}

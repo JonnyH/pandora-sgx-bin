@@ -38,7 +38,7 @@ services4/srvkm/devices/sgx/sgxpower.c \
 services4/srvkm/bridged/bridged_pvr_bridge.c \
 services4/srvkm/bridged/bridged_support.c \
 services4/srvkm/bridged/sgx/bridged_sgx_bridge.c \
-services4/system/$(TI_PLATFORM)/sysutils_linux.c \
+services4/system/$(TI_PLATFORM)/sysutils.c \
 services4/system/$(TI_PLATFORM)/sysconfig.c \
 
 EXTRA_CFLAGS += -I$(src)/include4
@@ -55,14 +55,11 @@ EXTRA_CFLAGS += -I$(src)/services4/srvkm/bridged/sgx
 EXTRA_CFLAGS += $(ALL_CFLAGS)
 
 pvrsrvkm-y	:= $(FILES:.c=.o)
-ifeq ($(TI_PLATFORM),ti8168)
-obj-y := services4/3rdparty/dc_ti8168_linux/
+
+ifeq ($(TI_PLATFORM),ti81xx)
+obj-y := services4/3rdparty/dc_ti81xx_linux/
 else
-obj-y := services4/3rdparty/dc_omap3_linux/
+obj-y := services4/3rdparty/dc_omap3430_linux/
 endif
 obj-y += services4/3rdparty/bufferclass_ti/
-
-ifeq ($(VERSION), 3)
-export EXTRA_CFLAGS += -DAUTOCONF_INCLUDED
-endif
 

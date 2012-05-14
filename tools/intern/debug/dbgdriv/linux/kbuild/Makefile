@@ -24,12 +24,12 @@
 #
 #
 
-include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common
-
 MODULE		= dbgdrv
 
-INCLUDES =
+INCLUDES = -I$(EURASIAROOT)/services4/srvkm/env/linux
 
 SOURCES	=
 				
 include $(EURASIAROOT)/tools/intern/debug/dbgdriv/linux/makefile.linux.common
+
+include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common

@@ -43,6 +43,9 @@ extern "C" {
 #define DBGPRIV_VERBOSE		0x10UL
 #define DBGPRIV_CALLTRACE	0x20UL
 #define DBGPRIV_ALLOC		0x40UL
+
+#define DBGPRIV_DBGDRV_MESSAGE	0x1000UL
+
 #define DBGPRIV_ALLLEVELS	(DBGPRIV_FATAL | DBGPRIV_ERROR | DBGPRIV_WARNING | DBGPRIV_MESSAGE | DBGPRIV_VERBOSE)
 
 
@@ -55,7 +58,9 @@ extern "C" {
 #define PVR_DBG_CALLTRACE	DBGPRIV_CALLTRACE,__FILE__, __LINE__
 #define PVR_DBG_ALLOC		DBGPRIV_ALLOC,__FILE__, __LINE__
 
-#if !defined(PVRSRV_NEED_PVR_ASSERT) && defined(DEBUG_PVR)
+#define PVR_DBGDRIV_MESSAGE		DBGPRIV_DBGDRV_MESSAGE, "", 0
+
+#if !defined(PVRSRV_NEED_PVR_ASSERT) && defined(DEBUG)
 #define PVRSRV_NEED_PVR_ASSERT
 #endif
 
@@ -63,7 +68,7 @@ extern "C" {
 #define PVRSRV_NEED_PVR_DPF
 #endif
 
-#if !defined(PVRSRV_NEED_PVR_TRACE) && (defined(DEBUG_PVR) || defined(TIMING))
+#if !defined(PVRSRV_NEED_PVR_TRACE) && (defined(DEBUG) || defined(TIMING))
 #define PVRSRV_NEED_PVR_TRACE
 #endif
 
@@ -97,7 +102,7 @@ IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVDebugPrintf(IMG_UINT32 ui32DebugLevel,
 												   const IMG_CHAR *pszFileName,
 												   IMG_UINT32 ui32Line,
 												   const IMG_CHAR *pszFormat,
-												   ...);
+												   ...) IMG_FORMAT_PRINTF(4, 5);
 
 #else  
 
@@ -110,7 +115,8 @@ IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVDebugPrintf(IMG_UINT32 ui32DebugLevel,
 
 	#define PVR_TRACE(X)	PVRSRVTrace X
 
-IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVTrace(const IMG_CHAR* pszFormat, ... );
+IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVTrace(const IMG_CHAR* pszFormat, ... )
+	IMG_FORMAT_PRINTF(1, 2);
 
 #else 
 

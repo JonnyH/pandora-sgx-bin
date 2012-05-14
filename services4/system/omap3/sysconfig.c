@@ -28,10 +28,17 @@
 #include "kerneldisplay.h"
 #include "oemfuncs.h"
 #include "sgxinfo.h"
-#include "pdump_km.h"
 #include "sgxinfokm.h"
 #include "syslocal.h"
 #include "sysconfig.h"
+
+#include "ocpdefs.h"
+
+#if !defined(NO_HARDWARE) && \
+     defined(SYS_USING_INTERRUPTS) && \
+     defined(SGX530) && (SGX_CORE_REV == 125)
+#define SGX_OCP_REGS_ENABLED
+#endif
 
 SYS_DATA* gpsSysData = (SYS_DATA*)IMG_NULL;
 SYS_DATA  gsSysData;
@@ -56,7 +63,7 @@ IMG_UINT32 PVRSRV_BridgeDispatchKM(IMG_UINT32	Ioctl,
 								   IMG_UINT32	OutBufLen,
 								   IMG_UINT32	*pdwBytesTransferred);
 
-#if defined(DEBUG_PVR) && defined(DUMP_OMAP34xx_CLOCKS) && defined(__linux__)
+#if defined(DEBUG) && defined(DUMP_OMAP34xx_CLOCKS) && defined(__linux__)
 
 #pragma GCC diagnostic ignored "-Wstrict-prototypes"
 #include <mach/clock.h>
@@ -147,10 +154,35 @@ static INLINE void dump_omap34xx_clocks(void) {}
 
 #endif 
 
+#if defined(SGX_OCP_REGS_ENABLED)
+
+#define SYS_OMAP3430_OCP_REGS_SYS_PHYS_BASE		(SYS_OMAP3430_SGX_REGS_SYS_PHYS_BASE + EUR_CR_OCP_REVISION)
+#define SYS_OMAP3430_OCP_REGS_SIZE				0x110
+
+static IMG_CPU_VIRTADDR gpvOCPRegsLinAddr;
+
+static PVRSRV_ERROR EnableSGXClocksWrap(SYS_DATA *psSysData)
+{
+	PVRSRV_ERROR eError = EnableSGXClocks(psSysData);
+
+	if(eError == PVRSRV_OK)
+	{
+		OSWriteHWReg(gpvOCPRegsLinAddr,
+					 EUR_CR_OCP_DEBUG_CONFIG - EUR_CR_OCP_REVISION,
+					 EUR_CR_OCP_DEBUG_CONFIG_THALIA_INT_BYPASS_MASK);
+	}
+
+	return eError;
+}
+
+#else 
+
 static INLINE PVRSRV_ERROR EnableSGXClocksWrap(SYS_DATA *psSysData)
 {
 	return EnableSGXClocks(psSysData);
 }
+
+#endif 
 
 static INLINE PVRSRV_ERROR EnableSystemClocksWrap(SYS_DATA *psSysData)
 {
@@ -217,6 +249,13 @@ static PVRSRV_ERROR SysLocateDevices(SYS_DATA *psSysData)
 
 #endif 
 
+#if defined(PDUMP)
+	{
+		
+		static IMG_CHAR pszPDumpDevName[] = "SGXMEM";
+		gsSGXDeviceMap.pszPDumpDevName = pszPDumpDevName;
+	}
+#endif
 
 	
 
@@ -445,9 +484,6 @@ PVRSRV_ERROR SysInitialise(IMG_VOID)
 		psDeviceNode = psDeviceNode->psNext;
 	}
 
-	PDUMPINIT();
-	SYS_SPECIFIC_DATA_SET(&gsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_PDUMPINIT);
-
 	eError = EnableSystemClocksWrap(gpsSysData);
 	if (eError != PVRSRV_OK)
 	{
@@ -578,13 +614,6 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 	PVR_UNREFERENCED_PARAMETER(psSysData);
 #endif 
 
-#if defined(SGX_OCP_REGS_ENABLED)
-	OSUnMapPhysToLin(gpvOCPRegsLinAddr,
-					 SYS_OMAP3430_OCP_REGS_SIZE,
-					 PVRSRV_HAP_UNCACHED|PVRSRV_HAP_KERNEL_ONLY,
-					 IMG_NULL);
-#endif
-
 	if (SYS_SPECIFIC_DATA_TEST(gpsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_INITDEV))
 	{
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
@@ -607,6 +636,13 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 		}
 	}
 	
+#if defined(SGX_OCP_REGS_ENABLED)
+	OSUnMapPhysToLin(gpvOCPRegsLinAddr,
+					 SYS_OMAP3430_OCP_REGS_SIZE,
+					 PVRSRV_HAP_UNCACHED|PVRSRV_HAP_KERNEL_ONLY,
+					 IMG_NULL);
+#endif
+
 	
 
 	if (SYS_SPECIFIC_DATA_TEST(gpsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_SYSCLOCKS))
@@ -643,11 +679,6 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 #endif
 
 	
-	if(SYS_SPECIFIC_DATA_TEST(gpsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_PDUMPINIT))
-	{
-		PDUMPDEINIT();
-	}
-
 	gpsSysSpecificData->ui32SysSpecificData = 0;
 	gpsSysSpecificData->bSGXInitComplete = IMG_FALSE;
 

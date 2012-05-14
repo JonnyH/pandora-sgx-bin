@@ -25,10 +25,11 @@
  ******************************************************************************/
 
 #include "bufferclass_example.h"
+#include "bufferclass_example_private.h"
 
 #define MIN(a,b) ((a)<(b)?(a):(b))
 
-void FillYUV420Image(void *pvDest, int width, int height, int bytestride)
+static void FillNV12Image(void *pvDest, int width, int height, int bytestride)
 {
 	static int iPhase = 0;
 	int             i, j;
@@ -39,6 +40,9 @@ void FillYUV420Image(void *pvDest, int width, int height, int bytestride)
 
 	for(j=0;j<height;j++)
 	{
+		pui8y = (unsigned char *)pvDest + j * bytestride;
+		count = 0;
+
 		for(i=0;i<width;i++)
 		{
 			y = (((i+iPhase)>>6)%(2)==0)? 0x7f:0x00;
@@ -47,11 +51,11 @@ void FillYUV420Image(void *pvDest, int width, int height, int bytestride)
 		}
 	}
 
-	pui16uv = (unsigned short *)((unsigned char *)pvDest + (width * height));
-	count = 0;
-
 	for(j=0;j<height;j+=2)
 	{
+		pui16uv = (unsigned short *)((unsigned char *)pvDest + height * bytestride + (j / 2) * bytestride);
+		count = 0;
+
 		for(i=0;i<width;i+=2)
 		{
 			u = (j<(height/2))? ((i<(width/2))? 0xFF:0x33) : ((i<(width/2))? 0x33:0xAA);
@@ -66,7 +70,61 @@ void FillYUV420Image(void *pvDest, int width, int height, int bytestride)
 	iPhase++;
 }
 
-void FillYUV422Image(void *pvDest, int width, int height, int bytestride)
+static void FillI420Image(void *pvDest, int width, int height, int bytestride)
+{
+	static int iPhase = 0;
+	int             i, j;
+	unsigned char   u,v,y;
+	unsigned char  *pui8y = (unsigned char *)pvDest;
+	unsigned char *pui8u, *pui8v;
+	unsigned int    count = 0;
+	int uvplanestride = bytestride / 2;
+	int uvplaneheight = height / 2;
+
+	for(j=0;j<height;j++)
+	{
+		pui8y = (unsigned char *)pvDest + j * bytestride;
+		count = 0;
+
+		for(i=0;i<width;i++)
+		{
+			y = (((i+iPhase)>>6)%(2)==0)? 0x7f:0x00;
+
+			pui8y[count++] = y;
+		}
+	}
+
+	for(j=0;j<height;j+=2)
+	{
+		pui8u = (unsigned char *)pvDest + (height * bytestride) + ((j / 2) * uvplanestride);
+		count = 0;
+
+		for(i=0;i<width;i+=2)
+		{
+			u = (j<(height/2))? ((i<(width/2))? 0xFF:0x33) : ((i<(width/2))? 0x33:0xAA);
+
+			pui8u[count++] = u;
+
+		}
+	}
+
+	for(j=0;j<height;j+=2)
+	{
+		pui8v = (unsigned char *)pvDest + (height * bytestride) + (uvplaneheight * uvplanestride) + (j / 2) * uvplanestride;
+		count = 0;
+
+		for(i=0;i<width;i+=2)
+		{
+			v = (j<(height/2))? ((i<(width/2))? 0xAC:0x0) : ((i<(width/2))? 0x03:0xEE);
+
+			pui8v[count++] = v;
+		}
+	}
+
+	iPhase++;
+}
+
+static void FillYUV422Image(void *pvDest, int width, int height, int bytestride, PVRSRV_PIXEL_FORMAT pixelformat)
 {
 	static int iPhase = 0;
 	int           x, y;
@@ -76,15 +134,35 @@ void FillYUV422Image(void *pvDest, int width, int height, int bytestride)
 
 	for(y=0;y<height;y++)
 	{
-		for(x=0;x<width;x+=2)
+		pui32yuv = (unsigned long *)((unsigned char *)pvDest + y * bytestride);
+		count = 0;
+
+		for(x=0;x<width; x+=2)
 		{
 			u = (y<(height/2))? ((x<(width/2))? 0xFF:0x33) : ((x<(width/2))? 0x33:0xAA);
 			v = (y<(height/2))? ((x<(width/2))? 0xAA:0x0) : ((x<(width/2))? 0x03:0xEE);
 
 			y0 = y1 = (((x+iPhase)>>6)%(2)==0)? 0x7f:0x00;
 
- 			
-			pui32yuv[count++] = (y1 << 24) | (v << 16) | (y0 << 8) | u;
+			switch(pixelformat)
+			{
+				case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_VYUY:
+					pui32yuv[count++] = (y1 << 24) | (u << 16) | (y0 << 8) | v;
+					break;
+				case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_UYVY:
+					pui32yuv[count++] = (y1 << 24) | (v << 16) | (y0 << 8) | u;
+					break;
+				case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_YUYV:
+					pui32yuv[count++] = (v << 24) | (y1 << 16) | (u << 8) | y0;
+					break;
+				case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_YVYU:
+					pui32yuv[count++] = (u << 24) | (y1 << 16) | (v << 8) | y0;
+					break;
+				
+				default:
+					break;
+
+			}
 
 		}
 	}
@@ -92,7 +170,7 @@ void FillYUV422Image(void *pvDest, int width, int height, int bytestride)
 	iPhase++;
 }
 
-void FillRGB565Image(void *pvDest, int width, int height, int bytestride)
+static void FillRGB565Image(void *pvDest, int width, int height, int bytestride)
 {
 	int i, Count;
 	unsigned long *pui32Addr  = (unsigned long *)pvDest;
@@ -174,14 +252,22 @@ int FillBuffer(unsigned int uiBufferIndex)
 			FillRGB565Image(psBuffer->sCPUVAddr, BC_EXAMPLE_WIDTH, BC_EXAMPLE_HEIGHT, BC_EXAMPLE_STRIDE);
 			break;
 		}
+		case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_VYUY:
 		case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_UYVY:
+		case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_YUYV:
+		case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_YVYU:
 		{
-			FillYUV422Image(psBuffer->sCPUVAddr, BC_EXAMPLE_WIDTH, BC_EXAMPLE_HEIGHT, BC_EXAMPLE_STRIDE);
+			FillYUV422Image(psBuffer->sCPUVAddr, BC_EXAMPLE_WIDTH, BC_EXAMPLE_HEIGHT, BC_EXAMPLE_STRIDE, psBufferInfo->pixelformat);
 			break;
 		}
 		case PVRSRV_PIXEL_FORMAT_NV12:
 		{
-			FillYUV420Image(psBuffer->sCPUVAddr, BC_EXAMPLE_WIDTH, BC_EXAMPLE_HEIGHT, BC_EXAMPLE_STRIDE);
+			FillNV12Image(psBuffer->sCPUVAddr, BC_EXAMPLE_WIDTH, BC_EXAMPLE_HEIGHT, BC_EXAMPLE_STRIDE);
+			break;
+		}
+		case PVRSRV_PIXEL_FORMAT_I420:
+		{
+			FillI420Image(psBuffer->sCPUVAddr, BC_EXAMPLE_WIDTH, BC_EXAMPLE_HEIGHT, BC_EXAMPLE_STRIDE);
 			break;
 		}
 	}
@@ -190,6 +276,11 @@ int FillBuffer(unsigned int uiBufferIndex)
 	if(psSyncData)
 	{
 		psSyncData->ui32WriteOpsComplete++;
+
+		if (NULL != psDevInfo->sPVRJTable.pfnPVRSRVScheduleDevices)
+		{
+			(*psDevInfo->sPVRJTable.pfnPVRSRVScheduleDevices)();
+		}
 	}
 
 	return 0;

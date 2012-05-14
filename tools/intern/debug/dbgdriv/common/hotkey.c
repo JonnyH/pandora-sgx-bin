@@ -85,7 +85,7 @@ IMG_VOID RegisterKeyPressed(IMG_UINT32 dwui32ScanCode, PHOTKEYINFO pInfo)
 		{
 			
 
-			g_ui32HotKeyFrame = psStream->ui32Current + 2;
+			g_ui32HotKeyFrame = psStream->psCtrl->ui32Current + 2;
 
 			
 

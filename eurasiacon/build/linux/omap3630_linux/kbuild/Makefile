@@ -26,6 +26,12 @@
 
 include ../../kbuild/Makefile.kbuild
 
-EXTRA_SUBDIRS = $(EURASIAROOT)/services4/3rdparty/dc_omap3430_linux \
-				$(EURASIAROOT)/services4/3rdparty/bufferclass_example
+EXTRA_SUBDIRS =
 
+ifeq ($(SUPPORT_OMAP3430_OMAPFB3),1)
+EXTRA_SUBDIRS += $(EURASIAROOT)/services4/3rdparty/dc_omapfb3_linux
+else
+EXTRA_SUBDIRS += $(EURASIAROOT)/services4/3rdparty/dc_omap3430_linux
+endif
+
+EXTRA_SUBDIRS += $(EURASIAROOT)/services4/3rdparty/bufferclass_example

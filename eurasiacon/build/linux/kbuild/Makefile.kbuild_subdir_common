@@ -33,15 +33,7 @@ obj-$(PVR_KBUILD_CONFIG_FLAG) += $(MODULE).o
 
 $(MODULE)-objs = $(SOURCES:.c=.o)
 
-EXTRA_CFLAGS = $(INCLUDES)  \
-				$(ALL_CFLAGS_kbuild)	\
-				-Wall -fno-strict-aliasing
-
-ifneq ($(PVR_KBUILD_IN_KERNEL),1)
-ifneq ($(SUPPORT_DRI_DRM_EXT),1)
-	EXTRA_CFLAGS += -Werror
-endif
-endif
+EXTRA_CFLAGS = $(INCLUDES) $(ALL_CFLAGS_kbuild)
 
 ifneq ($(PVR_KBUILD_IN_KERNEL),1)
 ifeq ($(SILENT),@)

@@ -24,8 +24,6 @@
 #
 #
 
-include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common
-
 MODULE		= omaplfb
 
 INCLUDES = 	-I$(EURASIAROOT)/include4 \
@@ -38,6 +36,4 @@ SOURCES	=	../omaplfb_displayclass.c \
 
 SYM_VERS_DEPS = $(EURASIAROOT)/services4/srvkm/env/linux
 
-
-
-
+include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common

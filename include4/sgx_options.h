@@ -24,7 +24,7 @@
  *
  ******************************************************************************/
 
-#if defined(DEBUG_PVR) || defined (INTERNAL_TEST)
+#if defined(DEBUG) || defined (INTERNAL_TEST)
 #define DEBUG_SET_OFFSET	OPTIONS_BIT0
 #define OPTIONS_BIT0		0x1
 #else
@@ -82,7 +82,7 @@
 #define OPTIONS_BIT8		0x0
 #endif 
 
-#if defined(SGX_FEATURE_DCU) || defined (INTERNAL_TEST)
+#if defined(SGX_FEATURE_WRITEBACK_DCU) || defined (INTERNAL_TEST)
 #define SGX_FEATURE_DCU_SET_OFFSET	OPTIONS_BIT9
 #define OPTIONS_BIT9		(0x1 << 9)
 #else
@@ -173,7 +173,7 @@
 #define OPTIONS_BIT20		0x0
 #endif 
 
-#if defined(SGX_LOW_LATENCY_SCHEDULING) || defined (INTERNAL_TEST)
+#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) || defined (INTERNAL_TEST)
 #define SUPPORT_SGX_LOW_LATENCY_SCHEDULING_SET_OFFSET	OPTIONS_BIT21
 #define OPTIONS_BIT21		(0x1 << 21)
 #else
@@ -220,5 +220,6 @@
 	OPTIONS_BIT19 |\
 	OPTIONS_BIT20 |\
 	OPTIONS_BIT21 |\
+	OPTIONS_BIT22 |\
 	OPTIONS_HIGHBYTE
 

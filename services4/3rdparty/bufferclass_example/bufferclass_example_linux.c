@@ -27,6 +27,7 @@
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/fs.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -39,6 +40,8 @@
 
 #include "bufferclass_example.h"
 #include "bufferclass_example_linux.h"
+#include "bufferclass_example_private.h"
+
 #include "pvrmodule.h"
 
 #define DEVNAME	"bc_example"
@@ -56,8 +59,10 @@
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
 int BC_Example_Bridge(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
-int FillBuffer(unsigned int uiBufferIndex);
-int GetBufferCount(unsigned int *puiBufferCount);
+
+#if defined(LDM_PLATFORM) || defined(LDM_PCI)
+static struct class *psPvrClass;
+#endif
 
 static int AssignedMajorNumber;
 
@@ -78,6 +83,8 @@ unsigned long g_ulMemCurrent = 0;
 #define VENDOR_ID_PVR               0x1010
 #define DEVICE_ID_PVR               0x1CF1
 
+#define DEVICE_ID1_PVR              0x1CF2
+
 
 #define PVR_MEM_PCI_BASENUM         2
 #endif
@@ -85,6 +92,10 @@ unsigned long g_ulMemCurrent = 0;
 
 static int __init BC_Example_ModInit(void)
 {
+#if defined(LDM_PLATFORM) || defined(LDM_PCI)
+    struct device *psDev;
+#endif
+
 #if defined(LMA)
 	struct pci_dev *psPCIDev;
 	int error;
@@ -92,6 +103,12 @@ static int __init BC_Example_ModInit(void)
 
 #if defined(LMA)
 	psPCIDev = pci_get_device(VENDOR_ID_PVR, DEVICE_ID_PVR, NULL);
+	if (psPCIDev == NULL)
+	{
+		
+		psPCIDev = pci_get_device(VENDOR_ID_PVR, DEVICE_ID1_PVR, NULL);
+	}
+
 	if (psPCIDev == NULL)
 	{
 		printk(KERN_ERR DRVNAME ": BC_Example_ModInit:  pci_get_device failed\n");
@@ -119,6 +136,28 @@ static int __init BC_Example_ModInit(void)
 	printk(KERN_ERR DRVNAME ": BC_Example_ModInit: major device %d\n", AssignedMajorNumber);
 #endif
 
+#if defined(LDM_PLATFORM) || defined(LDM_PCI)
+	
+	psPvrClass = class_create(THIS_MODULE, "bc_example");
+
+	if (IS_ERR(psPvrClass))
+	{
+		printk(KERN_ERR DRVNAME ": BC_Example_ModInit: unable to create class (%ld)", PTR_ERR(psPvrClass));
+		goto ExitUnregister;
+	}
+
+	psDev = device_create(psPvrClass, NULL, MKDEV(AssignedMajorNumber, 0),
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,26))
+						  NULL,
+#endif 
+						  DEVNAME);
+	if (IS_ERR(psDev))
+	{
+		printk(KERN_ERR DRVNAME ": BC_Example_ModInit: unable to create device (%ld)", PTR_ERR(psDev));
+		goto ExitDestroyClass;
+	}
+#endif 
+
 #if defined(LMA)
 	
 	g_ulMemBase =  pci_resource_start(psPCIDev, PVR_MEM_PCI_BASENUM) + PVR_BUFFERCLASS_MEMOFFSET;
@@ -137,6 +176,10 @@ static int __init BC_Example_ModInit(void)
 
 	return 0;
 
+#if defined(LDM_PLATFORM) || defined(LDM_PCI)
+ExitDestroyClass:
+	class_destroy(psPvrClass);
+#endif
 ExitUnregister:
 	unregister_chrdev(AssignedMajorNumber, DEVNAME);
 ExitDisable:
@@ -149,6 +192,11 @@ ExitError:
 
 static void __exit BC_Example_ModCleanup(void)
 {
+#if defined(LDM_PLATFORM) || defined(LDM_PCI)
+	device_destroy(psPvrClass, MKDEV(AssignedMajorNumber, 0));
+	class_destroy(psPvrClass);
+#endif
+
 	unregister_chrdev(AssignedMajorNumber, DEVNAME);
 	
 	if(BC_Example_Deinit() != BCE_OK)
@@ -168,6 +216,59 @@ void BCFreeKernelMem(void *pvMem)
 {
 	kfree(pvMem);
 }
+
+#if defined(BC_DISCONTIG_BUFFERS)
+
+#define RANGE_TO_PAGES(range) (((range) + (PAGE_SIZE - 1)) >> PAGE_SHIFT)
+#define	VMALLOC_TO_PAGE_PHYS(vAddr) page_to_phys(vmalloc_to_page(vAddr))
+
+BCE_ERROR BCAllocDiscontigMemory(unsigned long ulSize,
+                              BCE_HANDLE unref__ *phMemHandle,
+                              IMG_CPU_VIRTADDR *pLinAddr,
+                              IMG_SYS_PHYADDR **ppPhysAddr)
+{
+	unsigned long ulPages = RANGE_TO_PAGES(ulSize);
+	IMG_SYS_PHYADDR *pPhysAddr;
+	unsigned long ulPage;
+	IMG_CPU_VIRTADDR LinAddr;
+
+	LinAddr = __vmalloc(ulSize, GFP_KERNEL | __GFP_HIGHMEM, pgprot_noncached(PAGE_KERNEL));
+	if (!LinAddr)
+	{
+		return BCE_ERROR_OUT_OF_MEMORY;
+	}
+
+	pPhysAddr = kmalloc(ulPages * sizeof(IMG_SYS_PHYADDR), GFP_KERNEL);
+	if (!pPhysAddr)
+	{
+		vfree(LinAddr);
+		return BCE_ERROR_OUT_OF_MEMORY;
+	}
+
+	*pLinAddr = LinAddr;
+
+	for (ulPage = 0; ulPage < ulPages; ulPage++)
+	{
+		pPhysAddr[ulPage].uiAddr = VMALLOC_TO_PAGE_PHYS(LinAddr);
+
+		LinAddr += PAGE_SIZE;
+	}
+
+	*ppPhysAddr = pPhysAddr;
+
+	return BCE_OK;
+}
+
+void BCFreeDiscontigMemory(unsigned long ulSize,
+                         BCE_HANDLE unref__ hMemHandle,
+                         IMG_CPU_VIRTADDR LinAddr,
+                         IMG_SYS_PHYADDR *pPhysAddr)
+{
+	kfree(pPhysAddr);
+
+	vfree(LinAddr);
+}
+#else	
 
 BCE_ERROR BCAllocContigMemory(unsigned long ulSize,
                               BCE_HANDLE unref__ *phMemHandle,
@@ -259,6 +360,7 @@ void BCFreeContigMemory(unsigned long ulSize,
 #endif	
 #endif	
 }
+#endif	
 
 IMG_SYS_PHYADDR CpuPAddrToSysPAddrBC(IMG_CPU_PHYADDR cpu_paddr)
 {
@@ -310,9 +412,9 @@ int BC_Example_Bridge(struct inode *inode, struct file *file, unsigned int cmd, 
 {
 	int err = -EFAULT;
 	int command = _IOC_NR(cmd);
-	BC_Example_ioctl_package *psBridge = (BC_Example_ioctl_package *)arg;
+	BC_Example_ioctl_package sBridge;
 
-	if(!access_ok(VERIFY_WRITE, psBridge, sizeof(BC_Example_ioctl_package)))
+	if (copy_from_user(&sBridge, (void *)arg, sizeof(sBridge)) != 0)
 	{
 		return err;
 	}
@@ -321,7 +423,7 @@ int BC_Example_Bridge(struct inode *inode, struct file *file, unsigned int cmd, 
 	{
 		case _IOC_NR(BC_Example_ioctl_fill_buffer):
 		{
-			if(FillBuffer(psBridge->inputparam) == -1)
+			if(FillBuffer(sBridge.inputparam) == -1)
 			{
 				return err;
 			}
@@ -329,7 +431,7 @@ int BC_Example_Bridge(struct inode *inode, struct file *file, unsigned int cmd, 
 		}
 		case _IOC_NR(BC_Example_ioctl_get_buffer_count):
 		{
-			if(GetBufferCount(&psBridge->outputparam) == -1)
+			if(GetBufferCount(&sBridge.outputparam) == -1)
 			{
 				return err;
 			}
@@ -337,6 +439,11 @@ int BC_Example_Bridge(struct inode *inode, struct file *file, unsigned int cmd, 
 		}
 		default:
 			return err;
+	}
+
+	if (copy_to_user((void *)arg, &sBridge, sizeof(sBridge)) != 0)
+	{
+		return err;
 	}
 
 	return 0;
