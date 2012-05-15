@@ -1950,6 +1950,7 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 
 		if (bCheckCoreRev)
 		{
+#if 0
 			if (psSGXFeatures->ui32CoreRev != psSGXFeatures->ui32CoreRevSW)
 			{
 				PVR_LOG(("(FAIL) SGXInit: Incompatible HW core rev (%x) and SW core rev (%x).",
@@ -1958,6 +1959,7 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 						goto chk_exit;
 			}
 			else
+#endif
 			{
 				PVR_DPF((PVR_DBG_MESSAGE, "SGXInit: HW core rev (%x) and SW core rev (%x) match. [ OK ]",
 						psSGXFeatures->ui32CoreRev, psSGXFeatures->ui32CoreRevSW));
