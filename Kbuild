@@ -63,3 +63,7 @@ obj-y := services4/3rdparty/dc_omap3430_linux/
 endif
 obj-y += services4/3rdparty/bufferclass_ti/
 
+ifeq ($(VERSION), 3)
+export EXTRA_CFLAGS += -DAUTOCONF_INCLUDED
+endif
+
