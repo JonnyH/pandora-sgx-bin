@@ -227,6 +227,21 @@ static struct platform_driver pvr_driver = {
 	.shutdown	= pvr_shutdown,
 };
 
+static void pvr_dummy_release(struct device *dev)
+{
+}
+
+static struct sgx_platform_data pvr_pdata;
+
+static struct platform_device pvr_device = {
+	.name		= DRVNAME,
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &pvr_pdata,
+		.release 	= pvr_dummy_release,
+	}
+};
+
 static int __init pvr_init(void)
 {
 	int error;
@@ -260,10 +275,17 @@ static int __init pvr_init(void)
 	if (error < 0)
 		goto err4;
 
+	pvr_pdata.fclock_max = 200000000;
+	error = platform_device_register(&pvr_device);
+	if (error < 0)
+		goto err5;
+
 	pvr_init_events();
 
 	return 0;
 
+err5:
+	platform_driver_unregister(&pvr_driver);
 err4:
 	PVRMMapCleanup();
 	LinuxBridgeDeInit();
@@ -284,6 +306,7 @@ static void __exit pvr_cleanup(void)
 	pvr_exit_events();
 
 	platform_driver_unregister(&pvr_driver);
+	platform_device_unregister(&pvr_device);
 
 	PVRMMapCleanup();
 	LinuxMMCleanup();
