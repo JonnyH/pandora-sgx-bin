@@ -43,7 +43,13 @@
 #include "omaplfb.h"
 #include "pvrmodule.h"
 
+#if   (LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0))
+#include <video/omapdss.h>
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,32))
 #include <plat/display.h>
+#else
+#include <mach/display.h>
+#endif
 
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 

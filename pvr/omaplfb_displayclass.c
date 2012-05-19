@@ -39,6 +39,11 @@
 #include "kerneldisplay.h"
 #include "omaplfb.h"
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+#define acquire_console_sem console_lock
+#define release_console_sem console_unlock
+#endif
+
 static void *gpvAnchor;
 
 static int fb_idx;

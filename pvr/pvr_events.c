@@ -14,8 +14,15 @@
 #include <linux/fs.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
+#include <linux/version.h>
 
+#if   (LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0))
+#include <video/omapdss.h>
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,32))
 #include <plat/display.h>
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,26))
+#include <mach/display.h>
+#endif
 
 static spinlock_t event_lock;
 static struct list_head sync_wait_list;

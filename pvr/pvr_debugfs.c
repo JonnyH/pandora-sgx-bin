@@ -23,6 +23,7 @@
  *
  */
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/debugfs.h>
 #include <linux/vmalloc.h>
 #include <linux/mutex.h>
