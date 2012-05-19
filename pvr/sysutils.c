@@ -80,6 +80,7 @@ void SysGetSGXTimingInformation(struct SGX_TIMING_INFORMATION *psTimingInfo)
 	    SYS_SGX_ACTIVE_POWER_LATENCY_MS;
 }
 
+#if 0
 static int vdd2_post_func(struct notifier_block *n, unsigned long event,
 			  void *ptr)
 {
@@ -183,6 +184,10 @@ static void UnRegisterConstraintNotifications(struct SYS_SPECIFIC_DATA
 
 	clk_notifier_unregister(psSysSpecData->psSGX_FCK, &vdd2_pre_post);
 }
+#else
+#define RegisterConstraintNotifications(x)
+#define UnRegisterConstraintNotifications(x)
+#endif
 
 static struct device sgx_dev;
 static int sgx_clock_enabled;
@@ -285,7 +290,11 @@ static void sgx_lock_perf(struct work_struct *work)
 		high = 0;
 	}
 	if (high != bHigh) {
+#if 0
 		omap_pm_set_min_bus_tput(&sgx_dev, OCP_INITIATOR_AGENT, vdd2);
+#else
+		(void)sgx_dev;
+#endif
 		bHigh = high;
 	}
 

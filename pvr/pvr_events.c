@@ -96,6 +96,7 @@ int pvr_flip_event_req(struct PVRSRV_FILE_PRIVATE_DATA *priv,
 			 unsigned int overlay,
 			 enum pvr_sync_wait_seq_type type, u64 user_data)
 {
+#if 0
 	struct pvr_pending_flip_event *e;
 	struct timeval now;
 	unsigned long flags;
@@ -139,6 +140,9 @@ int pvr_flip_event_req(struct PVRSRV_FILE_PRIVATE_DATA *priv,
 	spin_unlock_irqrestore(&event_lock, flags);
 
 	return omap_dss_request_notify(e->dss_event, overlay);
+#else
+	return -EFAULT;
+#endif
 }
 
 static bool pvr_dequeue_event(struct PVRSRV_FILE_PRIVATE_DATA *priv,
@@ -333,10 +337,10 @@ void pvr_init_events(void)
 	INIT_LIST_HEAD(&flip_wait_list);
 
 	dss_nb.notifier_call = dss_notifier_callback;
-	omap_dss_register_notifier(&dss_nb);
+//	omap_dss_register_notifier(&dss_nb);
 }
 
 void pvr_exit_events(void)
 {
-	omap_dss_unregister_notifier(&dss_nb);
+//	omap_dss_unregister_notifier(&dss_nb);
 }
