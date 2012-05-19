@@ -24,7 +24,6 @@
  *
  ******************************************************************************/
 
-#ifdef	PVR_SECURE_HANDLES
 #include <stddef.h>
 
 #include "services_headers.h"
@@ -148,9 +147,6 @@ PVRSRV_HANDLE_BASE *gpsKernelHandleBase;
 
 typedef IMG_UINTPTR_T HAND_KEY[HAND_KEY_LEN];
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(HandleListInit)
-#endif
 static INLINE
     IMG_VOID HandleListInit(IMG_UINT32 ui32Index, struct sHandleList *psList,
 			    IMG_HANDLE hParent)
@@ -160,9 +156,6 @@ static INLINE
 	psList->hParent = hParent;
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(InitParentList)
-#endif
 static INLINE
     IMG_VOID InitParentList(PVRSRV_HANDLE_BASE * psBase,
 			    struct sHandle *psHandle)
@@ -173,9 +166,6 @@ static INLINE
 		       INDEX_TO_HANDLE(psBase, ui32Parent));
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(InitChildEntry)
-#endif
 static INLINE
     IMG_VOID InitChildEntry(PVRSRV_HANDLE_BASE * psBase,
 			    struct sHandle *psHandle)
@@ -184,9 +174,6 @@ static INLINE
 		       &psHandle->sSiblings, IMG_NULL);
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(HandleListIsEmpty)
-#endif
 static INLINE
     IMG_BOOL HandleListIsEmpty(IMG_UINT32 ui32Index, struct sHandleList *psList)
 {
@@ -207,9 +194,6 @@ static INLINE
 }
 
 #ifdef DEBUG
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(NoChildren)
-#endif
 static INLINE
     IMG_BOOL NoChildren(PVRSRV_HANDLE_BASE * psBase, struct sHandle *psHandle)
 {
@@ -220,9 +204,6 @@ static INLINE
 				 &psHandle->sChildren);
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(NoParent)
-#endif
 static INLINE
     IMG_BOOL NoParent(PVRSRV_HANDLE_BASE * psBase, struct sHandle *psHandle)
 {
@@ -237,9 +218,6 @@ static INLINE
 	return IMG_FALSE;
 }
 #endif
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(ParentHandle)
-#endif
 static INLINE IMG_HANDLE ParentHandle(struct sHandle *psHandle)
 {
 	return psHandle->sSiblings.hParent;
@@ -248,9 +226,6 @@ static INLINE IMG_HANDLE ParentHandle(struct sHandle *psHandle)
 #define	LIST_PTR_FROM_INDEX_AND_OFFSET(psBase, i, p, po, eo) \
 		((struct sHandleList *)((char *)(INDEX_TO_HANDLE_PTR(psBase, i)) + (((i) == (p)) ? (po) : (eo))))
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(HandleListInsertBefore)
-#endif
 static INLINE
     IMG_VOID HandleListInsertBefore(PVRSRV_HANDLE_BASE * psBase,
 				    IMG_UINT32 ui32InsIndex,
@@ -281,9 +256,6 @@ static INLINE
 	psEntry->hParent = INDEX_TO_HANDLE(psBase, ui32ParentIndex);
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(AdoptChild)
-#endif
 static INLINE
     IMG_VOID AdoptChild(PVRSRV_HANDLE_BASE * psBase, struct sHandle *psParent,
 			struct sHandle *psChild)
@@ -303,9 +275,6 @@ static INLINE
 
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(HandleListRemove)
-#endif
 static INLINE
     IMG_VOID HandleListRemove(PVRSRV_HANDLE_BASE * psBase,
 			      IMG_UINT32 ui32EntryIndex,
@@ -338,9 +307,6 @@ static INLINE
 	}
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(UnlinkFromParent)
-#endif
 static INLINE
     IMG_VOID UnlinkFromParent(PVRSRV_HANDLE_BASE * psBase,
 			      struct sHandle *psHandle)
@@ -351,9 +317,6 @@ static INLINE
 			 offsetof(struct sHandle, sChildren));
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(HandleListIterate)
-#endif
 static INLINE
     PVRSRV_ERROR HandleListIterate(PVRSRV_HANDLE_BASE * psBase,
 				   struct sHandleList *psHead,
@@ -389,9 +352,6 @@ static INLINE
 	return PVRSRV_OK;
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(IterateOverChildren)
-#endif
 static INLINE
     PVRSRV_ERROR IterateOverChildren(PVRSRV_HANDLE_BASE * psBase,
 				     struct sHandle *psParent,
@@ -404,9 +364,6 @@ static INLINE
 				 pfnIterFunc);
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(GetHandleStructure)
-#endif
 static INLINE
     PVRSRV_ERROR GetHandleStructure(PVRSRV_HANDLE_BASE * psBase,
 				    struct sHandle **ppsHandle,
@@ -445,18 +402,12 @@ static INLINE
 	return PVRSRV_OK;
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(ParentIfPrivate)
-#endif
 static INLINE IMG_HANDLE ParentIfPrivate(struct sHandle *psHandle)
 {
 	return TEST_ALLOC_FLAG(psHandle, PVRSRV_HANDLE_ALLOC_FLAG_PRIVATE) ?
 	    ParentHandle(psHandle) : IMG_NULL;
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(InitKey)
-#endif
 static INLINE
     IMG_VOID InitKey(HAND_KEY aKey, PVRSRV_HANDLE_BASE * psBase,
 		     IMG_VOID * pvData, PVRSRV_HANDLE_TYPE eType,
@@ -636,9 +587,6 @@ static PVRSRV_ERROR FreeHandleBase(PVRSRV_HANDLE_BASE * psBase)
 	return PVRSRV_OK;
 }
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(FindHandle)
-#endif
 static INLINE
     IMG_HANDLE FindHandle(PVRSRV_HANDLE_BASE * psBase, IMG_VOID * pvData,
 			  PVRSRV_HANDLE_TYPE eType, IMG_HANDLE hParent)
@@ -1362,5 +1310,3 @@ PVRSRV_ERROR PVRSRVHandleDeInit(IMG_VOID)
 
 	return eError;
 }
-#else
-#endif

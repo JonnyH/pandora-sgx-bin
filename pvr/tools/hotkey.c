@@ -24,11 +24,6 @@
  *
  ******************************************************************************/
 
-#if !defined(LINUX)
-#include <ntddk.h>
-#include <windef.h>
-#endif
-
 #include "img_types.h"
 #include "pvr_debug.h"
 #include "dbgdrvif.h"
@@ -47,20 +42,10 @@ IMG_VOID ReadInHotKeys(IMG_VOID)
 	g_PrivateHotKeyData.ui32ScanCode = 0x58;
 	g_PrivateHotKeyData.ui32ShiftState = 0x0;
 
-#if 0
-	if (_RegOpenKey(HKEY_LOCAL_MACHINE, pszRegPath, &hKey) == ERROR_SUCCESS) {
-
-		QueryReg(hKey, "ui32ScanCode",
-			 &g_PrivateHotKeyData.ui32ScanCode);
-		QueryReg(hKey, "ui32ShiftState",
-			 &g_PrivateHotKeyData.ui32ShiftState);
-	}
-#else
 	HostReadRegistryDWORDFromString("DEBUG\\Streams", "ui32ScanCode",
 					&g_PrivateHotKeyData.ui32ScanCode);
 	HostReadRegistryDWORDFromString("DEBUG\\Streams", "ui32ShiftState",
 					&g_PrivateHotKeyData.ui32ShiftState);
-#endif
 }
 
 IMG_VOID RegisterKeyPressed(IMG_UINT32 dwui32ScanCode, PHOTKEYINFO pInfo)

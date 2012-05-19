@@ -27,9 +27,6 @@
 #ifndef SRVKM_H
 #define SRVKM_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 	IMG_IMPORT PVRSRV_ERROR IMG_CALLCONV PVRSRVProcessConnect(IMG_UINT32
 								  ui32PID);
@@ -46,7 +43,4 @@ extern "C" {
 								puiBufSize,
 								IMG_BOOL bSave);
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

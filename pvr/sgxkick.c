@@ -47,20 +47,16 @@ IMG_EXPORT
 	    (PVRSRV_KERNEL_MEM_INFO *) psCCBKick->hCCBKernelMemInfo;
 	PVR3DIF4_CMDTA_SHARED *psTACmd;
 	IMG_UINT32 i;
-#if defined(SUPPORT_SGX_HWPERF)
 	PVRSRV_DEVICE_NODE *psDeviceNode;
 	PVRSRV_SGXDEV_INFO *psDevInfo;
 
 	psDeviceNode = (PVRSRV_DEVICE_NODE *) hDevHandle;
 	psDevInfo = (PVRSRV_SGXDEV_INFO *) psDeviceNode->pvDevice;
-#endif
 
-#if defined(SUPPORT_SGX_HWPERF)
 	if (psCCBKick->bKickRender) {
 		++psDevInfo->ui32KickTARenderCounter;
 	}
 	++psDevInfo->ui32KickTACounter;
-#endif
 
 	if (!CCB_OFFSET_IS_VALID
 	    (PVR3DIF4_CMDTA_SHARED, psCCBMemInfo, psCCBKick, ui32CCBOffset)) {
@@ -323,73 +319,6 @@ IMG_EXPORT
 		return eError;
 	}
 
-#if defined(NO_HARDWARE)
-
-	if (psCCBKick->hTA3DSyncInfo) {
-		psSyncInfo =
-		    (PVRSRV_KERNEL_SYNC_INFO *) psCCBKick->hTA3DSyncInfo;
-
-		if (psCCBKick->bTADependency) {
-			psSyncInfo->psSyncData->ui32WriteOpsComplete =
-			    psSyncInfo->psSyncData->ui32WriteOpsPending;
-		}
-	}
-
-	if (psCCBKick->hTASyncInfo != IMG_NULL) {
-		psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *) psCCBKick->hTASyncInfo;
-
-		psSyncInfo->psSyncData->ui32ReadOpsComplete =
-		    psSyncInfo->psSyncData->ui32ReadOpsPending;
-	}
-
-	if (psCCBKick->h3DSyncInfo != IMG_NULL) {
-		psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *) psCCBKick->h3DSyncInfo;
-
-		psSyncInfo->psSyncData->ui32ReadOpsComplete =
-		    psSyncInfo->psSyncData->ui32ReadOpsPending;
-	}
-
-	for (i = 0; i < psCCBKick->ui32NumTAStatusVals; i++) {
-		psSyncInfo =
-		    (PVRSRV_KERNEL_SYNC_INFO *) psCCBKick->
-		    ahTAStatusSyncInfo[i];
-
-		psSyncInfo->psSyncData->ui32ReadOpsComplete =
-		    psTACmd->sCtlTAStatusInfo[i].ui32StatusValue;
-	}
-
-	for (i = 0; i < psCCBKick->ui32NumSrcSyncs; i++) {
-		psSyncInfo =
-		    (PVRSRV_KERNEL_SYNC_INFO *) psCCBKick->
-		    ahSrcKernelSyncInfo[i];
-
-		psSyncInfo->psSyncData->ui32ReadOpsComplete =
-		    psSyncInfo->psSyncData->ui32ReadOpsPending;
-
-	}
-
-	if (psCCBKick->bTerminateOrAbort) {
-		if (psCCBKick->hRenderSurfSyncInfo != IMG_NULL) {
-			psSyncInfo =
-			    (PVRSRV_KERNEL_SYNC_INFO *) psCCBKick->
-			    hRenderSurfSyncInfo;
-			psSyncInfo->psSyncData->ui32WriteOpsComplete =
-			    psCCBKick->bFirstKickOrResume ? psSyncInfo->
-			    psSyncData->ui32WriteOpsPending : (psCCBKick->
-							       ui32WriteOpsPendingVal
-							       + 1);
-		}
-
-		for (i = 0; i < psCCBKick->ui32Num3DStatusVals; i++) {
-			psSyncInfo =
-			    (PVRSRV_KERNEL_SYNC_INFO *) psCCBKick->
-			    ah3DStatusSyncInfo[i];
-
-			psSyncInfo->psSyncData->ui32ReadOpsComplete =
-			    psTACmd->sCtl3DStatusInfo[i].ui32StatusValue;
-		}
-	}
-#endif
 
 	return eError;
 }

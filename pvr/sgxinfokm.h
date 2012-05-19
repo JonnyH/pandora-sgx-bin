@@ -33,9 +33,6 @@
 #include "sgxscript.h"
 #include "sgxinfo.h"
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #define		SGX_HOSTPORT_PRESENT			0x00000001UL
 
@@ -79,23 +76,6 @@ extern "C" {
 		IMG_UINT32 ui32CoreClockSpeed;
 		IMG_UINT32 ui32uKernelTimerClock;
 
-#if defined(SGX_FEATURE_2D_HARDWARE)
-
-		SGX_SLAVE_PORT s2DSlavePortKM;
-
-		PVRSRV_RESOURCE s2DSlaveportResource;
-
-		IMG_UINT32 ui322DFifoSize;
-		IMG_UINT32 ui322DFifoOffset;
-
-		IMG_HANDLE h2DCmdCookie;
-
-		IMG_HANDLE h2DQueue;
-		IMG_BOOL b2DHWRecoveryInProgress;
-		IMG_BOOL b2DHWRecoveryEndPending;
-		IMG_UINT32 ui322DCompletedBlits;
-		IMG_BOOL b2DLockupSuspected;
-#endif
 
 		IMG_VOID *psStubPBDescListKM;
 
@@ -112,23 +92,12 @@ extern "C" {
 		IMG_UINT32 ui32TAKickAddress;
 		IMG_UINT32 ui32TexLoadKickAddress;
 		IMG_UINT32 ui32VideoHandlerAddress;
-#if defined(SGX_SUPPORT_HWPROFILING)
-		PPVRSRV_KERNEL_MEM_INFO psKernelHWProfilingMemInfo;
-#endif
 		IMG_UINT32 ui32KickTACounter;
 		IMG_UINT32 ui32KickTARenderCounter;
-#if defined(SUPPORT_SGX_HWPERF)
 		PPVRSRV_KERNEL_MEM_INFO psKernelHWPerfCBMemInfo;
 		PVRSRV_SGXDEV_DIFF_INFO sDiffInfo;
 		IMG_UINT32 ui32HWGroupRequested;
 		IMG_UINT32 ui32HWReset;
-#endif
-#if defined(SGX_FEATURE_OVERLAPPED_SPM)
-		PPVRSRV_KERNEL_MEM_INFO psKernelTmpRgnHeaderMemInfo;
-#endif
-#if defined(SGX_FEATURE_SPM_MODE_0)
-		PPVRSRV_KERNEL_MEM_INFO psKernelTmpDPMStateMemInfo;
-#endif
 
 		IMG_UINT32 ui32ClientRefCount;
 
@@ -153,12 +122,10 @@ extern "C" {
 		IMG_UINT32 *pui32BIFResetPD;
 		IMG_UINT32 *pui32BIFResetPT;
 
-#if defined(SUPPORT_HW_RECOVERY)
 
 		IMG_HANDLE hTimer;
 
 		IMG_UINT32 ui32TimeStamp;
-#endif
 
 		IMG_UINT32 ui32NumResets;
 
@@ -171,15 +138,6 @@ extern "C" {
 		PVRSRV_SGX_PDUMP_CONTEXT sPDContext;
 #endif
 
-#if defined(SUPPORT_SGX_MMU_DUMMY_PAGE)
-
-		IMG_VOID *pvDummyPTPageCpuVAddr;
-		IMG_DEV_PHYADDR sDummyPTDevPAddr;
-		IMG_HANDLE hDummyPTPageOSMemHandle;
-		IMG_VOID *pvDummyDataPageCpuVAddr;
-		IMG_DEV_PHYADDR sDummyDataDevPAddr;
-		IMG_HANDLE hDummyDataPageOSMemHandle;
-#endif
 
 		IMG_UINT32 asSGXDevData[SGX_MAX_DEV_DATA];
 
@@ -212,10 +170,6 @@ extern "C" {
 
 		IMG_UINT32 ui32IRQ;
 
-#if !defined(SGX_DYNAMIC_TIMING_INFO)
-
-		SGX_TIMING_INFORMATION sTimingInfo;
-#endif
 	} SGX_DEVICE_MAP;
 
 	typedef struct _PVRSRV_STUB_PBDESC_ PVRSRV_STUB_PBDESC;
@@ -246,33 +200,7 @@ extern "C" {
 
 	IMG_VOID SGXOSTimer(IMG_VOID * pvData);
 
-#if defined(SGX_DYNAMIC_TIMING_INFO)
 	IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION *
 					    psSGXTimingInfo);
-#endif
 
-#if defined(NO_HARDWARE)
-	static INLINE IMG_VOID NoHardwareGenerateEvent(PVRSRV_SGXDEV_INFO *
-						       psDevInfo,
-						       IMG_UINT32
-						       ui32StatusRegister,
-						       IMG_UINT32
-						       ui32StatusValue,
-						       IMG_UINT32
-						       ui32StatusMask) {
-		IMG_UINT32 ui32RegVal;
-
-		 ui32RegVal =
-		    OSReadHWReg(psDevInfo->pvRegsBaseKM, ui32StatusRegister);
-
-		 ui32RegVal &= ~ui32StatusMask;
-		 ui32RegVal |= (ui32StatusValue & ui32StatusMask);
-
-		 OSWriteHWReg(psDevInfo->pvRegsBaseKM, ui32StatusRegister,
-			      ui32RegVal);
-	}
-#endif
-#if defined(__cplusplus)
-}
-#endif
 #endif

@@ -27,19 +27,9 @@
 #ifndef __SGXAPI_KM_H__
 #define __SGXAPI_KM_H__
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #include "sgxdefs.h"
 
-#if defined(__linux__) && !defined(USE_CODE)
-#if defined(__KERNEL__)
-#include <asm/unistd.h>
-#else
-#include <unistd.h>
-#endif
-#endif
 
 #define SGX_GENERAL_HEAP_ID					0
 #define SGX_TADATA_HEAP_ID					1
@@ -55,14 +45,9 @@ extern "C" {
 #define SGX_GENERAL_MAPPING_HEAP_ID			11
 #define SGX_UNDEFINED_HEAP_ID				(~0LU)
 
-#if defined(SGX_FEATURE_2D_HARDWARE)
-#define SGX_2D_HEAP_ID					12
-#define SGX_ALT_MAPPING_HEAP_ID				13
-#define SGX_MAX_HEAP_ID					14
-#else
 #define SGX_ALT_MAPPING_HEAP_ID                         12
-#define SGX_MAX_HEAP_ID					13
-#endif
+#define SGX_FB_MAPPING_HEAP_ID				13
+#define SGX_MAX_HEAP_ID					14
 
 #define SGX_MAX_TA_STATUS_VALS	32
 #define SGX_MAX_3D_STATUS_VALS	2
@@ -76,7 +61,6 @@ extern "C" {
 		IMG_SYS_PHYADDR sPhysBase;
 	} SGX_SLAVE_PORT;
 
-#ifdef SUPPORT_SGX_HWPERF
 
 #define PVRSRV_SGX_HWPERF_CBSIZE					0x100
 
@@ -111,15 +95,12 @@ extern "C" {
 		IMG_UINT32 ui32DataCount;
 		IMG_UINT32 ui32Time;
 	} SGX_MISC_INFO_HWPERF_RETRIEVE_CB;
-#endif
 
 	typedef enum _SGX_MISC_INFO_REQUEST_ {
 		SGX_MISC_INFO_REQUEST_CLOCKSPEED = 0,
-#ifdef SUPPORT_SGX_HWPERF
 		SGX_MISC_INFO_REQUEST_HWPERF_CB_ON,
 		SGX_MISC_INFO_REQUEST_HWPERF_CB_OFF,
 		SGX_MISC_INFO_REQUEST_HWPERF_RETRIEVE_CB,
-#endif
 		SGX_MISC_INFO_REQUEST_FORCE_I16 = 0x7fff
 	} SGX_MISC_INFO_REQUEST;
 
@@ -129,15 +110,10 @@ extern "C" {
 		union {
 			IMG_UINT32 reserved;
 			IMG_UINT32 ui32SGXClockSpeed;
-#ifdef SUPPORT_SGX_HWPERF
 			SGX_MISC_INFO_HWPERF_RETRIEVE_CB sRetrieveCB;
-#endif
 		} uData;
 	} SGX_MISC_INFO;
 
-#if defined(SGX_FEATURE_2D_HARDWARE)
-#define PVRSRV_MAX_BLT_SRC_SYNCS		3
-#endif
 
 #define PVR3DIF4_KICKTA_DUMPBITMAP_MAX_NAME_LENGTH		256
 
@@ -193,16 +169,7 @@ extern "C" {
 	} PVR3DIF4_KICKTA_PDUMP, *PPVR3DIF4_KICKTA_PDUMP;
 #endif
 
-#if defined(TRANSFER_QUEUE)
-#if defined(SGX_FEATURE_2D_HARDWARE)
-#define SGX_MAX_2D_BLIT_CMD_SIZE 		26
-#define SGX_MAX_2D_SRC_SYNC_OPS			3
-#endif
 #define SGX_MAX_TRANSFER_STATUS_VALS	2
 #define SGX_MAX_TRANSFER_SYNC_OPS	5
-#endif
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

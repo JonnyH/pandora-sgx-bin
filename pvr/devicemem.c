@@ -92,10 +92,8 @@ IMG_EXPORT
 							     psHeapInfo,
 							     IMG_BOOL *
 							     pbCreated
-#if defined(PVR_SECURE_HANDLES)
 							     ,
 							     IMG_BOOL * pbShared
-#endif
     )
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
@@ -138,9 +136,7 @@ IMG_EXPORT
 				    psDeviceMemoryHeap[i].ui32HeapSize;
 				psHeapInfo[ui32ClientHeapCount].ui32Attribs =
 				    psDeviceMemoryHeap[i].ui32Attribs;
-#if defined(PVR_SECURE_HANDLES)
 				pbShared[ui32ClientHeapCount] = IMG_TRUE;
-#endif
 				ui32ClientHeapCount++;
 				break;
 			}
@@ -161,9 +157,7 @@ IMG_EXPORT
 				    psDeviceMemoryHeap[i].ui32HeapSize;
 				psHeapInfo[ui32ClientHeapCount].ui32Attribs =
 				    psDeviceMemoryHeap[i].ui32Attribs;
-#if defined(PVR_SECURE_HANDLES)
 				pbShared[ui32ClientHeapCount] = IMG_FALSE;
-#endif
 
 				ui32ClientHeapCount++;
 				break;
@@ -199,9 +193,7 @@ IMG_EXPORT
 							   pui32ClientHeapCount,
 							   PVRSRV_HEAP_INFO *
 							   psHeapInfo
-#if defined(PVR_SECURE_HANDLES)
 							   , IMG_BOOL * pbShared
-#endif
     )
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
@@ -234,9 +226,7 @@ IMG_EXPORT
 				    psDeviceMemoryHeap[i].ui32HeapSize;
 				psHeapInfo[ui32ClientHeapCount].ui32Attribs =
 				    psDeviceMemoryHeap[i].ui32Attribs;
-#if defined(PVR_SECURE_HANDLES)
 				pbShared[ui32ClientHeapCount] = IMG_TRUE;
-#endif
 				ui32ClientHeapCount++;
 				break;
 			}
@@ -257,9 +247,7 @@ IMG_EXPORT
 				    psDeviceMemoryHeap[i].ui32HeapSize;
 				psHeapInfo[ui32ClientHeapCount].ui32Attribs =
 				    psDeviceMemoryHeap[i].ui32Attribs;
-#if defined(PVR_SECURE_HANDLES)
 				pbShared[ui32ClientHeapCount] = IMG_FALSE;
-#endif
 
 				ui32ClientHeapCount++;
 				break;
@@ -1032,7 +1020,7 @@ PVRSRVMapDeviceClassMemoryKM(PVRSRV_PER_PROCESS_DATA * psPerProc,
 	psBMContext = (BM_CONTEXT *) psDeviceClassBuffer->hDevMemContext;
 	psDevMemoryInfo = &psBMContext->psDeviceNode->sDevMemoryInfo;
 	hDevMemHeap =
-	    psDevMemoryInfo->psDeviceMemoryHeap[SGX_GENERAL_MAPPING_HEAP_ID].
+	    psDevMemoryInfo->psDeviceMemoryHeap[SGX_FB_MAPPING_HEAP_ID].
 	    hDevMemHeap;
 
 	ui32Offset = ((IMG_UINT32) pvCPUVAddr) & (ui32PageSize - 1);

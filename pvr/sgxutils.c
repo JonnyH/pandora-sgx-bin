@@ -40,18 +40,9 @@
 #include "pvr_debug.h"
 #include "sgxutils.h"
 
-#ifdef __linux__
 #include <linux/tty.h>
-#else
-#include <stdio.h>
-#endif
 
-#if defined(SYS_CUSTOM_POWERDOWN)
-PVRSRV_ERROR SysPowerDownMISR(IMG_UINT32 ui32DeviceIndex,
-			      IMG_UINT32 ui32CallerID);
-#endif
 
-#if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 IMG_BOOL gbPowerUpPDumped = IMG_FALSE;
 
 IMG_VOID SGXTestActivePowerEvent(PVRSRV_DEVICE_NODE * psDeviceNode,
@@ -70,12 +61,6 @@ IMG_VOID SGXTestActivePowerEvent(PVRSRV_DEVICE_NODE * psDeviceNode,
 
 			PDUMPSUSPEND();
 
-#if defined(SYS_CUSTOM_POWERDOWN)
-
-			eError =
-			    SysPowerDownMISR(psDeviceNode->sDevId.
-					     ui32DeviceIndex, ui32CallerID);
-#else
 			eError =
 			    PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.
 							ui32DeviceIndex,
@@ -102,7 +87,6 @@ IMG_VOID SGXTestActivePowerEvent(PVRSRV_DEVICE_NODE * psDeviceNode,
 					}
 				}
 			}
-#endif
 			if (eError == PVRSRV_ERROR_RETRY) {
 
 				eError = PVRSRV_OK;
@@ -117,11 +101,7 @@ IMG_VOID SGXTestActivePowerEvent(PVRSRV_DEVICE_NODE * psDeviceNode,
 			 eError));
 	}
 }
-#endif
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(SGXAcquireKernelCCBSlot)
-#endif
 static INLINE PVRSRV_SGX_COMMAND *SGXAcquireKernelCCBSlot(PVRSRV_SGX_CCB_INFO *
 							  psCCB)
 {
@@ -160,7 +140,6 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE * psDeviceNode,
 	psDevInfo = (PVRSRV_SGXDEV_INFO *) psDeviceNode->pvDevice;
 	psKernelCCB = psDevInfo->psKernelCCBInfo;
 
-#if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 	{
 		if (ui32CallerID == ISR_ID || gbPowerUpPDumped) {
 			PDUMPSUSPEND();
@@ -178,10 +157,6 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE * psDeviceNode,
 			gbPowerUpPDumped = IMG_TRUE;
 		}
 	}
-#else
-
-	eError = PVRSRVPowerLock(ui32CallerID, IMG_FALSE);
-#endif
 
 	if (eError == PVRSRV_OK) {
 		psDeviceNode->bReProcessDeviceCommandComplete = IMG_FALSE;
@@ -313,21 +288,14 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE * psDeviceNode,
 	OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_EVENT_KICK,
 		     EUR_CR_EVENT_KICK_NOW_MASK);
 
-#if defined(NO_HARDWARE)
-
-	*psKernelCCB->pui32ReadOffset =
-	    (*psKernelCCB->pui32ReadOffset + 1) & 255;
-#endif
 
 Exit:
 	PVRSRVPowerUnlock(ui32CallerID);
 
-#if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 	if (ui32CallerID != ISR_ID) {
 
 		SGXTestActivePowerEvent(psDeviceNode, ui32CallerID);
 	}
-#endif
 
 	return eError;
 }
@@ -531,7 +499,6 @@ static IMG_VOID SGXCleanupRequest(PVRSRV_DEVICE_NODE * psDeviceNode,
 
 		SGXScheduleProcessQueues(psDeviceNode);
 
-#if !defined(NO_HARDWARE)
 		if (PollForValueKM
 		    ((volatile IMG_UINT32 *)(&psSGXHostCtl->ui32ResManFlags),
 		     PVRSRV_USSE_EDM_RESMAN_CLEANUP_COMPLETE,
@@ -541,7 +508,6 @@ static IMG_VOID SGXCleanupRequest(PVRSRV_DEVICE_NODE * psDeviceNode,
 			PVR_DPF((PVR_DBG_ERROR,
 				 "SGXCleanupRequest: Wait for uKernel to clean up render context failed"));
 		}
-#endif
 
 #ifdef PDUMP
 
@@ -737,96 +703,7 @@ IMG_EXPORT
 	return eError;
 }
 
-#if defined(SGX_FEATURE_2D_HARDWARE)
-typedef struct _SGX_HW_2D_CONTEXT_CLEANUP_ {
-	PVRSRV_DEVICE_NODE *psDeviceNode;
-	IMG_DEV_VIRTADDR sHW2DContextDevVAddr;
-	IMG_HANDLE hBlockAlloc;
-	PRESMAN_ITEM psResItem;
-} SGX_HW_2D_CONTEXT_CLEANUP;
 
-static PVRSRV_ERROR SGXCleanupHW2DContextCallback(IMG_PVOID pvParam,
-						  IMG_UINT32 ui32Param)
-{
-	SGX_HW_2D_CONTEXT_CLEANUP *psCleanup =
-	    (SGX_HW_2D_CONTEXT_CLEANUP *) pvParam;
-
-	PVR_UNREFERENCED_PARAMETER(ui32Param);
-
-	SGXCleanupRequest(psCleanup->psDeviceNode,
-			  &psCleanup->sHW2DContextDevVAddr,
-			  PVRSRV_USSE_EDM_RESMAN_CLEANUP_2DC_REQUEST);
-
-	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
-		  sizeof(SGX_HW_2D_CONTEXT_CLEANUP),
-		  psCleanup, psCleanup->hBlockAlloc);
-
-	return PVRSRV_OK;
-}
-
-IMG_EXPORT
-    IMG_HANDLE SGXRegisterHW2DContextKM(IMG_HANDLE psDeviceNode,
-					IMG_DEV_VIRTADDR *
-					psHW2DContextDevVAddr,
-					PVRSRV_PER_PROCESS_DATA * psPerProc)
-{
-	PVRSRV_ERROR eError;
-	IMG_HANDLE hBlockAlloc;
-	SGX_HW_2D_CONTEXT_CLEANUP *psCleanup;
-	PRESMAN_ITEM psResItem;
-
-	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
-			    sizeof(SGX_HW_2D_CONTEXT_CLEANUP),
-			    (IMG_VOID **) & psCleanup, &hBlockAlloc);
-
-	if (eError != PVRSRV_OK) {
-		PVR_DPF((PVR_DBG_ERROR,
-			 "SGXRegisterHW2DContextKM: Couldn't allocate memory for SGX_HW_2D_CONTEXT_CLEANUP structure"));
-		return IMG_NULL;
-	}
-
-	psCleanup->hBlockAlloc = hBlockAlloc;
-	psCleanup->psDeviceNode = psDeviceNode;
-	psCleanup->sHW2DContextDevVAddr = *psHW2DContextDevVAddr;
-
-	psResItem = ResManRegisterRes(psPerProc->hResManContext,
-				      RESMAN_TYPE_HW_2D_CONTEXT,
-				      psCleanup,
-				      0, &SGXCleanupHW2DContextCallback);
-
-	if (psResItem == IMG_NULL) {
-		PVR_DPF((PVR_DBG_ERROR,
-			 "SGXRegisterHW2DContextKM: ResManRegisterRes failed"));
-		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
-			  sizeof(SGX_HW_2D_CONTEXT_CLEANUP), psCleanup,
-			  psCleanup->hBlockAlloc);
-
-		return IMG_NULL;
-	}
-
-	psCleanup->psResItem = psResItem;
-
-	return (IMG_HANDLE) psCleanup;
-}
-
-IMG_EXPORT PVRSRV_ERROR SGXUnregisterHW2DContextKM(IMG_HANDLE hHW2DContext)
-{
-	PVRSRV_ERROR eError;
-	SGX_HW_2D_CONTEXT_CLEANUP *psCleanup;
-
-	PVR_ASSERT(hHW2DContext != IMG_NULL);
-
-	psCleanup = (SGX_HW_2D_CONTEXT_CLEANUP *) hHW2DContext;
-
-	eError = ResManFreeResByPtr(psCleanup->psResItem);
-
-	return eError;
-}
-#endif
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(SGX2DQuerySyncOpsComplete)
-#endif
 static INLINE
     IMG_BOOL SGX2DQuerySyncOpsComplete(PVRSRV_KERNEL_SYNC_INFO * psSyncInfo)
 {

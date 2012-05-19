@@ -29,15 +29,8 @@
 
 #include "pvr_bridge.h"
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
-#if defined(__linux__)
 #define PVRSRV_GET_BRIDGE_ID(X)	_IOC_NR(X)
-#else
-#define PVRSRV_GET_BRIDGE_ID(X)	(X - PVRSRV_IOWR(PVRSRV_BRIDGE_CORE_CMD_FIRST))
-#endif
 
 	typedef int (*BridgeWrapperFunction) (IMG_UINT32 ui32BridgeID,
 					      IMG_VOID * psBridgeIn,
@@ -56,11 +49,7 @@ extern "C" {
 #endif
 	} PVRSRV_BRIDGE_DISPATCH_TABLE_ENTRY;
 
-#if defined(SUPPORT_SGX)
 #define BRIDGE_DISPATCH_TABLE_ENTRY_COUNT (PVRSRV_BRIDGE_LAST_SGX_CMD+1)
-#else
-#error "FIXME: BRIDGE_DISPATCH_TABLE_ENTRY_COUNT unset"
-#endif
 
 	extern PVRSRV_BRIDGE_DISPATCH_TABLE_ENTRY
 	    g_BridgeDispatchTable[BRIDGE_DISPATCH_TABLE_ENTRY_COUNT];
@@ -80,7 +69,4 @@ extern "C" {
 	int BridgedDispatchKM(PVRSRV_PER_PROCESS_DATA * psPerProc,
 			      PVRSRV_BRIDGE_PACKAGE * psBridgePackageKM);
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

@@ -34,19 +34,11 @@
 #include "pvr_bridge.h"
 #include "perproc.h"
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 	IMG_IMPORT
 	    PVRSRV_ERROR SGXSubmitTransferKM(IMG_HANDLE hDevHandle,
 					     PVRSRV_TRANSFER_SGX_KICK * psKick);
 
-#if defined(SGX_FEATURE_2D_HARDWARE)
-	IMG_IMPORT
-	    PVRSRV_ERROR SGXSubmit2DKM(IMG_HANDLE hDevHandle,
-				       PVRSRV_2D_SGX_KICK * psKick);
-#endif
 
 	IMG_IMPORT
 	    PVRSRV_ERROR SGXDoKickKM(IMG_HANDLE hDevHandle,
@@ -74,7 +66,6 @@ extern "C" {
 	    PVRSRV_ERROR SGXGetMiscInfoKM(PVRSRV_SGXDEV_INFO * psDevInfo,
 					  SGX_MISC_INFO * psMiscInfo);
 
-#if defined(SUPPORT_SGX_HWPERF)
 	IMG_IMPORT
 	    PVRSRV_ERROR SGXReadDiffCountersKM(IMG_HANDLE hDevHandle,
 					       IMG_UINT32 ui32Reg,
@@ -87,7 +78,6 @@ extern "C" {
 					       IMG_BOOL * pbActive,
 					       PVRSRV_SGXDEV_DIFF_INFO *
 					       psDiffs);
-#endif
 
 	IMG_IMPORT
 	    PVRSRV_ERROR SGX2DQueryBlitsCompleteKM(PVRSRV_SGXDEV_INFO *
@@ -146,7 +136,4 @@ extern "C" {
 				    PVR3DIF4_INTERNAL_DEVINFO *
 				    psSGXInternalDevInfo);
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

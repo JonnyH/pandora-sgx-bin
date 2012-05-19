@@ -360,27 +360,3 @@ IMG_UINTPTR_T HASH_Retrieve(HASH_TABLE * pHash, IMG_UINTPTR_T k)
 	return HASH_Retrieve_Extended(pHash, &k);
 }
 
-#ifdef HASH_TRACE
-void HASH_Dump(HASH_TABLE * pHash)
-{
-	IMG_UINT32 uIndex;
-	IMG_UINT32 uMaxLength = 0;
-	IMG_UINT32 uEmptyCount = 0;
-
-	PVR_ASSERT(pHash != IMG_NULL);
-	for (uIndex = 0; uIndex < pHash->uSize; uIndex++) {
-		BUCKET *pBucket;
-		IMG_UINT32 uLength = 0;
-		if (pHash->ppBucketTable[uIndex] == IMG_NULL)
-			uEmptyCount++;
-		for (pBucket = pHash->ppBucketTable[uIndex];
-		     pBucket != IMG_NULL; pBucket = pBucket->pNext)
-			uLength++;
-		uMaxLength = PRIVATE_MAX(uMaxLength, uLength);
-	}
-
-	PVR_TRACE(("hash table: uMinimumSize=%d  size=%d  count=%d",
-		   pHash->uMinimumSize, pHash->uSize, pHash->uCount));
-	PVR_TRACE(("  empty=%d  max=%d", uEmptyCount, uMaxLength));
-}
-#endif

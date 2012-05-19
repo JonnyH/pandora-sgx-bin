@@ -88,11 +88,6 @@ MMU_GetPhysPageAddr(MMU_HEAP * pMMUHeap, IMG_DEV_VIRTADDR sDevVPageAddr);
 
 IMG_DEV_PHYADDR MMU_GetPDDevPAddr(MMU_CONTEXT * pMMUContext);
 
-#ifdef SUPPORT_SGX_MMU_BYPASS
-IMG_VOID EnableHostAccess(MMU_CONTEXT * psMMUContext);
-
-IMG_VOID DisableHostAccess(MMU_CONTEXT * psMMUContext);
-#endif
 
 IMG_VOID MMU_InvalidateDirectoryCache(PVRSRV_SGXDEV_INFO * psDevInfo);
 

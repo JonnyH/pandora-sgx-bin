@@ -49,12 +49,6 @@ int PVRDebugProcSetLevel(struct file *file, const char *buffer,
 int PVRDebugProcGetLevel(char *page, char **start, off_t off, int count,
 			 int *eof, void *data);
 
-#ifdef PVR_MANUAL_POWER_CONTROL
-int PVRProcSetPowerLevel(struct file *file, const char *buffer,
-			 unsigned long count, void *data);
-int PVRProcGetPowerLevel(char *page, char **start, off_t off, int count,
-			 int *eof, void *data);
-#endif
 #endif
 
 static struct proc_dir_entry *dir;
@@ -199,15 +193,6 @@ int CreateProcEntries(void)
 
 		return -ENOMEM;
 	}
-#ifdef PVR_MANUAL_POWER_CONTROL
-	if (CreateProcEntry
-	    ("power_control", PVRProcGetPowerLevel, PVRProcSetPowerLevel, 0)) {
-		PVR_DPF((PVR_DBG_ERROR,
-			 "CreateProcEntries: couldn't make /proc/pvr/power_control"));
-
-		return -ENOMEM;
-	}
-#endif
 #endif
 
 	return 0;
@@ -226,9 +211,6 @@ void RemoveProcEntries(void)
 {
 #ifdef DEBUG
 	RemoveProcEntry("debug_level");
-#ifdef PVR_MANUAL_POWER_CONTROL
-	RemoveProcEntry("power_control");
-#endif
 #endif
 	RemoveProcEntry("queue");
 	RemoveProcEntry("nodes");

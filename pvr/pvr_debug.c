@@ -51,7 +51,6 @@ void PVRSRVDebugPrintf(IMG_UINT32 ui32DebugLevel,
     )
 {
 	IMG_BOOL bTrace, bDebug;
-#if !defined(__sh__)
 	IMG_CHAR *pszLeafName;
 
 	pszLeafName = (char *)strrchr(pszFileName, '\\');
@@ -59,7 +58,6 @@ void PVRSRVDebugPrintf(IMG_UINT32 ui32DebugLevel,
 	if (pszLeafName) {
 		pszFileName = pszLeafName;
 	}
-#endif
 
 	bTrace = gPVRDebugLevel & ui32DebugLevel & DBGPRIV_CALLTRACE;
 	bDebug = ((gPVRDebugLevel & DBGPRIV_ALLLEVELS) >= ui32DebugLevel);

@@ -867,9 +867,7 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE hCmdCookie,
 	OMAPLFB_DEVINFO *psDevInfo;
 	OMAPLFB_BUFFER *psBuffer;
 	OMAPLFB_SWAPCHAIN *psSwapChain;
-#if defined(SYS_USING_INTERRUPTS)
 	OMAPLFB_VSYNC_FLIP_ITEM *psFlipItem;
-#endif
 	unsigned long ulLockFlags;
 
 	if (!hCmdCookie || !pvData) {
@@ -895,17 +893,14 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE hCmdCookie,
 							       IMG_TRUE);
 		goto ExitTrueUnlock;
 	}
-#if defined(SYS_USING_INTERRUPTS)
 
 	if (psFlipCmd->ui32SwapInterval == 0 || psSwapChain->bFlushCommands) {
-#endif
 
 		OMAPLFBFlip(psSwapChain, psBuffer->sSysAddr.uiAddr);
 
 		psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete(hCmdCookie,
 							       IMG_TRUE);
 
-#if defined(SYS_USING_INTERRUPTS)
 		goto ExitTrueUnlock;
 	}
 
@@ -939,7 +934,6 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE hCmdCookie,
 
 	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 	return IMG_FALSE;
-#endif
 
 ExitTrueUnlock:
 	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
@@ -984,8 +978,7 @@ static void SetDevinfo(OMAPLFB_DEVINFO * psDevInfo)
 	psPVRFBInfo->ui32ByteStride = psLINFBInfo->fix.line_length;
 	psPVRFBInfo->ui32FBSize = FBSize;
 	psPVRFBInfo->ui32BufferSize =
-	    max(psPVRFBInfo->ui32Height, psPVRFBInfo->ui32Width)
-	    * psPVRFBInfo->ui32ByteStride;
+	    psPVRFBInfo->ui32Height * psPVRFBInfo->ui32ByteStride;
 
 	psPVRFBInfo->ui32RoundedBufferSize =
 	    OMAPLFB_PAGE_ROUNDUP(psPVRFBInfo->ui32BufferSize);
@@ -1274,7 +1267,6 @@ PVRSRV_ERROR OMAPLFBDeinit(IMG_VOID)
 	return PVRSRV_OK;
 }
 
-#if defined(LDM_PLATFORM)
 IMG_VOID OMAPLFBDriverSuspend(IMG_VOID)
 {
 	OMAPLFB_DEVINFO *psDevInfo = GetAnchorPtr();
@@ -1322,4 +1314,3 @@ IMG_VOID OMAPLFBDriverResume(IMG_VOID)
 
 	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 }
-#endif

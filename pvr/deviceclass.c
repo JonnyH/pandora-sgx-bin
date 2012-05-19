@@ -1028,12 +1028,6 @@ IMG_EXPORT
 			 "PVRSRVSwapToDCBufferKM: Invalid parameters"));
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
-#if defined(SUPPORT_LMA)
-	eError = PVRSRVPowerLock(KERNEL_ID, IMG_FALSE);
-	if (eError != PVRSRV_OK) {
-		return eError;
-	}
-#endif
 
 	psDCInfo = DCDeviceHandleToDCInfo(hDeviceKM);
 	psBuffer = (PVRSRV_DC_BUFFER *) hBuffer;
@@ -1118,9 +1112,6 @@ ProcessedQueues:
 	psBuffer->psSwapChain->psLastFlipBuffer = psBuffer;
 
 Exit:
-#if defined(SUPPORT_LMA)
-	PVRSRVPowerUnlock(KERNEL_ID);
-#endif
 	return eError;
 }
 
@@ -1144,12 +1135,6 @@ IMG_EXPORT
 			 "PVRSRVSwapToDCSystemKM: Invalid parameters"));
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
-#if defined(SUPPORT_LMA)
-	eError = PVRSRVPowerLock(KERNEL_ID, IMG_FALSE);
-	if (eError != PVRSRV_OK) {
-		return eError;
-	}
-#endif
 
 	psDCInfo = DCDeviceHandleToDCInfo(hDeviceKM);
 	psSwapChain = (PVRSRV_DC_SWAPCHAIN *) hSwapChain;
@@ -1227,9 +1212,6 @@ ProcessedQueues:
 	eError = PVRSRV_OK;
 
 Exit:
-#if defined(SUPPORT_LMA)
-	PVRSRVPowerUnlock(KERNEL_ID);
-#endif
 	return eError;
 }
 

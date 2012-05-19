@@ -47,9 +47,6 @@
 
 #include "sgxutils.h"
 
-#if defined (SGX_FEATURE_2D_HARDWARE)
-#define	SGX_USING_CMD_PROC_LIST
-#endif
 
 IMG_BOOL SGX_ISRHandler(IMG_VOID * pvData);
 
@@ -151,22 +148,8 @@ static PVRSRV_ERROR InitDevInfo(PVRSRV_PER_PROCESS_DATA * psPerProc,
 	    (PVRSRV_SGX_HOST_CTL *) psDevInfo->psKernelSGXHostCtlMemInfo->
 	    pvLinAddrKM;
 
-#if defined(SGX_SUPPORT_HWPROFILING)
-	psDevInfo->psKernelHWProfilingMemInfo =
-	    (PVRSRV_KERNEL_MEM_INFO *) psInitInfo->hKernelHWProfilingMemInfo;
-#endif
-#if defined(SUPPORT_SGX_HWPERF)
 	psDevInfo->psKernelHWPerfCBMemInfo =
 	    (PVRSRV_KERNEL_MEM_INFO *) psInitInfo->hKernelHWPerfCBMemInfo;
-#endif
-#if defined(SGX_FEATURE_OVERLAPPED_SPM)
-	psDevInfo->psKernelTmpRgnHeaderMemInfo =
-	    (PVRSRV_KERNEL_MEM_INFO *) psInitInfo->hKernelTmpRgnHeaderMemInfo;
-#endif
-#if defined(SGX_FEATURE_SPM_MODE_0)
-	psDevInfo->psKernelTmpDPMStateMemInfo =
-	    (PVRSRV_KERNEL_MEM_INFO *) psInitInfo->hKernelTmpDPMStateMemInfo;
-#endif
 
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 			    sizeof(PVRSRV_SGX_CCB_INFO),
@@ -215,24 +198,13 @@ failed_allockernelccb:
 static IMG_VOID SGXGetTimingInfo(PVRSRV_DEVICE_NODE * psDeviceNode)
 {
 	PVRSRV_SGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
-#if defined(SGX_DYNAMIC_TIMING_INFO)
 	SGX_TIMING_INFORMATION sSGXTimingInfo = { 0 };
-#else
-	SGX_DEVICE_MAP *psSGXDeviceMap;
-#endif
 	IMG_UINT32 ui32ActivePowManSampleRate;
 	SGX_TIMING_INFORMATION *psSGXTimingInfo;
 
-#if defined(SGX_DYNAMIC_TIMING_INFO)
 	psSGXTimingInfo = &sSGXTimingInfo;
 	SysGetSGXTimingInformation(psSGXTimingInfo);
-#else
-	SysGetDeviceMemoryMap(PVRSRV_DEVICE_TYPE_SGX,
-			      (IMG_VOID **) & psSGXDeviceMap);
-	psSGXTimingInfo = &psSGXDeviceMap->sTimingInfo;
-#endif
 
-#if defined(SUPPORT_HW_RECOVERY)
 	{
 		PVRSRV_ERROR eError;
 		IMG_UINT32 ui32OlduKernelFreq;
@@ -267,7 +239,6 @@ static IMG_VOID SGXGetTimingInfo(PVRSRV_DEVICE_NODE * psDeviceNode)
 		    psSGXTimingInfo->ui32uKernelFreq /
 		    psSGXTimingInfo->ui32HWRecoveryFreq;
 	}
-#endif
 
 	psDevInfo->ui32CoreClockSpeed = psSGXTimingInfo->ui32CoreClockSpeed;
 	psDevInfo->ui32uKernelTimerClock =
@@ -287,9 +258,6 @@ static IMG_VOID SGXStartTimer(PVRSRV_SGXDEV_INFO * psDevInfo,
 {
 	IMG_UINT32 ui32RegVal;
 
-#if !defined(SUPPORT_HW_RECOVERY)
-	PVR_UNREFERENCED_PARAMETER(bStartOSTimer);
-#endif
 
 	ui32RegVal =
 	    EUR_CR_EVENT_TIMER_ENABLE_MASK | psDevInfo->ui32uKernelTimerClock;
@@ -297,7 +265,6 @@ static IMG_VOID SGXStartTimer(PVRSRV_SGXDEV_INFO * psDevInfo,
 	PDUMPREGWITHFLAGS(EUR_CR_EVENT_TIMER, ui32RegVal,
 			  PDUMP_FLAGS_CONTINUOUS);
 
-#if defined(SUPPORT_HW_RECOVERY)
 	if (bStartOSTimer) {
 		PVRSRV_ERROR eError;
 		eError = OSEnableTimer(psDevInfo->hTimer);
@@ -306,7 +273,6 @@ static IMG_VOID SGXStartTimer(PVRSRV_SGXDEV_INFO * psDevInfo,
 				 "SGXStartTimer : Failed to enable host timer"));
 		}
 	}
-#endif
 }
 
 static PVRSRV_ERROR SGXPrePowerState(IMG_HANDLE hDevHandle,
@@ -321,14 +287,12 @@ static PVRSRV_ERROR SGXPrePowerState(IMG_HANDLE hDevHandle,
 		PVRSRV_SGX_HOST_CTL *psSGXHostCtl = psDevInfo->psSGXHostCtl;
 		IMG_UINT32 ui32PowManRequest, ui32PowManComplete;
 
-#if defined(SUPPORT_HW_RECOVERY)
 		eError = OSDisableTimer(psDevInfo->hTimer);
 		if (eError != PVRSRV_OK) {
 			PVR_DPF((PVR_DBG_ERROR,
 				 "SGXPrePowerState: Failed to disable timer"));
 			return eError;
 		}
-#endif
 
 		if (eNewPowerState == PVR_DEVICE_POWER_STATE_OFF) {
 			ui32PowManRequest =
@@ -352,7 +316,6 @@ static PVRSRV_ERROR SGXPrePowerState(IMG_HANDLE hDevHandle,
 			 MAKEUNIQUETAG(psDevInfo->psKernelSGXHostCtlMemInfo));
 #endif
 
-#if !defined(NO_HARDWARE)
 		if (PollForValueKM(&psSGXHostCtl->ui32PowManFlags,
 				   ui32PowManComplete,
 				   ui32PowManComplete,
@@ -361,7 +324,6 @@ static PVRSRV_ERROR SGXPrePowerState(IMG_HANDLE hDevHandle,
 			PVR_DPF((PVR_DBG_ERROR,
 				 "SGXPrePowerState: Wait for SGX ukernel power transition failed."));
 		}
-#endif
 
 #if defined(PDUMP)
 		PDUMPCOMMENT
@@ -374,10 +336,8 @@ static PVRSRV_ERROR SGXPrePowerState(IMG_HANDLE hDevHandle,
 					  psKernelSGXHostCtlMemInfo));
 #endif
 
-#if defined(SGX_FEATURE_AUTOCLOCKGATING)
 
 		{
-#if !defined(NO_HARDWARE)
 			if (PollForValueKM
 			    ((IMG_UINT32 *) psDevInfo->pvRegsBaseKM +
 			     (EUR_CR_CLKGATESTATUS >> 2), 0,
@@ -387,13 +347,11 @@ static PVRSRV_ERROR SGXPrePowerState(IMG_HANDLE hDevHandle,
 				PVR_DPF((PVR_DBG_ERROR,
 					 "SGXPrePowerState: Wait for SGX clock gating failed."));
 			}
-#endif
 
 			PDUMPCOMMENT("Wait for SGX clock gating.");
 			PDUMPREGPOL(EUR_CR_CLKGATESTATUS, 0,
 				    psDevInfo->ui32ClkGateStatusMask);
 		}
-#endif
 
 		if (eNewPowerState == PVR_DEVICE_POWER_STATE_OFF) {
 			eError = SGXDeinitialise(psDevInfo);
@@ -603,33 +561,10 @@ static PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO * psDevInfo,
 		     psDevInfo->ui32ClkGateCtl);
 	PDUMPREGWITHFLAGS(EUR_CR_CLKGATECTL, psDevInfo->ui32ClkGateCtl,
 			  PDUMP_FLAGS_CONTINUOUS);
-#if defined(SGX540)
-	OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_CLKGATECTL2,
-		     psDevInfo->ui32ClkGateCtl2);
-	PDUMPREGWITHFLAGS(EUR_CR_CLKGATECTL2, psDevInfo->ui32ClkGateCtl2,
-			  PDUMP_FLAGS_CONTINUOUS);
-#endif
 
 	SGXReset(psDevInfo, PDUMP_FLAGS_CONTINUOUS);
 
-#if defined(EUR_CR_POWER)
-#if defined(SGX531)
 
-	OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_POWER, 1);
-	PDUMPREG(EUR_CR_POWER, 1);
-#else
-
-	OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_POWER, 0);
-	PDUMPREG(EUR_CR_POWER, 0);
-#endif
-#endif
-
-#if defined(SGX_FEATURE_SYSTEM_CACHE)
-
-	OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_MNE_CR_CTRL,
-		     EUR_CR_MNE_CR_CTRL_BYP_CC_MASK);
-	PDUMPREG(EUR_CR_MNE_CR_CTRL, EUR_CR_MNE_CR_CTRL_BYP_CC_MASK);
-#endif
 
 	*psDevInfo->pui32KernelCCBEventKicker = 0;
 #if defined(PDUMP)
@@ -838,14 +773,6 @@ IMG_EXPORT
 		goto failed_init_dev_info;
 	}
 
-#ifdef SGX_FEATURE_2D_HARDWARE
-	eError = OSCreateResource(&psDevInfo->s2DSlaveportResource);
-	if (eError != PVRSRV_OK) {
-		PVR_DPF((PVR_DBG_ERROR,
-			 "DevInitSGXPart2KM: Failed to create resource !"));
-		return PVRSRV_ERROR_INIT_FAILURE;
-	}
-#endif
 
 	eError = SysGetDeviceMemoryMap(PVRSRV_DEVICE_TYPE_SGX,
 				       (IMG_VOID **) & psSGXDeviceMap);
@@ -873,45 +800,17 @@ IMG_EXPORT
 	psDevInfo->ui32RegSize = psSGXDeviceMap->ui32RegsSize;
 	psDevInfo->sRegsPhysBase = psSGXDeviceMap->sRegsSysPBase;
 
-#ifdef SGX_FEATURE_2D_HARDWARE
 
-	if (psSGXDeviceMap->pvSPCpuVBase) {
-		psDevInfo->s2DSlavePortKM.pvData = psSGXDeviceMap->pvSPCpuVBase;
-	} else {
-
-		psDevInfo->s2DSlavePortKM.pvData =
-		    OSMapPhysToLin(psSGXDeviceMap->sSPCpuPBase,
-				   psSGXDeviceMap->ui32SPSize,
-				   PVRSRV_HAP_KERNEL_ONLY | PVRSRV_HAP_UNCACHED,
-				   IMG_NULL);
-
-		if (!psDevInfo->s2DSlavePortKM.pvData) {
-			PVR_DPF((PVR_DBG_ERROR,
-				 "DevInitSGXPart2KM: Failed to map 2D Slave port region\n"));
-			return PVRSRV_ERROR_BAD_MAPPING;
-		}
-
-	}
-	psDevInfo->s2DSlavePortKM.ui32DataRange = psSGXDeviceMap->ui32SPSize;
-	psDevInfo->s2DSlavePortKM.sPhysBase = psSGXDeviceMap->sSPSysPBase;
-#endif
-
-#if defined (SYS_USING_INTERRUPTS)
 
 	psDeviceNode->pvISRData = psDeviceNode;
 
 	PVR_ASSERT(psDeviceNode->pfnDeviceISR == SGX_ISRHandler);
 
-#endif
 
-#if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 
 	psDevInfo->psSGXHostCtl->ui32PowManFlags |=
 	    PVRSRV_USSE_EDM_POWMAN_NO_WORK;
 	eDefaultPowerState = PVRSRV_POWER_STATE_D3;
-#else
-	eDefaultPowerState = PVRSRV_POWER_STATE_D0;
-#endif
 	eError = PVRSRVRegisterPowerDevice(psDeviceNode->sDevId.ui32DeviceIndex,
 					   SGXPrePowerStateExt,
 					   SGXPostPowerStateExt,
@@ -966,7 +865,6 @@ static PVRSRV_ERROR DevDeInitSGX(IMG_VOID * pvDeviceNode)
 		PVR_DPF((PVR_DBG_ERROR, "DevDeInitSGX: Null DevInfo"));
 		return PVRSRV_OK;
 	}
-#if defined(SUPPORT_HW_RECOVERY)
 	if (psDevInfo->hTimer) {
 		eError = OSRemoveTimer(psDevInfo->hTimer);
 		if (eError != PVRSRV_OK) {
@@ -976,22 +874,11 @@ static PVRSRV_ERROR DevDeInitSGX(IMG_VOID * pvDeviceNode)
 		}
 		psDevInfo->hTimer = IMG_NULL;
 	}
-#endif
 
 	MMU_BIFResetPDFree(psDevInfo);
 
 	DeinitDevInfo(psDevInfo);
 
-#if defined(SGX_USING_CMD_PROC_LIST)
-	eError =
-	    PVRSRVRemoveCmdProcListKM(psDeviceNode->sDevId.ui32DeviceIndex,
-				      SGX_COMMAND_COUNT);
-	if (eError != PVRSRV_OK) {
-		PVR_DPF((PVR_DBG_ERROR,
-			 "DevDeInitSGX: PVRSRVRemoveCmdProcList failed"));
-		return eError;
-	}
-#endif
 
 	psDeviceMemoryHeap =
 	    (DEVICE_MEMORY_HEAP_INFO *) psDevInfo->pvDeviceMemoryHeap;
@@ -1028,12 +915,6 @@ static PVRSRV_ERROR DevDeInitSGX(IMG_VOID * pvDeviceNode)
 	if (eError != PVRSRV_OK) {
 		return eError;
 	}
-#ifdef SGX_FEATURE_2D_HARDWARE
-	eError = OSDestroyResource(&psDevInfo->s2DSlaveportResource);
-	if (eError != PVRSRV_OK) {
-		return eError;
-	}
-#endif
 
 	eError = SysGetDeviceMemoryMap(PVRSRV_DEVICE_TYPE_SGX,
 				       (IMG_VOID **) & psSGXDeviceMap);
@@ -1052,18 +933,6 @@ static PVRSRV_ERROR DevDeInitSGX(IMG_VOID * pvDeviceNode)
 					 PVRSRV_HAP_UNCACHED, IMG_NULL);
 		}
 	}
-#ifdef SGX_FEATURE_2D_HARDWARE
-
-	if (!psSGXDeviceMap->pvSPCpuVBase) {
-		if (psDevInfo->s2DSlavePortKM.pvData != IMG_NULL) {
-			OSUnMapPhysToLin(psDevInfo->s2DSlavePortKM.pvData,
-					 psDevInfo->s2DSlavePortKM.
-					 ui32DataRange,
-					 PVRSRV_HAP_KERNEL_ONLY |
-					 PVRSRV_HAP_UNCACHED, IMG_NULL);
-		}
-	}
-#endif
 
 	OSFreePages(PVRSRV_OS_PAGEABLE_HEAP | PVRSRV_HAP_MULTI_PROCESS,
 		    sizeof(PVRSRV_SGXDEV_INFO), psDevInfo, hDevInfoOSMemHandle);
@@ -1080,7 +949,6 @@ static PVRSRV_ERROR DevDeInitSGX(IMG_VOID * pvDeviceNode)
 	return PVRSRV_OK;
 }
 
-#if defined(SYS_USING_INTERRUPTS) || defined(SUPPORT_HW_RECOVERY)
 static
 IMG_VOID HWRecoveryResetSGX(PVRSRV_DEVICE_NODE * psDeviceNode,
 			    IMG_UINT32 ui32Component, IMG_UINT32 ui32CallerID)
@@ -1103,8 +971,7 @@ IMG_VOID HWRecoveryResetSGX(PVRSRV_DEVICE_NODE * psDeviceNode,
 
 	psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_HWR;
 
-	PVR_DPF((PVR_DBG_ERROR,
-		 "HWRecoveryResetSGX: SGX Hardware Recovery triggered"));
+	pr_err("HWRecoveryResetSGX: SGX Hardware Recovery triggered\n");
 
 	PDUMPSUSPEND();
 
@@ -1126,7 +993,6 @@ IMG_VOID HWRecoveryResetSGX(PVRSRV_DEVICE_NODE * psDeviceNode,
 
 	PVRSRVProcessQueues(ui32CallerID, IMG_TRUE);
 }
-#endif
 
 static struct workdata {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
@@ -1143,7 +1009,6 @@ static void HWRecoveryWrapper(struct work_struct *work)
 
 DECLARE_WORK(gWork, HWRecoveryWrapper);
 
-#if defined(SUPPORT_HW_RECOVERY)
 IMG_VOID SGXOSTimer(IMG_VOID * pvData)
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode = pvData;
@@ -1205,9 +1070,7 @@ IMG_VOID SGXOSTimer(IMG_VOID * pvData)
 		schedule_work(&gWork);
 	}
 }
-#endif
 
-#if defined(SYS_USING_INTERRUPTS)
 
 IMG_BOOL SGX_ISRHandler(IMG_VOID * pvData)
 {
@@ -1269,11 +1132,8 @@ IMG_VOID SGX_MISRHandler(IMG_VOID * pvData)
 		 ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_HWR)) {
 		HWRecoveryResetSGX(psDeviceNode, 0, ISR_ID);
 	}
-#if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 	SGXTestActivePowerEvent(psDeviceNode, ISR_ID);
-#endif
 }
-#endif
 
 PVRSRV_ERROR SGXRegisterDevice(PVRSRV_DEVICE_NODE * psDeviceNode)
 {
@@ -1300,11 +1160,9 @@ PVRSRV_ERROR SGXRegisterDevice(PVRSRV_DEVICE_NODE * psDeviceNode)
 	psDeviceNode->pfnMMUGetPhysPageAddr = MMU_GetPhysPageAddr;
 	psDeviceNode->pfnMMUGetPDDevPAddr = MMU_GetPDDevPAddr;
 
-#if defined (SYS_USING_INTERRUPTS)
 
 	psDeviceNode->pfnDeviceISR = SGX_ISRHandler;
 	psDeviceNode->pfnDeviceMISR = SGX_MISRHandler;
-#endif
 
 	psDeviceNode->pfnDeviceCommandComplete = SGXCommandComplete;
 
@@ -1357,11 +1215,7 @@ PVRSRV_ERROR SGXRegisterDevice(PVRSRV_DEVICE_NODE * psDeviceNode)
 	    SGX_TADATA_HEAP_SIZE;
 	psDeviceMemoryHeap[SGX_TADATA_HEAP_ID].ui32Attribs =
 	    PVRSRV_HAP_WRITECOMBINE | PVRSRV_MEM_RAM_BACKED_ALLOCATION
-#if 0
-	    | PVRSRV_HAP_KERNEL_ONLY;
-#else
 	    | PVRSRV_HAP_MULTI_PROCESS;
-#endif
 	psDeviceMemoryHeap[SGX_TADATA_HEAP_ID].pszName = "TA Data";
 	psDeviceMemoryHeap[SGX_TADATA_HEAP_ID].pszBSName = "TA Data BS";
 	psDeviceMemoryHeap[SGX_TADATA_HEAP_ID].DevMemHeapType =
@@ -1375,11 +1229,7 @@ PVRSRV_ERROR SGXRegisterDevice(PVRSRV_DEVICE_NODE * psDeviceNode)
 	    SGX_KERNEL_CODE_HEAP_SIZE;
 	psDeviceMemoryHeap[SGX_KERNEL_CODE_HEAP_ID].ui32Attribs =
 	    PVRSRV_HAP_WRITECOMBINE | PVRSRV_MEM_RAM_BACKED_ALLOCATION
-#if 0
-	    | PVRSRV_HAP_KERNEL_ONLY;
-#else
 	    | PVRSRV_HAP_MULTI_PROCESS;
-#endif
 	psDeviceMemoryHeap[SGX_KERNEL_CODE_HEAP_ID].pszName = "Kernel";
 	psDeviceMemoryHeap[SGX_KERNEL_CODE_HEAP_ID].pszBSName = "Kernel BS";
 	psDeviceMemoryHeap[SGX_KERNEL_CODE_HEAP_ID].DevMemHeapType =
@@ -1407,11 +1257,7 @@ PVRSRV_ERROR SGXRegisterDevice(PVRSRV_DEVICE_NODE * psDeviceNode)
 	    SGX_KERNEL_VIDEO_DATA_HEAP_SIZE;
 	psDeviceMemoryHeap[SGX_KERNEL_VIDEO_DATA_HEAP_ID].ui32Attribs =
 	    PVRSRV_HAP_WRITECOMBINE | PVRSRV_MEM_RAM_BACKED_ALLOCATION |
-#if 0
-	    PVRSRV_HAP_KERNEL_ONLY;
-#else
 	    PVRSRV_HAP_MULTI_PROCESS;
-#endif
 	psDeviceMemoryHeap[SGX_KERNEL_VIDEO_DATA_HEAP_ID].pszName =
 	    "KernelVideoData";
 	psDeviceMemoryHeap[SGX_KERNEL_VIDEO_DATA_HEAP_ID].pszBSName =
@@ -1507,19 +1353,11 @@ PVRSRV_ERROR SGXRegisterDevice(PVRSRV_DEVICE_NODE * psDeviceNode)
 	psDeviceMemoryHeap[SGX_3DPARAMETERS_HEAP_ID].pszName = "3DParameters";
 	psDeviceMemoryHeap[SGX_3DPARAMETERS_HEAP_ID].pszBSName =
 	    "3DParameters BS";
-#if defined(SUPPORT_PERCONTEXT_PB)
 	psDeviceMemoryHeap[SGX_3DPARAMETERS_HEAP_ID].ui32Attribs =
 	    PVRSRV_HAP_WRITECOMBINE | PVRSRV_MEM_RAM_BACKED_ALLOCATION |
 	    PVRSRV_HAP_SINGLE_PROCESS;
 	psDeviceMemoryHeap[SGX_3DPARAMETERS_HEAP_ID].DevMemHeapType =
 	    DEVICE_MEMORY_HEAP_PERCONTEXT;
-#else
-	psDeviceMemoryHeap[SGX_3DPARAMETERS_HEAP_ID].ui32Attribs =
-	    PVRSRV_HAP_WRITECOMBINE | PVRSRV_MEM_RAM_BACKED_ALLOCATION |
-	    PVRSRV_HAP_MULTI_PROCESS;
-	psDeviceMemoryHeap[SGX_3DPARAMETERS_HEAP_ID].DevMemHeapType =
-	    DEVICE_MEMORY_HEAP_SHARED_EXPORTED;
-#endif
 
 	psDeviceMemoryHeap[SGX_GENERAL_MAPPING_HEAP_ID].ui32HeapID =
 	    HEAP_ID(PVRSRV_DEVICE_TYPE_SGX, SGX_GENERAL_MAPPING_HEAP_ID);
@@ -1537,6 +1375,22 @@ PVRSRV_ERROR SGXRegisterDevice(PVRSRV_DEVICE_NODE * psDeviceNode)
 	psDeviceMemoryHeap[SGX_GENERAL_MAPPING_HEAP_ID].DevMemHeapType =
 	    DEVICE_MEMORY_HEAP_SHARED_EXPORTED;
 
+	psDeviceMemoryHeap[SGX_FB_MAPPING_HEAP_ID].ui32HeapID =
+	    HEAP_ID(PVRSRV_DEVICE_TYPE_SGX, SGX_FB_MAPPING_HEAP_ID);
+	psDeviceMemoryHeap[SGX_FB_MAPPING_HEAP_ID].sDevVAddrBase.uiAddr =
+	    SGX_FB_MAPPING_HEAP_BASE;
+	psDeviceMemoryHeap[SGX_FB_MAPPING_HEAP_ID].ui32HeapSize =
+	    SGX_FB_MAPPING_HEAP_SIZE;
+	psDeviceMemoryHeap[SGX_FB_MAPPING_HEAP_ID].ui32Attribs =
+	    PVRSRV_HAP_WRITECOMBINE | PVRSRV_HAP_MULTI_PROCESS;
+	psDeviceMemoryHeap[SGX_FB_MAPPING_HEAP_ID].pszName =
+	    "FramebufferMapping";
+	psDeviceMemoryHeap[SGX_FB_MAPPING_HEAP_ID].pszBSName =
+	    "FramebufferMapping BS";
+
+	psDeviceMemoryHeap[SGX_FB_MAPPING_HEAP_ID].DevMemHeapType =
+	    DEVICE_MEMORY_HEAP_SHARED_EXPORTED;
+
 	psDeviceMemoryHeap[SGX_ALT_MAPPING_HEAP_ID].ui32HeapID =
 	    HEAP_ID(PVRSRV_DEVICE_TYPE_SGX, SGX_ALT_MAPPING_HEAP_ID);
 	psDeviceMemoryHeap[SGX_ALT_MAPPING_HEAP_ID].sDevVAddrBase.uiAddr =
@@ -1551,21 +1405,6 @@ PVRSRV_ERROR SGXRegisterDevice(PVRSRV_DEVICE_NODE * psDeviceNode)
 	psDeviceMemoryHeap[SGX_ALT_MAPPING_HEAP_ID].DevMemHeapType =
 	    DEVICE_MEMORY_HEAP_SHARED_EXPORTED;
 
-#if defined(SGX_FEATURE_2D_HARDWARE)
-
-	psDeviceMemoryHeap[SGX_2D_HEAP_ID].ui32HeapID =
-	    HEAP_ID(PVRSRV_DEVICE_TYPE_SGX, SGX_2D_HEAP_ID);
-	psDeviceMemoryHeap[SGX_2D_HEAP_ID].sDevVAddrBase.uiAddr =
-	    SGX_2D_HEAP_BASE;
-	psDeviceMemoryHeap[SGX_2D_HEAP_ID].ui32HeapSize = SGX_2D_HEAP_SIZE;
-	psDeviceMemoryHeap[SGX_2D_HEAP_ID].ui32Attribs = PVRSRV_HAP_WRITECOMBINE
-	    | PVRSRV_MEM_RAM_BACKED_ALLOCATION | PVRSRV_HAP_SINGLE_PROCESS;
-	psDeviceMemoryHeap[SGX_2D_HEAP_ID].pszName = "2D";
-	psDeviceMemoryHeap[SGX_2D_HEAP_ID].pszBSName = "2D BS";
-
-	psDeviceMemoryHeap[SGX_2D_HEAP_ID].DevMemHeapType =
-	    DEVICE_MEMORY_HEAP_SHARED_EXPORTED;
-#endif
 
 	return PVRSRV_OK;
 }
@@ -1604,7 +1443,6 @@ IMG_EXPORT
 			    psDevInfo->ui32CoreClockSpeed;
 			return PVRSRV_OK;
 		}
-#ifdef SUPPORT_SGX_HWPERF
 	case SGX_MISC_INFO_REQUEST_HWPERF_CB_ON:
 		{
 			psDevInfo->psSGXHostCtl->ui32HWPerfFlags |=
@@ -1646,7 +1484,6 @@ IMG_EXPORT
 			psRetrieve->ui32Time = OSClockus();
 			return PVRSRV_OK;
 		}
-#endif
 	default:
 		{
 
@@ -1655,7 +1492,6 @@ IMG_EXPORT
 	}
 }
 
-#if defined(SUPPORT_SGX_HWPERF)
 IMG_EXPORT
     PVRSRV_ERROR SGXReadDiffCountersKM(IMG_HANDLE hDevHandle,
 				       IMG_UINT32 ui32Reg,
@@ -1775,11 +1611,7 @@ IMG_EXPORT
 
 	PVRSRVPowerUnlock(KERNEL_ID);
 
-#if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 	SGXTestActivePowerEvent(psDeviceNode, KERNEL_ID);
-#endif
 
 	return eError;
 }
-#else
-#endif

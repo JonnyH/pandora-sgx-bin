@@ -83,16 +83,13 @@ PVRSRV_ERROR FreeDeviceID(SYS_DATA * psSysData, IMG_UINT32 ui32DevID)
 	return PVRSRV_ERROR_GENERIC;
 }
 
-#ifndef ReadHWReg
 IMG_EXPORT
     IMG_UINT32 ReadHWReg(IMG_PVOID pvLinRegBaseAddr, IMG_UINT32 ui32Offset)
 {
 	return *(volatile IMG_UINT32 *)((IMG_UINT32) pvLinRegBaseAddr +
 					ui32Offset);
 }
-#endif
 
-#ifndef WriteHWReg
 IMG_EXPORT
     IMG_VOID WriteHWReg(IMG_PVOID pvLinRegBaseAddr, IMG_UINT32 ui32Offset,
 			IMG_UINT32 ui32Value)
@@ -103,9 +100,7 @@ IMG_EXPORT
 	*(IMG_UINT32 *) ((IMG_UINT32) pvLinRegBaseAddr + ui32Offset) =
 	    ui32Value;
 }
-#endif
 
-#ifndef WriteHWRegs
 IMG_EXPORT
     IMG_VOID WriteHWRegs(IMG_PVOID pvLinRegBaseAddr, IMG_UINT32 ui32Count,
 			 PVRSRV_HWREG * psHWRegs)
@@ -116,7 +111,6 @@ IMG_EXPORT
 		psHWRegs++;
 	}
 }
-#endif
 
 IMG_EXPORT
     PVRSRV_ERROR IMG_CALLCONV PVRSRVEnumerateDevicesKM(IMG_UINT32 *
@@ -537,43 +531,6 @@ IMG_EXPORT
 	return PVRSRV_ERROR_GENERIC;
 }
 
-#if defined (USING_ISR_INTERRUPTS)
-
-extern IMG_UINT32 gui32EventStatusServicesByISR;
-
-PVRSRV_ERROR PollForInterruptKM(IMG_UINT32 ui32Value,
-				IMG_UINT32 ui32Mask,
-				IMG_UINT32 ui32Waitus, IMG_UINT32 ui32Tries)
-{
-	IMG_BOOL bStart = IMG_FALSE;
-	IMG_UINT32 uiStart = 0, uiCurrent = 0, uiMaxTime;
-
-	uiMaxTime = ui32Tries * ui32Waitus;
-
-	do {
-		if ((gui32EventStatusServicesByISR & ui32Mask) == ui32Value) {
-			gui32EventStatusServicesByISR = 0;
-			return PVRSRV_OK;
-		}
-
-		if (bStart == IMG_FALSE) {
-			bStart = IMG_TRUE;
-			uiStart = OSClockus();
-		}
-
-		OSWaitus(ui32Waitus);
-
-		uiCurrent = OSClockus();
-		if (uiCurrent < uiStart) {
-
-			uiStart = 0;
-		}
-
-	} while ((uiCurrent - uiStart) < uiMaxTime);
-
-	return PVRSRV_ERROR_GENERIC;
-}
-#endif
 
 IMG_EXPORT
     PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO * psMiscInfo)

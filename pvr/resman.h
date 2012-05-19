@@ -27,9 +27,6 @@
 #ifndef __RESMAN_H__
 #define __RESMAN_H__
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 	enum {
 
@@ -97,7 +94,4 @@ extern "C" {
 	IMG_VOID PVRSRVResManDisconnect(PRESMAN_CONTEXT hResManContext,
 					IMG_BOOL bKernelContext);
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

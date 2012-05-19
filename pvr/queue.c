@@ -26,7 +26,6 @@
 
 #include "services_headers.h"
 
-#if defined(__linux__) && defined(__KERNEL__)
 #include "proc.h"
 
 static int
@@ -79,7 +78,6 @@ off_t QueuePrintQueues(char *buffer, size_t size, off_t off)
 	return psQueue ? QueuePrintCommands(psQueue, buffer,
 					    size) : END_OF_FILE;
 }
-#endif
 
 #define GET_SPACE_IN_CMDQ(psQueue)										\
 	(((psQueue->ui32ReadOffset - psQueue->ui32WriteOffset)				\
@@ -699,13 +697,9 @@ IMG_EXPORT
 
 	PVRSRVCommandCompleteCallbacks();
 
-#if defined(SYS_USING_INTERRUPTS)
 	if (bScheduleMISR) {
 		OSScheduleMISR(psSysData);
 	}
-#else
-	PVR_UNREFERENCED_PARAMETER(bScheduleMISR);
-#endif
 }
 
 IMG_VOID PVRSRVCommandCompleteCallbacks(IMG_VOID)

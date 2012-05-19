@@ -49,18 +49,7 @@ typedef struct _SGX_BRIDGE_INIT_INFO_ {
 	IMG_HANDLE hKernelSGXHostCtlMemInfo;
 	IMG_UINT32 ui32TAKickAddress;
 	IMG_UINT32 ui32VideoHandlerAddress;
-#if defined(SGX_SUPPORT_HWPROFILING)
-	IMG_HANDLE hKernelHWProfilingMemInfo;
-#endif
-#if defined(SUPPORT_SGX_HWPERF)
 	IMG_HANDLE hKernelHWPerfCBMemInfo;
-#endif
-#if defined(SGX_FEATURE_OVERLAPPED_SPM)
-	IMG_HANDLE hKernelTmpRgnHeaderMemInfo;
-#endif
-#if defined(SGX_FEATURE_SPM_MODE_0)
-	IMG_HANDLE hKernelTmpDPMStateMemInfo;
-#endif
 
 	IMG_UINT32 ui32EDMTaskReg0;
 	IMG_UINT32 ui32EDMTaskReg1;
@@ -105,9 +94,6 @@ typedef enum _PVRSRV_SGX_COMMAND_TYPE_ {
 #define PVRSRV_CCBFLAGS_RASTERCMD			0x1
 #define PVRSRV_CCBFLAGS_TRANSFERCMD			0x2
 #define PVRSRV_CCBFLAGS_PROCESS_QUEUESCMD	0x3
-#if defined(SGX_FEATURE_2D_HARDWARE)
-#define PVRSRV_CCBFLAGS_2DCMD				0x4
-#endif
 
 #define	SGX_BIF_INVALIDATE_PTCACHE	0x1
 #define	SGX_BIF_INVALIDATE_PDCACHE	0x2
@@ -125,12 +111,10 @@ typedef struct _PVR3DIF4_CCB_KICK_ {
 	IMG_HANDLE ah3DStatusSyncInfo[SGX_MAX_3D_STATUS_VALS];
 
 	IMG_BOOL bFirstKickOrResume;
-#if (defined(NO_HARDWARE) || defined(PDUMP))
+#ifdef PDUMP
 	IMG_BOOL bTerminateOrAbort;
 #endif
-#if defined(SUPPORT_SGX_HWPERF)
 	IMG_BOOL bKickRender;
-#endif
 
 	IMG_UINT32 ui32CCBOffset;
 
@@ -145,9 +129,6 @@ typedef struct _PVR3DIF4_CCB_KICK_ {
 #if defined(PDUMP)
 	IMG_UINT32 ui32CCBDumpWOff;
 #endif
-#if defined(NO_HARDWARE)
-	IMG_UINT32 ui32WriteOpsPendingVal;
-#endif
 } PVR3DIF4_CCB_KICK;
 
 #define SGX_VIDEO_USE_CODE_BASE_INDEX		14
@@ -156,11 +137,9 @@ typedef struct _PVR3DIF4_CCB_KICK_ {
 typedef struct _PVRSRV_SGX_HOST_CTL_ {
 
 	volatile IMG_UINT32 ui32PowManFlags;
-#if defined(SUPPORT_HW_RECOVERY)
 	IMG_UINT32 ui32uKernelDetectedLockups;
 	IMG_UINT32 ui32HostDetectedLockups;
 	IMG_UINT32 ui32HWRecoverySampleRate;
-#endif
 	IMG_UINT32 ui32ActivePowManSampleRate;
 	IMG_UINT32 ui32InterruptFlags;
 	IMG_UINT32 ui32InterruptClearFlags;
@@ -174,9 +153,7 @@ typedef struct _PVRSRV_SGX_HOST_CTL_ {
 
 	IMG_UINT32 ui32NumActivePowerEvents;
 
-#if defined(SUPPORT_SGX_HWPERF)
 	IMG_UINT32 ui32HWPerfFlags;
-#endif
 
 	IMG_UINT32 ui32TimeWraps;
 } PVRSRV_SGX_HOST_CTL;
@@ -231,7 +208,6 @@ typedef struct _CTL_STATUS_ {
 	IMG_UINT32 ui32StatusValue;
 } CTL_STATUS, *PCTL_STATUS;
 
-#if defined(TRANSFER_QUEUE)
 #define SGXTQ_MAX_STATUS						SGX_MAX_TRANSFER_STATUS_VALS + 2
 typedef struct _PVR3DIF4_CMDTA_SHARED_ {
 	IMG_UINT32 ui32NumTAStatusVals;
@@ -321,40 +297,6 @@ typedef struct _PVRSRV_TRANSFER_SGX_KICK_ {
 #endif
 } PVRSRV_TRANSFER_SGX_KICK, *PPVRSRV_TRANSFER_SGX_KICK;
 
-#if defined(SGX_FEATURE_2D_HARDWARE)
-typedef struct _PVR3DIF4_2DCMD_SHARED_ {
-
-	IMG_UINT32 ui32NumSrcSync;
-	PVRSRV_DEVICE_SYNC_OBJECT sSrcSyncData[SGX_MAX_2D_SRC_SYNC_OPS];
-
-	PVRSRV_DEVICE_SYNC_OBJECT sDstSyncData;
-
-	PVRSRV_DEVICE_SYNC_OBJECT sTASyncData;
-
-	PVRSRV_DEVICE_SYNC_OBJECT s3DSyncData;
-} PVR3DIF4_2DCMD_SHARED, *PPVR3DIF4_2DCMD_SHARED;
-
-typedef struct _PVRSRV_2D_SGX_KICK_ {
-	IMG_HANDLE hCCBMemInfo;
-	IMG_UINT32 ui32SharedCmdCCBOffset;
-
-	IMG_DEV_VIRTADDR sHW2DContextDevVAddr;
-
-	IMG_UINT32 ui32NumSrcSync;
-	IMG_HANDLE ahSrcSyncInfo[SGX_MAX_2D_SRC_SYNC_OPS];
-
-	IMG_HANDLE hDstSyncInfo;
-
-	IMG_HANDLE hTASyncInfo;
-
-	IMG_HANDLE h3DSyncInfo;
-
-#if defined(PDUMP)
-	IMG_UINT32 ui32CCBDumpWOff;
-#endif
-} PVRSRV_2D_SGX_KICK, *PPVRSRV_2D_SGX_KICK;
-#endif
-#endif
 
 #define PVRSRV_SGX_DIFF_NUM_COUNTERS	9
 

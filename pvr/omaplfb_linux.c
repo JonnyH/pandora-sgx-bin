@@ -37,9 +37,7 @@
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 
-#if defined(LDM_PLATFORM)
 #include <linux/platform_device.h>
-#endif
 
 #include <asm/io.h>
 
@@ -51,13 +49,7 @@
 #include "omaplfb.h"
 #include "pvrmodule.h"
 
-#if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
-extern void omap_dispc_set_plane_base(int plane, IMG_UINT32 phys_addr);
-#elif defined(CONFIG_FB_OMAP2) || defined(CONFIG_FB_OMAP2_MODULE)
 #include <mach/display.h>
-#else
-#error "PVR needs OMAPFB, but it's disabled"
-#endif
 
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
@@ -95,44 +87,25 @@ IMG_VOID OMAPLFBDisableVSyncInterrupt(OMAPLFB_SWAPCHAIN * psSwapChain)
 {
 }
 
-#if defined(SYS_USING_INTERRUPTS)
-#if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
-static void OMAPLFBVSyncISR(void *arg)
-#else
 static void OMAPLFBVSyncISR(void *arg, u32 mask)
-#endif
 {
 	(void)OMAPLFBVSyncIHandler((OMAPLFB_SWAPCHAIN *) arg);
 }
-#endif
 
-#if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
-#define DISPC_IRQ_VSYNC 0x0002
-#endif
 
 PVRSRV_ERROR OMAPLFBInstallVSyncISR(OMAPLFB_SWAPCHAIN * psSwapChain)
 {
-#if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
-	if (omap_dispc_request_irq
-	    (DISPC_IRQ_VSYNC, OMAPLFBVSyncISR, psSwapChain) != 0)
-		return PVRSRV_ERROR_OUT_OF_MEMORY;
-#else
 	if (omap_dispc_register_isr
 	    (OMAPLFBVSyncISR, psSwapChain, DISPC_IRQ_VSYNC) != 0)
 		return PVRSRV_ERROR_OUT_OF_MEMORY;
-#endif
 
 	return PVRSRV_OK;
 }
 
 PVRSRV_ERROR OMAPLFBUninstallVSyncISR(OMAPLFB_SWAPCHAIN * psSwapChain)
 {
-#if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
-	omap_dispc_free_irq(DISPC_IRQ_VSYNC, OMAPLFBVSyncISR, psSwapChain);
-#else
 	omap_dispc_unregister_isr(OMAPLFBVSyncISR, psSwapChain,
 				  DISPC_IRQ_VSYNC);
-#endif
 	return PVRSRV_OK;
 }
 
@@ -152,14 +125,9 @@ IMG_VOID OMAPLFBDisableDisplayRegisterAccess(IMG_VOID)
 
 IMG_VOID OMAPLFBFlip(OMAPLFB_SWAPCHAIN * psSwapChain, IMG_UINT32 aPhyAddr)
 {
-#if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
-	omap_dispc_set_plane_base(0, aPhyAddr);
-#else
 	omap_dispc_set_plane_ba0(OMAP_DSS_CHANNEL_LCD, OMAP_DSS_GFX, aPhyAddr);
-#endif
 }
 
-#if defined(LDM_PLATFORM)
 
 static IMG_BOOL bDeviceSuspended;
 
@@ -228,20 +196,16 @@ static struct platform_device omaplfb_device = {
 	.dev = {
 		.release = OMAPLFBDeviceRelease_Entry}
 };
-#endif
 
 static int __init OMAPLFB_Init(void)
 {
-#if defined(LDM_PLATFORM)
 	int error;
-#endif
 
 	if (OMAPLFBInit() != PVRSRV_OK) {
 		printk(KERN_WARNING DRIVER_PREFIX
 		       ": OMAPLFB_Init: OMAPLFBInit failed\n");
 		return -ENODEV;
 	}
-#if defined(LDM_PLATFORM)
 	if ((error = platform_driver_register(&omaplfb_driver)) != 0) {
 		printk(KERN_WARNING DRIVER_PREFIX
 		       ": OMAPLFB_Init: Unable to register platform driver (%d)\n",
@@ -257,11 +221,9 @@ static int __init OMAPLFB_Init(void)
 
 		goto ExitDriverUnregister;
 	}
-#endif
 
 	return 0;
 
-#if defined(LDM_PLATFORM)
 ExitDriverUnregister:
 	platform_driver_unregister(&omaplfb_driver);
 
@@ -272,15 +234,12 @@ ExitDeinit:
 	}
 
 	return -ENODEV;
-#endif
 }
 
 static void __exit OMAPLFB_Cleanup(void)
 {
-#if defined (LDM_PLATFORM)
 	platform_device_unregister(&omaplfb_device);
 	platform_driver_unregister(&omaplfb_driver);
-#endif
 
 	if (OMAPLFBDeinit() != PVRSRV_OK) {
 		printk(KERN_WARNING DRIVER_PREFIX

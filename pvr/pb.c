@@ -33,9 +33,6 @@
 #include "pvr_bridge_km.h"
 #include "pdump_km.h"
 
-#ifndef __linux__
-#pragma message("TODO: Review use of OS_PAGEABLE vs OS_NON_PAGEABLE")
-#endif
 
 static PRESMAN_ITEM psResItemCreateSharedPB = IMG_NULL;
 static PVRSRV_PER_PROCESS_DATA *psPerProcCreateSharedPB = IMG_NULL;

@@ -27,9 +27,6 @@
 #if !defined(__OEMFUNCS_H__)
 #define __OEMFUNCS_H__
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 	typedef IMG_UINT32(*PFN_SRV_BRIDGEDISPATCH) (IMG_UINT32 Ioctl,
 						     IMG_BYTE * pInBuf,
@@ -48,7 +45,4 @@ extern "C" {
 
 #define OEM_GET_EXT_FUNCS			(1<<1)
 
-#if defined(__cplusplus)
-}
-#endif
 #endif

@@ -44,17 +44,9 @@
 
 #define	ADDR_TO_PAGE_OFFSET(addr) (((unsigned long)(addr)) & (PAGE_SIZE - 1))
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,10))
 #define	REMAP_PFN_RANGE(vma, addr, pfn, size, prot) remap_pfn_range(vma, addr, pfn, size, prot)
-#else
-#define	REMAP_PFN_RANGE(vma, addr, pfn, size, prot) remap_page_range(vma, addr, PFN_TO_PHYS(pfn), size, prot)
-#endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,12))
 #define	IO_REMAP_PFN_RANGE(vma, addr, pfn, size, prot) io_remap_pfn_range(vma, addr, pfn, size, prot)
-#else
-#define	IO_REMAP_PFN_RANGE(vma, addr, pfn, size, prot) io_remap_page_range(vma, addr, PFN_TO_PHYS(pfn), size, prot)
-#endif
 
 static inline IMG_UINT32 VMallocToPhys(IMG_VOID * pCpuVAddr)
 {
@@ -115,11 +107,7 @@ struct _LinuxMemArea {
 	IMG_UINT32 ui32ByteSize;
 };
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,17))
-typedef kmem_cache_t LinuxKMemCache;
-#else
 typedef struct kmem_cache LinuxKMemCache;
-#endif
 
 PVRSRV_ERROR LinuxMMInit(IMG_VOID);
 
@@ -228,13 +216,8 @@ IMG_VOID KMemCacheDestroyWrapper(LinuxKMemCache * psCache);
 #define KMemCacheAllocWrapper(psCache, Flags) _KMemCacheAllocWrapper(psCache, Flags, NULL, 0)
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,14))
 IMG_VOID *_KMemCacheAllocWrapper(LinuxKMemCache * psCache, gfp_t Flags,
 				 IMG_CHAR * pszFileName, IMG_UINT32 ui32Line);
-#else
-IMG_VOID *_KMemCacheAllocWrapper(LinuxKMemCache * psCache, int Flags,
-				 IMG_CHAR * pszFileName, IMG_UINT32 ui32Line);
-#endif
 
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
 #define KMemCacheFreeWrapper(psCache, pvObject) _KMemCacheFreeWrapper(psCache, pvObject, __FILE__, __LINE__)

@@ -52,15 +52,9 @@ IMG_UINT32 PVRSRVTimeNow(IMG_VOID)
 
 		return 0;
 	}
-#if defined(__sh__)
-
-	return (0xffffffff - *pui32TimerRegister);
-
-#else
 
 	return 0;
 
-#endif
 }
 
 static IMG_UINT32 PVRSRVGetCPUFreq(IMG_VOID)
@@ -90,21 +84,9 @@ IMG_VOID PVRSRVSetupMetricTimers(IMG_VOID * pvDevInfo)
 		asTimers[ui32Loop].ui32Count = 0;
 	}
 
-#if defined(__sh__)
-
-	*TCR_2 = TIMER_DIVISOR;
-
-	*TCOR_2 = *TCNT_2 = (unsigned int)0xffffffff;
-
-	*TST_REG |= (unsigned char)0x04;
-
-	pui32TimerRegister = (IMG_UINT32 *) TCNT_2;
-
-#else
 
 	pui32TimerRegister = 0;
 
-#endif
 
 }
 
@@ -127,18 +109,6 @@ IMG_VOID PVRSRVOutputMetricTotals(IMG_VOID)
 				 ui32Loop));
 		}
 	}
-#if 0
-
-	PVR_DPF((PVR_DBG_ERROR, " Timer(%u): Total = %u",
-		 PVRSRV_TIMER_EXAMPLE_1,
-		 PVRSRV_TIMER_TOTAL_IN_TICKS(PVRSRV_TIMER_EXAMPLE_1)));
-	PVR_DPF((PVR_DBG_ERROR, " Timer(%u): Time = %ums",
-		 PVRSRV_TIMER_EXAMPLE_1,
-		 PVRSRV_TIMER_TOTAL_IN_MS(PVRSRV_TIMER_EXAMPLE_1)));
-	PVR_DPF((PVR_DBG_ERROR, " Timer(%u): Count = %u",
-		 PVRSRV_TIMER_EXAMPLE_1,
-		 PVRSRV_TIMER_COUNT(PVRSRV_TIMER_EXAMPLE_1)));
-#endif
 }
 
 #endif

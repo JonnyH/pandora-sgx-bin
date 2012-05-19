@@ -27,9 +27,6 @@
 #ifndef __SGXSCRIPT_H__
 #define __SGXSCRIPT_H__
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #define	SGX_MAX_INIT_COMMANDS	64
 #define	SGX_MAX_DEINIT_COMMANDS	16
@@ -64,7 +61,4 @@ extern "C" {
 		SGX_INIT_COMMAND asDeinitCommands[SGX_MAX_DEINIT_COMMANDS];
 	} SGX_INIT_SCRIPTS;
 
-#if defined(__cplusplus)
-}
-#endif
 #endif

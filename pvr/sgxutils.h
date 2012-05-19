@@ -76,11 +76,9 @@ IMG_VOID DumpBufferArray(PPVR3DIF4_KICKTA_DUMP_BUFFER psBufferArray,
 			 IMG_UINT32 ui32BufferArrayLength, IMG_BOOL bDumpPolls);
 #endif
 
-#if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 IMG_IMPORT
     IMG_VOID SGXTestActivePowerEvent(PVRSRV_DEVICE_NODE * psDeviceNode,
 				     IMG_UINT32 ui32CallerID);
-#endif
 
 IMG_IMPORT
     PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE * psDeviceNode,
@@ -117,12 +115,3 @@ IMG_IMPORT
     PVRSRV_ERROR SGXUnregisterHWTransferContextKM(IMG_HANDLE
 						  hHWTransferContext);
 
-#if defined(SGX_FEATURE_2D_HARDWARE)
-IMG_IMPORT
-    IMG_HANDLE SGXRegisterHW2DContextKM(IMG_HANDLE psDeviceNode,
-					IMG_DEV_VIRTADDR *
-					psHW2DContextDevVAddr,
-					PVRSRV_PER_PROCESS_DATA * psPerProc);
-
-IMG_IMPORT PVRSRV_ERROR SGXUnregisterHW2DContextKM(IMG_HANDLE hHW2DContext);
-#endif

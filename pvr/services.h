@@ -27,9 +27,6 @@
 #ifndef __SERVICES_H__
 #define __SERVICES_H__
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #include "img_defs.h"
 #include "servicesext.h"
@@ -199,21 +196,6 @@ extern "C" {
 
 	} PVRSRV_CLIENT_MEM_INFO, *PPVRSRV_CLIENT_MEM_INFO;
 
-#if 0
-	typedef struct _PVRSRV_CLIENT_SYNC_INFO_ {
-
-		PVRSRV_SYNC_DATA *psSyncData;
-
-		IMG_DEV_VIRTADDR sWriteOpsCompleteDevVAddr;
-
-		IMG_DEV_VIRTADDR sReadOpsCompleteDevVAddr;
-
-		IMG_HANDLE hMappingInfo;
-
-		IMG_HANDLE hKernelSyncInfo;
-
-	} PVRSRV_CLIENT_SYNC_INFO, *PPVRSRV_CLIENT_SYNC_INFO;
-#endif
 
 #define PVRSRV_MAX_CLIENT_HEAPS (32)
 	typedef struct _PVRSRV_HEAP_INFO_ {
@@ -298,7 +280,6 @@ extern "C" {
 							    PVRSRV_MISC_INFO *
 							    psMiscInfo);
 
-#if 1
 	 IMG_IMPORT
 	    IMG_UINT32 ReadHWReg(IMG_PVOID pvLinRegBaseAddr,
 				 IMG_UINT32 ui32Offset);
@@ -310,7 +291,6 @@ extern "C" {
 	IMG_IMPORT IMG_VOID WriteHWRegs(IMG_PVOID pvLinRegBaseAddr,
 					IMG_UINT32 ui32Count,
 					PVRSRV_HWREG * psHWRegs);
-#endif
 
 	 IMG_IMPORT
 	    PVRSRV_ERROR PVRSRVPollForValue(PVRSRV_CONNECTION * psConnection,
@@ -965,7 +945,7 @@ extern "C" {
 	IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVUnlockMutex(PVRSRV_MUTEX_HANDLE
 							   hMutex);
 
-#if (defined(DEBUG) && defined(__linux__))
+#ifdef DEBUG
 	IMG_PVOID PVRSRVAllocUserModeMemTracking(IMG_UINT32 ui32Size,
 						 IMG_CHAR * pszFileName,
 						 IMG_UINT32 ui32LineNumber);
@@ -985,7 +965,4 @@ extern "C" {
 
 #define TIME_NOT_PASSED_UINT32(a,b,c)		((a - b) < c)
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

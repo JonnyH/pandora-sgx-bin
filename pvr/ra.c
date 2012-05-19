@@ -30,14 +30,9 @@
 #include "buffer_manager.h"
 #include "osfunc.h"
 
-#ifdef __linux__
 #include <linux/kernel.h>
 #include "proc.h"
-#endif
 
-#ifdef USE_BM_FREESPACE_CHECK
-#include <stdio.h>
-#endif
 
 #define MINIMUM_HASH_SIZE (64)
 
@@ -107,9 +102,6 @@ static int RA_DumpInfo(char *page, char **start, off_t off, int count, int *eof,
 		       void *data);
 #endif
 
-#ifdef USE_BM_FREESPACE_CHECK
-void CheckBMFreespace(void);
-#endif
 
 static IMG_BOOL
 _RequestAllocFail(void *_h,
@@ -446,11 +438,6 @@ _AttemptAllocAligned(RA_ARENA * pArena,
 
 	uIndex = pvr_log2(uSize);
 
-#if 0
-
-	if (1u << uIndex < uSize)
-		uIndex++;
-#endif
 
 	while (uIndex < FREE_TABLE_LIMIT
 	       && pArena->aHeadFree[uIndex] == IMG_NULL)
@@ -736,9 +723,6 @@ RA_Alloc(RA_ARENA * pArena,
 
 	PVR_ASSERT(pArena != IMG_NULL);
 
-#ifdef USE_BM_FREESPACE_CHECK
-	CheckBMFreespace();
-#endif
 
 	if (pActualSize != IMG_NULL)
 		*pActualSize = uSize;
@@ -820,9 +804,6 @@ void RA_Free(RA_ARENA * pArena, IMG_UINTPTR_T base, IMG_BOOL bFreeBackingStore)
 
 	PVR_ASSERT(pArena != IMG_NULL);
 
-#ifdef USE_BM_FREESPACE_CHECK
-	CheckBMFreespace();
-#endif
 
 	PVR_DPF((PVR_DBG_MESSAGE,
 		 "RA_Free: name='%s', base=0x%x", pArena->name, base));
@@ -837,33 +818,6 @@ void RA_Free(RA_ARENA * pArena, IMG_UINTPTR_T base, IMG_BOOL bFreeBackingStore)
 		pArena->sStatistics.uCumulativeFrees++;
 #endif
 
-#ifdef USE_BM_FREESPACE_CHECK
-		{
-			unsigned char *p;
-			unsigned char *endp;
-
-			p = (unsigned char *)pBT->base +
-			    SysGetDevicePhysOffset();
-			endp = (unsigned char *)((IMG_UINT32) (p + pBT->uSize));
-			while ((IMG_UINT32) p & 3) {
-				*p++ = 0xAA;
-			}
-			while (p <
-			       (unsigned char *)((IMG_UINT32) endp &
-						 0xfffffffc)) {
-				*(IMG_UINT32 *) p = 0xAAAAAAAA;
-				p += sizeof(IMG_UINT32);
-			}
-			while (p < endp) {
-				*p++ = 0xAA;
-			}
-			PVR_DPF((PVR_DBG_MESSAGE,
-				 "BM_FREESPACE_CHECK: RA_Free Cleared %08X to %08X (size=0x%x)",
-				 (unsigned char *)pBT->base +
-				 SysGetDevicePhysOffset(), endp - 1,
-				 pBT->uSize));
-		}
-#endif
 		_FreeBT(pArena, pBT, bFreeBackingStore);
 	}
 }
@@ -900,50 +854,6 @@ IMG_BOOL RA_GetNextLiveSegment(IMG_HANDLE hArena,
 	return IMG_FALSE;
 }
 
-#ifdef USE_BM_FREESPACE_CHECK
-RA_ARENA *pJFSavedArena = IMG_NULL;
-
-void CheckBMFreespace(void)
-{
-	BT *pBT;
-	unsigned char *p;
-	unsigned char *endp;
-
-	if (pJFSavedArena != IMG_NULL) {
-		for (pBT = pJFSavedArena->pHeadSegment; pBT != IMG_NULL;
-		     pBT = pBT->pNextSegment) {
-			if (pBT->type == btt_free) {
-				p = (unsigned char *)pBT->base +
-				    SysGetDevicePhysOffset();
-				endp =
-				    (unsigned char
-				     *)((IMG_UINT32) (p +
-						      pBT->uSize) & 0xfffffffc);
-
-				while ((IMG_UINT32) p & 3) {
-					if (*p++ != 0xAA) {
-						fprintf(stderr,
-							"BM_FREESPACE_CHECK: Blank space at %08X has changed to 0x%x\n",
-							p, *(unsigned long *)p);
-						for (;;) ;
-						break;
-					}
-				}
-				while (p < endp) {
-					if (*(unsigned long *)p != 0xAAAAAAAA) {
-						fprintf(stderr,
-							"BM_FREESPACE_CHECK: Blank space at %08X has changed to 0x%x\n",
-							p, *(unsigned long *)p);
-						for (;;) ;
-						break;
-					}
-					p += 4;
-				}
-			}
-		}
-	}
-}
-#endif
 
 #if (defined(CONFIG_PROC_FS) && defined(DEBUG)) || defined (RA_STATS)
 static char *_BTType(int eType)

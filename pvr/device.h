@@ -27,9 +27,6 @@
 #ifndef __DEVICE_H__
 #define __DEVICE_H__
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 #include "ra.h"
 #include "resman.h"
@@ -217,7 +214,6 @@ extern "C" {
 	PVRSRV_ERROR IMG_CALLCONV PVRSRVDeinitialiseDevice(IMG_UINT32
 							   ui32DevIndex);
 
-#if !defined(USE_CODE)
 
 	IMG_IMPORT PVRSRV_ERROR IMG_CALLCONV PollForValueKM(volatile IMG_UINT32
 							    * pui32LinMemAddr,
@@ -229,14 +225,7 @@ extern "C" {
 							    IMG_UINT32
 							    ui32Tries);
 
-#endif
 
-#if defined (USING_ISR_INTERRUPTS)
-	PVRSRV_ERROR IMG_CALLCONV PollForInterruptKM(IMG_UINT32 ui32Value,
-						     IMG_UINT32 ui32Mask,
-						     IMG_UINT32 ui32Waitus,
-						     IMG_UINT32 ui32Tries);
-#endif
 
 	PVRSRV_ERROR IMG_CALLCONV PVRSRVInit(PSYS_DATA psSysData);
 	IMG_VOID IMG_CALLCONV PVRSRVDeInit(PSYS_DATA psSysData);
@@ -245,7 +234,4 @@ extern "C" {
 	IMG_BOOL IMG_CALLCONV PVRSRVSystemLISR(IMG_VOID * pvSysData);
 	IMG_VOID IMG_CALLCONV PVRSRVMISR(IMG_VOID * pvSysData);
 
-#if defined(__cplusplus)
-}
-#endif
 #endif

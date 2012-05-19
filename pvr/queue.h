@@ -27,9 +27,6 @@
 #ifndef QUEUE_H
 #define QUEUE_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 #define UPDATE_QUEUE_ROFF(psQueue, ui32Size)						\
 	psQueue->ui32ReadOffset = (psQueue->ui32ReadOffset + ui32Size)	\
@@ -45,13 +42,12 @@ extern "C" {
 		IMG_UINT32 ui32AllocSize;
 	} COMMAND_COMPLETE_DATA, *PCOMMAND_COMPLETE_DATA;
 
-#if !defined(USE_CODE)
 
 	 IMG_IMPORT
 	    PVRSRV_ERROR PVRSRVProcessQueues(IMG_UINT32 ui32CallerID,
 					     IMG_BOOL bFlush);
 
-#if defined(__linux__) && defined(__KERNEL__)
+#ifdef __KERNEL__
 #include <linux/types.h>
 	 off_t QueuePrintQueues(char *buffer, size_t size, off_t off);
 #endif
@@ -117,9 +113,5 @@ extern "C" {
 							   IMG_UINT32
 							   ui32CmdCount);
 
-#endif
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

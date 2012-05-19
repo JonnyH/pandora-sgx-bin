@@ -29,25 +29,11 @@
 
 #include <linux/version.h>
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,15))
 #include <linux/mutex.h>
-#else
-#include <asm/semaphore.h>
-#endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,15))
 
 typedef struct mutex PVRSRV_LINUX_MUTEX;
 
-#else
-
-typedef struct {
-	struct semaphore sSemaphore;
-
-	atomic_t Count;
-} PVRSRV_LINUX_MUTEX;
-
-#endif
 
 extern IMG_VOID LinuxInitMutex(PVRSRV_LINUX_MUTEX * psPVRSRVMutex);
 

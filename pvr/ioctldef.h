@@ -29,7 +29,6 @@
 
 #define MAKEIOCTLINDEX(i)	(((i) >> 2) & 0xFFF)
 
-#ifndef CTL_CODE
 
 #define DEVICE_TYPE ULONG
 
@@ -92,6 +91,5 @@
 #define FILE_READ_ACCESS          ( 0x0001 )
 #define FILE_WRITE_ACCESS         ( 0x0002 )
 
-#endif
 
 #endif

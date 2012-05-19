@@ -31,9 +31,6 @@
 #include "servicesext.h"
 #include "kernelbuffer.h"
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 	extern IMG_IMPORT IMG_BOOL
 	    PVRGetBufferClassJTable(PVRSRV_BC_BUFFER2SRV_KMJTABLE * psJTable);
@@ -49,21 +46,12 @@ extern "C" {
 #define BC_EXAMPLE_PIXELFORMAT	(PVRSRV_PIXEL_FORMAT_NV12)
 
 #else
-#ifdef YUV422
-
-#define BC_EXAMPLE_WIDTH		(320)
-#define BC_EXAMPLE_HEIGHT		(160)
-#define BC_EXAMPLE_STRIDE		(320*2)
-#define BC_EXAMPLE_PIXELFORMAT	(PVRSRV_PIXEL_FORMAT_FOURCC_ORG_UYVY)
-
-#else
 
 #define BC_EXAMPLE_WIDTH		(320)
 #define BC_EXAMPLE_HEIGHT		(160)
 #define BC_EXAMPLE_STRIDE		(320*2)
 #define BC_EXAMPLE_PIXELFORMAT	(PVRSRV_PIXEL_FORMAT_RGB565)
 
-#endif
 #endif
 
 #define BC_EXAMPLE_DEVICEID		 0
@@ -126,7 +114,4 @@ extern "C" {
 				      PFN_BC_GET_PVRJTABLE * ppfnFuncTable);
 	BC_EXAMPLE_DEVINFO *GetAnchorPtr(IMG_VOID);
 
-#if defined(__cplusplus)
-}
-#endif
 #endif

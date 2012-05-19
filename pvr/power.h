@@ -27,9 +27,6 @@
 #ifndef POWER_H
 #define POWER_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 	typedef struct _PVRSRV_POWER_DEV_TAG_ {
 		PFN_PRE_POWER pfnPrePower;
@@ -118,7 +115,4 @@ extern "C" {
 						      IMG_BOOL bIdleDevice,
 						      IMG_VOID * pvInfo);
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

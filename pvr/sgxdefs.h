@@ -27,30 +27,7 @@
 #ifndef _SGXDEFS_H_
 #define	_SGXDEFS_H_
 
-#if defined(SGX530)
 #include "sgx530defs.h"
-#else
-#if defined(SGX535)
-#include "sgx535defs.h"
-#else
-#if defined(SGX520)
-#include "sgx520defs.h"
-#else
-#if defined(SGX535_V1_1)
-#include "sgx535defs.h"
-#else
-#if defined(SGX540)
-#include "sgx540defs.h"
-#else
-#if defined(SGX531)
-#include "sgx531defs.h"
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
-
 #include "sgxerrata.h"
 #include "sgxfeaturedefs.h"
 

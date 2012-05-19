@@ -39,18 +39,8 @@ typedef enum img_tag_TriStateSwitch {
 
 #define		IMG_NO_REG				1
 
-#if defined (NO_INLINE_FUNCS)
-#define	INLINE
-#define	FORCE_INLINE
-#else
-#if defined (__cplusplus)
-#define INLINE					inline
-#define	FORCE_INLINE			inline
-#else
 #define	INLINE					__inline
 #define	FORCE_INLINE			static __inline
-#endif
-#endif
 
 #ifndef PVR_UNREFERENCED_PARAMETER
 #define	PVR_UNREFERENCED_PARAMETER(param) (param) = (param)
@@ -62,16 +52,9 @@ typedef enum img_tag_TriStateSwitch {
 #define unref__
 #endif
 
-#ifndef _TCHAR_DEFINED
-#if defined(UNICODE)
-typedef unsigned short TCHAR, *PTCHAR, *PTSTR;
-#else
 typedef char TCHAR, *PTCHAR, *PTSTR;
-#endif
 #define _TCHAR_DEFINED
-#endif
 
-#if defined(__linux__)
 
 #define IMG_CALLCONV
 #define IMG_INTERNAL	__attribute__ ((visibility ("hidden")))
@@ -79,20 +62,11 @@ typedef char TCHAR, *PTCHAR, *PTSTR;
 #define IMG_IMPORT
 #define IMG_RESTRICT	__restrict__
 
-#else
-#error("define an OS")
-#endif
 
-#ifndef IMG_ABORT
 #define IMG_ABORT()	abort()
-#endif
 
-#ifndef IMG_MALLOC
 #define IMG_MALLOC(A)		malloc	(A)
-#endif
 
-#ifndef IMG_FREE
 #define IMG_FREE(A)			free	(A)
-#endif
 
 #endif

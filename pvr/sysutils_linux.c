@@ -30,7 +30,8 @@
 #include <linux/hardirq.h>
 #include <mach/omap-pm.h>
 #include <asm/bug.h>
-#include <clock.h>
+#include <mach/clock.h>
+
 #include "sgxdefs.h"
 #include "services_headers.h"
 #include "sysinfo.h"
@@ -42,7 +43,6 @@
 
 #define	HZ_TO_MHZ(m) ((m) / 1000000)
 
-#if defined(SGX_DYNAMIC_TIMING_INFO)
 static inline unsigned long scale_by_rate(unsigned long val,
 					  unsigned long rate1,
 					  unsigned long rate2)
@@ -70,14 +70,10 @@ IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION * psTimingInfo)
 {
 	unsigned long rate;
 
-#if defined(NO_HARDWARE)
-	rate = SYS_SGX_CLOCK_SPEED;
-#else
 	PVR_ASSERT(gpsSysSpecificData->bSGXClocksEnabled);
 
 	rate = clk_get_rate(gpsSysSpecificData->psSGX_FCK);
 	PVR_ASSERT(rate != 0);
-#endif
 	psTimingInfo->ui32CoreClockSpeed = rate;
 	psTimingInfo->ui32HWRecoveryFreq =
 	    scale_prop_to_SGX_clock(SYS_SGX_HWRECOVERY_TIMEOUT_FREQ, rate);
@@ -86,12 +82,7 @@ IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION * psTimingInfo)
 	psTimingInfo->ui32ActivePowManLatencyms =
 	    SYS_SGX_ACTIVE_POWER_LATENCY_MS;
 }
-#endif
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 22))
-#if !defined(SGX_DYNAMIC_TIMING_INFO)
-#error "SGX_DYNAMIC_TIMING_INFO must be defined for this platform"
-#endif
 
 static int vdd2_post_func(struct notifier_block *n, unsigned long event,
 			  void *ptr)
@@ -192,7 +183,6 @@ static IMG_VOID UnRegisterConstraintNotifications(SYS_SPECIFIC_DATA *
 
 	clk_notifier_unregister(psSysSpecData->psSGX_FCK, &vdd2_pre_post);
 }
-#endif
 
 static struct device sgx_dev;
 static int sgx_clock_enabled;
@@ -216,7 +206,6 @@ static unsigned int sgx_current_load(void)
 	psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
 	if ((!psSysSpecData) || (!psSysSpecData->bSGXClocksEnabled))
 		return 0;
-#if defined(SUPPORT_SGX_HWPERF)
 	psDeviceNode = psSysData->psDeviceNodeList;
 	while (psDeviceNode) {
 		if ((psDeviceNode->sDevId.eDeviceType == PVRSRV_DEVICE_TYPE_SGX)
@@ -255,9 +244,6 @@ static unsigned int sgx_current_load(void)
 		psDeviceNode = psDeviceNode->psNext;
 	}
 	return 0;
-#else
-	return 100;
-#endif
 }
 
 static void sgx_lock_perf(struct work_struct *work)
@@ -338,7 +324,6 @@ PVRSRV_ERROR OSCleanupPerf(IMG_VOID * pvSysData)
 
 PVRSRV_ERROR EnableSGXClocks(SYS_DATA * psSysData)
 {
-#if !defined(NO_HARDWARE)
 	SYS_SPECIFIC_DATA *psSysSpecData =
 	    (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
 #if defined(DEBUG)
@@ -374,37 +359,14 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA * psSysData)
 		clk_disable(psSysSpecData->psSGX_FCK);
 		return PVRSRV_ERROR_GENERIC;
 	}
-#if 0
-	/* Code section removed for Fremnatle -
-	 * call to clk_set_rate was causing crash */
-
-	rate = clk_get_rate(psSysSpecData->psSGX_FCK);
-	if (rate < SYS_SGX_CLOCK_SPEED) {
-		PVR_TRACE(("SGX Functional Clock rate is %dMhz. Attempting to set to %dMhz", HZ_TO_MHZ(rate), HZ_TO_MHZ(SYS_SGX_CLOCK_SPEED)));
-		res =
-		    clk_set_rate(psSysSpecData->psSGX_FCK, SYS_SGX_CLOCK_SPEED);
-		if (res < 0) {
-			PVR_DPF((PVR_DBG_WARNING,
-				 "EnableSGXClocks: Couldn't set SGX Functional Clock rate (%d)",
-				 res));
-		}
-	}
-	PVR_TRACE(("SGX Functional Clock rate is %dMhz",
-		   HZ_TO_MHZ(clk_get_rate(psSysSpecData->psSGX_FCK))));
-	BUG_ON(in_irq());
-#endif
 
 	psSysSpecData->bSGXClocksEnabled = IMG_TRUE;
-#else
-	PVR_UNREFERENCED_PARAMETER(psSysData);
-#endif
 	sgx_need_perf(psSysData, 1);
 	return PVRSRV_OK;
 }
 
 IMG_VOID DisableSGXClocks(SYS_DATA * psSysData)
 {
-#if !defined(NO_HARDWARE)
 	SYS_SPECIFIC_DATA *psSysSpecData =
 	    (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
 
@@ -423,9 +385,6 @@ IMG_VOID DisableSGXClocks(SYS_DATA * psSysData)
 	}
 
 	psSysSpecData->bSGXClocksEnabled = IMG_FALSE;
-#else
-	PVR_UNREFERENCED_PARAMETER(psSysData);
-#endif
 	sgx_need_perf(psSysData, 0);
 }
 
@@ -675,10 +634,6 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA * psSysData)
 {
 	PVR_TRACE(("EnableSystemClocks: Enabling System Clocks"));
 
-#if !defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
-	if (EnableSGXClocks(psSysData) != PVRSRV_OK)
-		goto err0;
-#endif
 
 	if (EnableDebugClocks(psSysData) != PVRSRV_OK)
 		goto err1;
@@ -686,10 +641,6 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA * psSysData)
 	return PVRSRV_OK;
 
 err1:
-#if !defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
-	DisableSGXClocks(psSysData);
-err0:
-#endif
 	return PVRSRV_ERROR_GENERIC;
 }
 

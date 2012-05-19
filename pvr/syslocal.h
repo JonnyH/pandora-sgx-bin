@@ -27,18 +27,11 @@
 #if !defined(__SYSLOCAL_H__)
 #define __SYSLOCAL_H__
 
-#if defined(__linux__)
 #include <linux/version.h>
 #include <linux/clk.h>
 #include <linux/semaphore.h>
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
 /*#include <asm/arch/resource.h>*/
-#endif
-#endif
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 	IMG_CHAR *SysCreateVersionString(IMG_CPU_PHYADDR sRegRegion);
 
@@ -74,7 +67,6 @@ extern "C" {
 		PVRSRV_DEVICE_NODE *psSGXDevNode;
 		IMG_BOOL bSGXInitComplete;
 		IMG_BOOL bSGXClocksEnabled;
-#if defined(__linux__)
 		struct clk *psCORE_CK;
 		struct clk *psSGX_FCK;
 		struct clk *psSGX_ICK;
@@ -84,15 +76,9 @@ extern "C" {
 		struct clk *psGPT11_ICK;
 		void __iomem *gpt_base;
 #endif
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
 		struct constraint_handle *pVdd2Handle;
-#endif
-#endif
 	} SYS_SPECIFIC_DATA;
 
 	extern SYS_SPECIFIC_DATA *gpsSysSpecificData;
 
-#if defined(__cplusplus)
-}
-#endif
 #endif

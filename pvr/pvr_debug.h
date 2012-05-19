@@ -29,9 +29,6 @@
 
 #include "img_types.h"
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #define PVR_MAX_DEBUG_MESSAGE_LEN	(512)
 
@@ -53,13 +50,7 @@ extern "C" {
 #define PVR_DBG_ALLOC		DBGPRIV_ALLOC,__FILE__, __LINE__
 
 #if defined(DEBUG)
-#if !defined (QAC_ANALYSE)
 #define PVR_ASSERT(EXPR) if (!(EXPR)) PVRSRVDebugAssertFail(__FILE__, __LINE__);
-#else
-	void __cdecl _assert(void *, void *, unsigned);
-
-#define PVR_ASSERT(exp) (void)( (exp) || (_assert(#exp, __FILE__, __LINE__), 0) )
-#endif
 
 #define PVR_DPF(X)		PVRSRVDebugPrintf X
 #define PVR_TRACE(X)	PVRSRVTrace X
@@ -106,7 +97,4 @@ extern "C" {
 #endif
 #endif
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

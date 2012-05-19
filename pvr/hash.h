@@ -30,9 +30,6 @@
 #include "img_types.h"
 #include "osfunc.h"
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 	typedef IMG_UINT32 HASH_FUNC(IMG_SIZE_T uKeySize, IMG_VOID * pKey,
 				     IMG_UINT32 uHashTabLen);
@@ -71,11 +68,5 @@ extern "C" {
 
 	IMG_UINTPTR_T HASH_Retrieve(HASH_TABLE * pHash, IMG_UINTPTR_T k);
 
-#ifdef HASH_TRACE
-	void HASH_Dump(HASH_TABLE * pHash);
-#endif
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

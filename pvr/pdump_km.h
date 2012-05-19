@@ -27,9 +27,6 @@
 #ifndef _PDUMP_KM_H_
 #define _PDUMP_KM_H_
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 #define PDUMP_FLAGS_NEVER			0x08000000
 #define PDUMP_FLAGS_TOOUT2MEM		0x10000000
@@ -250,7 +247,6 @@ extern "C" {
 #define PDUMPRESUME				PDumpResumeKM
 
 #else
-#if ((defined(LINUX) || defined(GCC_IA32)) || defined(GCC_ARM))
 #define PDUMPMEMPOL(args...)
 #define PDUMPMEM(args...)
 #define PDUMPMEM2(args...)
@@ -289,12 +285,6 @@ extern "C" {
 #define PDUMPSUSPEND(args...)
 #define PDUMPRESUME(args...)
 #define PDUMPMSVDXWRITEREF(args...)
-#else
-#error Compiler not specified
-#endif
 #endif
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

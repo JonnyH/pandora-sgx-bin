@@ -47,7 +47,6 @@ void PVRSRVDebugPrintf(IMG_UINT32 ui32DebugLevel,
     )
 {
 	IMG_BOOL bTrace, bDebug;
-#if !defined(__sh__)
 	IMG_CHAR *pszLeafName;
 
 	pszLeafName = (char *)strrchr(pszFileName, '\\');
@@ -55,7 +54,6 @@ void PVRSRVDebugPrintf(IMG_UINT32 ui32DebugLevel,
 	if (pszLeafName) {
 		pszFileName = pszLeafName;
 	}
-#endif
 
 	bTrace = gPVRDebugLevel & ui32DebugLevel & DBGPRIV_CALLTRACE;
 	bDebug = ((gPVRDebugLevel & DBGPRIV_ALLLEVELS) >= ui32DebugLevel);
@@ -124,18 +122,7 @@ IMG_VOID HostMemSet(IMG_VOID * pvDest, IMG_UINT8 ui8Value, IMG_UINT32 ui32Size)
 
 IMG_VOID HostMemCopy(IMG_VOID * pvDst, IMG_VOID * pvSrc, IMG_UINT32 ui32Size)
 {
-#if defined(USE_UNOPTIMISED_MEMCPY)
-	unsigned char *src, *dst;
-	int i;
-
-	src = (unsigned char *)pvSrc;
-	dst = (unsigned char *)pvDst;
-	for (i = 0; i < ui32Size; i++) {
-		dst[i] = src[i];
-	}
-#else
 	memcpy(pvDst, pvSrc, ui32Size);
-#endif
 }
 
 IMG_UINT32 HostReadRegistryDWORDFromString(char *pcKey, char *pcValueName,

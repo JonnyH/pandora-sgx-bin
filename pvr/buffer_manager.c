@@ -1224,9 +1224,6 @@ DevMemoryAlloc(BM_CONTEXT * pBMContext,
 		PVR_DPF((PVR_DBG_ERROR, "DevMemoryAlloc ERROR MMU_Alloc"));
 		return IMG_FALSE;
 	}
-#ifdef SUPPORT_SGX_MMU_BYPASS
-	EnableHostAccess(pBMContext->psMMUContext);
-#endif
 
 	PDUMPMALLOCPAGES(psDeviceNode->sDevId.eDeviceType,
 			 pMapping->DevVAddr.uiAddr, pMapping->CpuVAddr,
@@ -1281,9 +1278,6 @@ DevMemoryAlloc(BM_CONTEXT * pBMContext,
 		return IMG_FALSE;
 	}
 
-#ifdef SUPPORT_SGX_MMU_BYPASS
-	DisableHostAccess(pBMContext->psMMUContext);
-#endif
 
 	return IMG_TRUE;
 }

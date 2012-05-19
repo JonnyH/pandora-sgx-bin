@@ -37,13 +37,6 @@
 #include "device.h"
 #include "buffer_manager.h"
 
-#if defined(NO_HARDWARE) && defined(__linux__) && defined(__KERNEL__)
-#include <asm/io.h>
-#endif
-
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 	typedef struct _SYS_DEVICE_ID_TAG {
 		IMG_UINT32 uiID;
@@ -131,11 +124,7 @@ extern "C" {
 
 	extern SYS_DATA *gpsSysData;
 
-#if !defined(USE_CODE)
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(SysAcquireData)
-#endif
 	static INLINE PVRSRV_ERROR SysAcquireData(SYS_DATA ** ppsSysData) {
 
 		*ppsSysData = gpsSysData;
@@ -147,9 +136,6 @@ extern "C" {
 		return PVRSRV_OK;
 	}
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(SysInitialiseCommon)
-#endif
 	static INLINE PVRSRV_ERROR SysInitialiseCommon(SYS_DATA * psSysData) {
 		PVRSRV_ERROR eError;
 
@@ -158,35 +144,15 @@ extern "C" {
 		return eError;
 	}
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(SysDeinitialiseCommon)
-#endif
 	static INLINE IMG_VOID SysDeinitialiseCommon(SYS_DATA * psSysData) {
 
 		PVRSRVDeInit(psSysData);
 
 		OSDestroyResource(&psSysData->sPowerStateChangeResource);
 	}
-#endif
 
-#if !(defined(NO_HARDWARE) && defined(__linux__) && defined(__KERNEL__))
 #define	SysReadHWReg(p, o) OSReadHWReg(p, o)
 #define SysWriteHWReg(p, o, v) OSWriteHWReg(p, o, v)
-#else
-	static inline IMG_UINT32 SysReadHWReg(IMG_PVOID pvLinRegBaseAddr,
-					      IMG_UINT32 ui32Offset) {
-		return (IMG_UINT32) readl(pvLinRegBaseAddr + ui32Offset);
-	}
 
-	static inline IMG_VOID SysWriteHWReg(IMG_PVOID pvLinRegBaseAddr,
-					     IMG_UINT32 ui32Offset,
-					     IMG_UINT32 ui32Value) {
-		writel(ui32Value, pvLinRegBaseAddr + ui32Offset);
-	}
-#endif
-
-#if defined(__cplusplus)
-}
-#endif
 
 #endif

@@ -311,10 +311,6 @@ typedef struct DISPLAY_INFO_TAG {
 
 	IMG_CHAR szDisplayName[MAX_DISPLAY_NAME_SIZE];
 
-#if defined(SUPPORT_HW_CURSOR)
-	IMG_UINT16 ui32CursorWidth;
-	IMG_UINT16 ui32CursorHeight;
-#endif
 
 } DISPLAY_INFO;
 

@@ -27,9 +27,6 @@
 #ifndef __HANDLE_H__
 #define __HANDLE_H__
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #include "img_types.h"
 #include "hash.h"
@@ -72,7 +69,6 @@ extern "C" {
 	struct _PVRSRV_HANDLE_BASE_;
 	typedef struct _PVRSRV_HANDLE_BASE_ PVRSRV_HANDLE_BASE;
 
-#ifdef	PVR_SECURE_HANDLES
 	extern PVRSRV_HANDLE_BASE *gpsKernelHandleBase;
 
 #define	KERNEL_HANDLE_BASE (gpsKernelHandleBase)
@@ -138,223 +134,6 @@ extern "C" {
 
 	PVRSRV_ERROR PVRSRVHandleDeInit(IMG_VOID);
 
-#else
-
-#define KERNEL_HANDLE_BASE IMG_NULL
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVAllocHandle)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVAllocHandle(PVRSRV_HANDLE_BASE * psBase,
-					   IMG_HANDLE * phHandle,
-					   IMG_VOID * pvData,
-					   PVRSRV_HANDLE_TYPE eType,
-					   PVRSRV_HANDLE_ALLOC_FLAG eFlag) {
-		PVR_UNREFERENCED_PARAMETER(eType);
-		PVR_UNREFERENCED_PARAMETER(eFlag);
-		PVR_UNREFERENCED_PARAMETER(psBase);
-
-		*phHandle = pvData;
-		return PVRSRV_OK;
-	}
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVAllocSubHandle)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVAllocSubHandle(PVRSRV_HANDLE_BASE * psBase,
-					      IMG_HANDLE * phHandle,
-					      IMG_VOID * pvData,
-					      PVRSRV_HANDLE_TYPE eType,
-					      PVRSRV_HANDLE_ALLOC_FLAG eFlag,
-					      IMG_HANDLE hParent) {
-		PVR_UNREFERENCED_PARAMETER(eType);
-		PVR_UNREFERENCED_PARAMETER(eFlag);
-		PVR_UNREFERENCED_PARAMETER(hParent);
-		PVR_UNREFERENCED_PARAMETER(psBase);
-
-		*phHandle = pvData;
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVFindHandle)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVFindHandle(PVRSRV_HANDLE_BASE * psBase,
-					  IMG_HANDLE * phHandle,
-					  IMG_VOID * pvData,
-					  PVRSRV_HANDLE_TYPE eType) {
-		PVR_UNREFERENCED_PARAMETER(eType);
-		PVR_UNREFERENCED_PARAMETER(psBase);
-
-		*phHandle = pvData;
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVLookupHandleAnyType)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVLookupHandleAnyType(PVRSRV_HANDLE_BASE * psBase,
-						   IMG_PVOID * ppvData,
-						   PVRSRV_HANDLE_TYPE * peType,
-						   IMG_HANDLE hHandle) {
-		PVR_UNREFERENCED_PARAMETER(psBase);
-
-		*peType = PVRSRV_HANDLE_TYPE_NONE;
-
-		*ppvData = hHandle;
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVLookupHandle)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVLookupHandle(PVRSRV_HANDLE_BASE * psBase,
-					    IMG_PVOID * ppvData,
-					    IMG_HANDLE hHandle,
-					    PVRSRV_HANDLE_TYPE eType) {
-		PVR_UNREFERENCED_PARAMETER(psBase);
-		PVR_UNREFERENCED_PARAMETER(eType);
-
-		*ppvData = hHandle;
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVLookupSubHandle)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVLookupSubHandle(PVRSRV_HANDLE_BASE * psBase,
-					       IMG_PVOID * ppvData,
-					       IMG_HANDLE hHandle,
-					       PVRSRV_HANDLE_TYPE eType,
-					       IMG_HANDLE hAncestor) {
-		PVR_UNREFERENCED_PARAMETER(psBase);
-		PVR_UNREFERENCED_PARAMETER(eType);
-		PVR_UNREFERENCED_PARAMETER(hAncestor);
-
-		*ppvData = hHandle;
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVGetParentHandle)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVGetParentHandle(PVRSRV_HANDLE_BASE * psBase,
-					       IMG_PVOID * phParent,
-					       IMG_HANDLE hHandle,
-					       PVRSRV_HANDLE_TYPE eType) {
-		PVR_UNREFERENCED_PARAMETER(psBase);
-		PVR_UNREFERENCED_PARAMETER(eType);
-		PVR_UNREFERENCED_PARAMETER(hHandle);
-
-		*phParent = IMG_NULL;
-
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVLookupAndReleaseHandle)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVLookupAndReleaseHandle(PVRSRV_HANDLE_BASE *
-						      psBase,
-						      IMG_PVOID * ppvData,
-						      IMG_HANDLE hHandle,
-						      PVRSRV_HANDLE_TYPE eType)
-	{
-		PVR_UNREFERENCED_PARAMETER(eType);
-		PVR_UNREFERENCED_PARAMETER(psBase);
-
-		*ppvData = hHandle;
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVReleaseHandle)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVReleaseHandle(PVRSRV_HANDLE_BASE * psBase,
-					     IMG_HANDLE hHandle,
-					     PVRSRV_HANDLE_TYPE eType) {
-		PVR_UNREFERENCED_PARAMETER(hHandle);
-		PVR_UNREFERENCED_PARAMETER(eType);
-		PVR_UNREFERENCED_PARAMETER(psBase);
-
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVNewHandleBatch)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVNewHandleBatch(PVRSRV_HANDLE_BASE * psBase,
-					      IMG_UINT32 ui32BatchSize) {
-		PVR_UNREFERENCED_PARAMETER(psBase);
-		PVR_UNREFERENCED_PARAMETER(ui32BatchSize);
-
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVCommitHandleBatch)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVCommitHandleBatch(PVRSRV_HANDLE_BASE * psBase) {
-		PVR_UNREFERENCED_PARAMETER(psBase);
-
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVReleaseHandleBatch)
-#endif
-	static INLINE void PVRSRVReleaseHandleBatch(PVRSRV_HANDLE_BASE * psBase) {
-		PVR_UNREFERENCED_PARAMETER(psBase);
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVAllocHandleBase)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVAllocHandleBase(PVRSRV_HANDLE_BASE ** ppsBase,
-					       IMG_UINT32 ui32PID) {
-		PVR_UNREFERENCED_PARAMETER(ui32PID);
-
-		*ppsBase = IMG_NULL;
-
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVFreeHandleBase)
-#endif
-	static INLINE
-	    PVRSRV_ERROR PVRSRVFreeHandleBase(PVRSRV_HANDLE_BASE * psBase) {
-		PVR_UNREFERENCED_PARAMETER(psBase);
-
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVHandleInit)
-#endif
-	static INLINE PVRSRV_ERROR PVRSRVHandleInit(IMG_VOID) {
-		return PVRSRV_OK;
-	}
-
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVHandleDeInit)
-#endif
-	static INLINE PVRSRV_ERROR PVRSRVHandleDeInit(IMG_VOID) {
-		return PVRSRV_OK;
-	}
-
-#endif
 
 #define PVRSRVAllocHandleNR(psBase, phHandle, pvData, eType, eFlag) \
 	(void)PVRSRVAllocHandle(psBase, phHandle, pvData, eType, eFlag)
@@ -362,8 +141,5 @@ extern "C" {
 #define PVRSRVAllocSubHandleNR(psBase, phHandle, pvData, eType, eFlag, hParent) \
 	(void)PVRSRVAllocSubHandle(psBase, phHandle, pvData, eType, eFlag, hParent)
 
-#if defined (__cplusplus)
-}
-#endif
 
 #endif

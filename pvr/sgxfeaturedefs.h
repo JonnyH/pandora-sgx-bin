@@ -24,49 +24,13 @@
  *
  ******************************************************************************/
 
-#if defined(SGX520)
-#define SGX_CORE_FRIENDLY_NAME							"SGX520"
-#define SGX_CORE_ID										SGX_CORE_ID_520
-#define SGX_FEATURE_ADDRESS_SPACE_SIZE					(28)
-#define SGX_FEATURE_AUTOCLOCKGATING
-#else
 #if defined(SGX530)
-#define SGX_CORE_FRIENDLY_NAME							"SGX530"
-#define SGX_CORE_ID										SGX_CORE_ID_530
-#define SGX_FEATURE_ADDRESS_SPACE_SIZE					(28)
+#define SGX_CORE_FRIENDLY_NAME		"SGX530"
+#define SGX_CORE_ID			SGX_CORE_ID_530
+#define SGX_FEATURE_ADDRESS_SPACE_SIZE	28
 #define SGX_FEATURE_AUTOCLOCKGATING
 #else
-#if defined(SGX535)
-#define SGX_CORE_FRIENDLY_NAME							"SGX535"
-#define SGX_CORE_ID										SGX_CORE_ID_535
-#define SGX_FEATURE_ADDRESS_SPACE_SIZE					(32)
-#define SGX_FEATURE_MULTIPLE_MEM_CONTEXTS
-#define SGX_FEATURE_2D_HARDWARE
-#define SGX_FEATURE_AUTOCLOCKGATING
-#else
-#if defined(SGX540)
-#define SGX_CORE_FRIENDLY_NAME							"SGX540"
-#define SGX_CORE_ID										SGX_CORE_ID_540
-#define SGX_FEATURE_ADDRESS_SPACE_SIZE					(28)
-#define SGX_FEATURE_AUTOCLOCKGATING
-#else
-#if defined(SGX531)
-#define SGX_CORE_FRIENDLY_NAME							"SGX531"
-#define SGX_CORE_ID										SGX_CORE_ID_531
-#define SGX_FEATURE_ADDRESS_SPACE_SIZE					(28)
-#define SGX_FEATURE_AUTOCLOCKGATING
-#endif
-#endif
-#endif
-#endif
-#endif
-
-#if !defined(SGX_DONT_SWITCH_OFF_FEATURES)
-
-#if defined(FIX_HW_BRN_22693)
-#undef SGX_FEATURE_AUTOCLOCKGATING
-#endif
-
+#error Unsupported SGX core
 #endif
 
 #include "img_types.h"

@@ -27,9 +27,6 @@
 #ifndef _METRICS_
 #define _METRICS_
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #if defined(DEBUG) || defined(TIMING)
 
@@ -81,17 +78,6 @@ extern "C" {
 									asTimers[X].ui32Count = 0; \
 								}
 
-#if defined(__sh__)
-
-#define TST_REG   ((volatile unsigned char *) (psDevInfo->pvSOCRegsBaseKM))
-
-#define TCOR_2    ((volatile unsigned int *)  (psDevInfo->pvSOCRegsBaseKM+28))
-#define TCNT_2    ((volatile unsigned int *)  (psDevInfo->pvSOCRegsBaseKM+32))
-#define TCR_2     ((volatile unsigned short *)(psDevInfo->pvSOCRegsBaseKM+36))
-
-#define TIMER_DIVISOR  4
-
-#endif
 
 #else
 
@@ -106,7 +92,4 @@ extern "C" {
 
 #endif
 
-#if defined(__cplusplus)
-}
-#endif
 #endif

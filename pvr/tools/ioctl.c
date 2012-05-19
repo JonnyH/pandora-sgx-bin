@@ -24,9 +24,7 @@
  *
  ******************************************************************************/
 
-#ifdef LINUX
 #include <asm/uaccess.h>
-#endif
 
 #include "img_types.h"
 #include "dbgdrvif.h"
@@ -38,14 +36,11 @@ IMG_UINT32 DBGDIOCDrivCreateStream(IMG_VOID * pvInBuffer,
 {
 	PDBG_IN_CREATESTREAM psIn;
 	IMG_VOID **ppvOut;
-#ifdef LINUX
 	static char name[32];
-#endif
 
 	psIn = (PDBG_IN_CREATESTREAM) pvInBuffer;
 	ppvOut = (IMG_VOID * *)pvOutBuffer;
 
-#ifdef LINUX
 
 	if (copy_from_user(name, psIn->pszName, 32) != 0)
 		return IMG_FALSE;
@@ -53,13 +48,6 @@ IMG_UINT32 DBGDIOCDrivCreateStream(IMG_VOID * pvInBuffer,
 	    ExtDBGDrivCreateStream(name, psIn->ui32CapMode, psIn->ui32OutMode,
 				   0, psIn->ui32Pages);
 
-#else
-	*ppvOut =
-	    ExtDBGDrivCreateStream(psIn->pszName, psIn->ui32CapMode,
-				   psIn->ui32OutMode,
-				   DEBUG_FLAGS_NO_BUF_EXPANDSION,
-				   psIn->ui32Pages);
-#endif
 
 	return (IMG_TRUE);
 }

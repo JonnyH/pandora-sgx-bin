@@ -27,13 +27,9 @@
 #ifndef __PVR_BRIDGE_H__
 #define __PVR_BRIDGE_H__
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #include "servicesint.h"
 
-#ifdef __linux__
 
 #include <linux/ioctl.h>
 
@@ -43,17 +39,6 @@ extern "C" {
 #define PVRSRV_IOR(INDEX)   _IOR(PVRSRV_IOC_GID, INDEX, PVRSRV_BRIDGE_PACKAGE)
 #define PVRSRV_IOWR(INDEX)  _IOWR(PVRSRV_IOC_GID, INDEX, PVRSRV_BRIDGE_PACKAGE)
 
-#else
-
-#error Unknown platform: Cannot define ioctls
-
-#define PVRSRV_IO(INDEX)    (PVRSRV_IOC_GID + INDEX)
-#define PVRSRV_IOW(INDEX)   (PVRSRV_IOC_GID + INDEX)
-#define PVRSRV_IOR(INDEX)   (PVRSRV_IOC_GID + INDEX)
-#define PVRSRV_IOWR(INDEX)  (PVRSRV_IOC_GID + INDEX)
-
-#define PVRSRV_BRIDGE_BASE                  PVRSRV_IOC_GID
-#endif
 
 #define PVRSRV_BRIDGE_CORE_CMD_FIRST			0
 #define PVRSRV_BRIDGE_ENUM_DEVICES				PVRSRV_IOWR(PVRSRV_BRIDGE_CORE_CMD_FIRST+0)
@@ -107,10 +92,6 @@ extern "C" {
 #define PVRSRV_BRIDGE_MISC_CMD_LAST				(PVRSRV_BRIDGE_MISC_CMD_FIRST+1)
 
 #define PVRSRV_BRIDGE_OVERLAY_CMD_FIRST			(PVRSRV_BRIDGE_MISC_CMD_LAST+1)
-#if defined (SUPPORT_OVERLAY_ROTATE_BLIT)
-#define PVRSRV_BRIDGE_INIT_3D_OVL_BLT_RES		PVRSRV_IOWR(PVRSRV_BRIDGE_OVERLAY_CMD_FIRST+0)
-#define PVRSRV_BRIDGE_DEINIT_3D_OVL_BLT_RES		PVRSRV_IOWR(PVRSRV_BRIDGE_OVERLAY_CMD_FIRST+1)
-#endif
 #define PVRSRV_BRIDGE_OVERLAY_CMD_LAST			(PVRSRV_BRIDGE_OVERLAY_CMD_FIRST+1)
 
 #if defined(PDUMP)
@@ -1028,7 +1009,4 @@ extern "C" {
 		IMG_HANDLE hOSEventKM;
 	} PVRSRV_BRIDGE_IN_EVENT_OBJECT_CLOSE;
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

@@ -1047,20 +1047,6 @@ PVRSRV_ERROR PDumpBitmapKM(IMG_CHAR * pszFileName,
 	PDUMPCOMMENTWITHFLAGS(ui32PDumpFlags,
 			      "\r\n-- Dump bitmap of render\r\n");
 
-#if defined(SGX_FEATURE_MULTIPLE_MEM_CONTEXTS)
-
-	snprintf(pszScript,
-		 SZ_SCRIPT_SIZE_MAX,
-		 "SII %s %s.bin :SGXMEM:v%x:0x%08lX 0x%08lX 0x%08lX 0x%08X 0x%08lX 0x%08lX 0x%08lX 0x%08X\r\n",
-		 pszFileName,
-		 pszFileName,
-		 PDUMP_DATAMASTER_PIXEL,
-		 sDevBaseAddr.uiAddr,
-		 ui32Size,
-		 ui32FileOffset,
-		 ePixelFormat,
-		 ui32Width, ui32Height, ui32StrideInBytes, eMemFormat);
-#else
 	snprintf(pszScript,
 		 SZ_SCRIPT_SIZE_MAX,
 		 "SII %s %s.bin :SGXMEM:v:0x%08lX 0x%08lX 0x%08lX 0x%08X 0x%08lX 0x%08lX 0x%08lX 0x%08X\r\n",
@@ -1071,7 +1057,6 @@ PVRSRV_ERROR PDumpBitmapKM(IMG_CHAR * pszFileName,
 		 ui32FileOffset,
 		 ePixelFormat,
 		 ui32Width, ui32Height, ui32StrideInBytes, eMemFormat);
-#endif
 
 	PDumpWriteString2(pszScript, ui32PDumpFlags);
 	return PVRSRV_OK;

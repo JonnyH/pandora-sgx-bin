@@ -27,9 +27,6 @@
 #ifndef __PERPROC_H__
 #define __PERPROC_H__
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #include "img_types.h"
 #include "resman.h"
@@ -60,7 +57,4 @@ extern "C" {
 	PVRSRV_ERROR PVRSRVPerProcessDataInit(IMG_VOID);
 	PVRSRV_ERROR PVRSRVPerProcessDataDeInit(IMG_VOID);
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

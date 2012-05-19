@@ -27,24 +27,15 @@
 #include "services_headers.h"
 #include "resman.h"
 
-#ifdef __linux__
 #ifndef AUTOCONF_INCLUDED
 #include <linux/config.h>
 #endif
 
 #include <linux/version.h>
 #include <linux/sched.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,9)
 #include <linux/hardirq.h>
-#else
-#include <asm/hardirq.h>
-#endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 #include <linux/semaphore.h>
-#else
-#include <asm/semaphore.h>
-#endif
 
 static DECLARE_MUTEX(lock);
 
@@ -57,12 +48,6 @@ static DECLARE_MUTEX(lock);
 } while (0)
 #define RELEASE_SYNC_OBJ up (&lock)
 
-#else
-
-#define ACQUIRE_SYNC_OBJ
-#define RELEASE_SYNC_OBJ
-
-#endif
 
 #define RESMAN_SIGNATURE 0x12345678
 

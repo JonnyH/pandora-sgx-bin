@@ -32,18 +32,13 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
-#include <linux/wrapper.h>
-#endif
 #include <linux/slab.h>
 #include <asm/io.h>
 #include <asm/page.h>
 #include <asm/shmparam.h>
 #include <asm/pgtable.h>
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22))
 #include <linux/sched.h>
 #include <asm/current.h>
-#endif
 #include "img_defs.h"
 #include "services.h"
 #include "servicesint.h"
@@ -457,30 +452,8 @@ int PVRMMap(struct file *pFile, struct vm_area_struct *ps_vma)
 
 		break;
 	case PVRSRV_HAP_WRITECOMBINE:
-#if defined(__arm__) || defined(__sh__)
 		ps_vma->vm_page_prot =
 		    pgprot_writecombine(ps_vma->vm_page_prot);
-#else
-#if defined(__i386__)
-		ps_vma->vm_page_prot = pgprot_noncached(ps_vma->vm_page_prot);
-
-#if defined(SUPPORT_LINUX_X86_WRITECOMBINE)
-
-		if (psCurrentRec->psLinuxMemArea->eAreaType ==
-		    LINUX_MEM_AREA_IOREMAP
-		    || psCurrentRec->psLinuxMemArea->eAreaType ==
-		    LINUX_MEM_AREA_IO) {
-			ps_vma->vm_page_prot =
-			    __pgprot(pgprot_val(ps_vma->vm_page_prot) &=
-				     ~_PAGE_PWT);
-		}
-#endif
-
-#else
-		ps_vma->vm_page_prot = pgprot_noncached(ps_vma->vm_page_prot);
-#error  Unsupported architecture!
-#endif
-#endif
 		break;
 	case PVRSRV_HAP_UNCACHED:
 		ps_vma->vm_page_prot = pgprot_noncached(ps_vma->vm_page_prot);
@@ -535,10 +508,6 @@ DoMapToUser(LinuxMemArea * psLinuxMemArea,
 
 	PVR_ASSERT(ADDR_TO_PAGE_OFFSET(ui32ByteSize) == 0);
 
-#if defined (__sparc__)
-
-#error "SPARC not supported"
-#endif
 
 	if (LinuxMemAreaPhysIsContig(psLinuxMemArea)) {
 
@@ -621,9 +590,6 @@ static void MMapVOpen(struct vm_area_struct *ps_vma)
 		 psOffsetStruct->ui32MMapOffset, psOffsetStruct->ui16Mapped));
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
-	MOD_INC_USE_COUNT;
-#endif
 }
 
 static void MMapVClose(struct vm_area_struct *ps_vma)
@@ -642,9 +608,6 @@ static void MMapVClose(struct vm_area_struct *ps_vma)
 		 psOffsetStruct->ui32MMapOffset, psOffsetStruct->ui16Mapped));
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
-	MOD_DEC_USE_COUNT;
-#endif
 }
 
 #if defined(DEBUG_LINUX_MMAP_AREAS)
@@ -656,7 +619,6 @@ static off_t PrintMMapRegistrations(char *buffer, size_t size, off_t off)
 	down_read(&g_mmap_sem);
 	if (!off) {
 		Ret = printAppend(buffer, size, 0,
-#if !defined(DEBUG_LINUX_XML_PROC_FILES)
 				  "Allocations registered for mmap: %lu\n"
 				  "In total these areas correspond to %lu bytes (excluding SUB areas)\n"
 				  "psLinuxMemArea "
@@ -666,11 +628,6 @@ static off_t PrintMMapRegistrations(char *buffer, size_t size, off_t off)
 				  "ByteLength "
 				  "LinuxMemType             "
 				  "Pid   Name     Mapped Flags\n",
-#else
-				  "<mmap_header>\n"
-				  "\t<count>%lu</count>\n"
-				  "\t<bytes>%lu</bytes>\n" "</mmap_header>\n",
-#endif
 				  g_ui32RegisteredAreas, g_ui32TotalByteSize);
 
 		goto unlock_and_return;
@@ -689,23 +646,7 @@ static off_t PrintMMapRegistrations(char *buffer, size_t size, off_t off)
 	}
 
 	Ret = printAppend(buffer, size, 0,
-#if !defined(DEBUG_LINUX_XML_PROC_FILES)
 			  "%-8p       %-8p %08lx %08lx   %-8ld   %-24s %-5d %-8s %-5u  %08lx(%s)\n",
-#else
-			  "<mmap_record>\n"
-			  "\t<pointer>%-8p</pointer>\n"
-			  "\t<cpu_virtual>%-8p</cpu_virtual>\n"
-			  "\t<cpu_physical>%08lx</cpu_physical>\n"
-			  "\t<mmap_offset>%08lx</mmap_offset>\n"
-			  "\t<bytes>%-8ld</bytes>\n"
-			  "\t<linux_mem_area_type>%-24s</linux_mem_area_type>\n"
-			  "\t<pid>%-5d</pid>\n"
-			  "\t<name>%-8s</name>\n"
-			  "\t<mapping_count>%-5u</mapping_count>\n"
-			  "\t<flags>%08lx</flags>\n"
-			  "\t<flags_string>%s</flags_string>\n"
-			  "</mmap_record>\n",
-#endif
 			  psOffsetStruct->psLinuxMemArea,
 			  LinuxMemAreaToCpuVAddr(psOffsetStruct->
 						 psLinuxMemArea),

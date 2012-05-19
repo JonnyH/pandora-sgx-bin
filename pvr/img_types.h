@@ -40,18 +40,10 @@ typedef signed short IMG_INT16, *IMG_PINT16;
 typedef unsigned long IMG_UINT32, *IMG_PUINT32;
 typedef signed long IMG_INT32, *IMG_PINT32;
 
-#if defined(LINUX)
-#if !defined(USE_CODE)
 typedef unsigned long long IMG_UINT64, *IMG_PUINT64;
 typedef long long IMG_INT64, *IMG_PINT64;
-#endif
-#else
 
-#error("define an OS")
-
-#endif
-
-#if !(defined(LINUX) && defined (__KERNEL__))
+#ifndef __KERNEL__
 typedef float IMG_FLOAT, *IMG_PFLOAT;
 typedef double IMG_DOUBLE, *IMG_PDOUBLE;
 #endif

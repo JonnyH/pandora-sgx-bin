@@ -30,11 +30,7 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
-#if defined(LMA)
-#include <linux/pci.h>
-#else
 #include <linux/dma-mapping.h>
-#endif
 
 #include "bufferclass_example.h"
 #include "bufferclass_example_linux.h"
@@ -58,42 +54,10 @@ ioctl:	BC_Example_Bridge,
 
 #define unref__ __attribute__ ((unused))
 
-#if defined(LMA)
-#define PVR_BUFFERCLASS_MEMOFFSET (220 * 1024 * 1024)
-#define PVR_BUFFERCLASS_MEMSIZE	  (4 * 1024 * 1024)
-
-unsigned int g_ui32MemBase = 0;
-unsigned int g_ui32MemCurrent = 0;
-
-#define VENDOR_ID_PVR					0x1010
-#define DEVICE_ID_PVR					0x1CF1
-
-#define PVR_MEM_PCI_BASENUM			2
-#endif
 
 static int __init BC_Example_ModInit(void)
 {
-#if defined(LMA)
-	struct pci_dev *psPCIDev;
-	int error;
-#endif
 
-#if defined(LMA)
-	psPCIDev = pci_get_device(VENDOR_ID_PVR, DEVICE_ID_PVR, NULL);
-	if (psPCIDev == NULL) {
-		printk(KERN_ERR DRVNAME
-		       ": BC_Example_ModInit:  pci_get_device failed\n");
-
-		goto ExitError;
-	}
-
-	if ((error = pci_enable_device(psPCIDev)) != 0) {
-		printk(KERN_ERR DRVNAME
-		       ": BC_Example_ModInit: pci_enable_device failed (%d)\n",
-		       error);
-		goto ExitError;
-	}
-#endif
 
 	AssignedMajorNumber =
 	    register_chrdev(0, DEVNAME, &bufferclass_example_fops);
@@ -109,32 +73,18 @@ static int __init BC_Example_ModInit(void)
 	       AssignedMajorNumber);
 #endif
 
-#if defined(LMA)
-
-	g_ui32MemBase =
-	    pci_resource_start(psPCIDev,
-			       PVR_MEM_PCI_BASENUM) + PVR_BUFFERCLASS_MEMOFFSET;
-#endif
 
 	if (BC_Example_Init() != PVRSRV_OK) {
 		printk(KERN_ERR DRVNAME
 		       ": BC_Example_ModInit: can't init device\n");
 		goto ExitUnregister;
 	}
-#if defined(LMA)
-
-	pci_disable_device(psPCIDev);
-#endif
 
 	return 0;
 
 ExitUnregister:
 	unregister_chrdev(AssignedMajorNumber, DEVNAME);
 ExitDisable:
-#if defined(LMA)
-	pci_disable_device(psPCIDev);
-ExitError:
-#endif
 	return -EBUSY;
 }
 
@@ -164,24 +114,6 @@ PVRSRV_ERROR BCAllocContigMemory(IMG_UINT32 ui32Size,
 				 IMG_CPU_VIRTADDR * pLinAddr,
 				 IMG_CPU_PHYADDR * pPhysAddr)
 {
-#if defined(LMA)
-	IMG_VOID *pvLinAddr;
-
-	if (g_ui32MemCurrent + ui32Size >= PVR_BUFFERCLASS_MEMSIZE) {
-		return PVRSRV_ERROR_OUT_OF_MEMORY;
-	}
-
-	pvLinAddr = ioremap(g_ui32MemBase + g_ui32MemCurrent, ui32Size);
-
-	if (pvLinAddr) {
-		pPhysAddr->uiAddr = g_ui32MemBase + g_ui32MemCurrent;
-		*pLinAddr = pvLinAddr;
-
-		g_ui32MemCurrent += ui32Size;
-		return PVRSRV_OK;
-	}
-	return PVRSRV_ERROR_OUT_OF_MEMORY;
-#else
 	dma_addr_t dma;
 	IMG_VOID *pvLinAddr;
 
@@ -195,20 +127,14 @@ PVRSRV_ERROR BCAllocContigMemory(IMG_UINT32 ui32Size,
 	*pLinAddr = pvLinAddr;
 
 	return PVRSRV_OK;
-#endif
 }
 
 void BCFreeContigMemory(IMG_UINT32 ui32Size,
 			IMG_HANDLE unref__ hMemHandle,
 			IMG_CPU_VIRTADDR LinAddr, IMG_CPU_PHYADDR PhysAddr)
 {
-#if defined(LMA)
-	g_ui32MemCurrent -= ui32Size;
-	iounmap(LinAddr);
-#else
 	dma_free_coherent(NULL, ui32Size, LinAddr,
 			  (dma_addr_t) PhysAddr.uiAddr);
-#endif
 }
 
 IMG_SYS_PHYADDR CpuPAddrToSysPAddrBC(IMG_CPU_PHYADDR cpu_paddr)

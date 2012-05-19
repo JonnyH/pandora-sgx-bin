@@ -27,9 +27,6 @@
 #if !defined (__SERVICESINT_H__)
 #define __SERVICESINT_H__
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #include "services.h"
 #include "sysinfo.h"
@@ -135,9 +132,6 @@ extern "C" {
 		IMG_HANDLE hServices;
 	} PVRSRV_CLIENT_DEVICECLASS_INFO;
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVGetWriteOpsPending)
-#endif
 	static INLINE
 	    IMG_UINT32 PVRSRVGetWriteOpsPending(PVRSRV_KERNEL_SYNC_INFO *
 						psSyncInfo,
@@ -156,9 +150,6 @@ extern "C" {
 		return ui32WriteOpsPending;
 	}
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVGetReadOpsPending)
-#endif
 	static INLINE
 	    IMG_UINT32 PVRSRVGetReadOpsPending(PVRSRV_KERNEL_SYNC_INFO *
 					       psSyncInfo, IMG_BOOL bIsReadOp) {
@@ -204,7 +195,4 @@ extern "C" {
 				IMG_HANDLE hKernelMemInfo,
 				PVRSRV_CLIENT_MEM_INFO ** ppsClientMemInfo);
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

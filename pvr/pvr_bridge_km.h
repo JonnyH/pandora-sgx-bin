@@ -27,17 +27,12 @@
 #ifndef __PVR_BRIDGE_KM_H_
 #define __PVR_BRIDGE_KM_H_
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
 
 #include "pvr_bridge.h"
 #include "perproc.h"
 
-#if defined(__linux__)
 	PVRSRV_ERROR LinuxBridgeInit(IMG_VOID);
 	IMG_VOID LinuxBridgeDeInit(IMG_VOID);
-#endif
 
 	 IMG_IMPORT
 	    PVRSRV_ERROR IMG_CALLCONV PVRSRVEnumerateDevicesKM(IMG_UINT32 *
@@ -87,11 +82,9 @@ extern "C" {
 								     psHeapInfo,
 								     IMG_BOOL *
 								     pbCreated
-#if defined(PVR_SECURE_HANDLES)
 								     ,
 								     IMG_BOOL *
 								     pbShared
-#endif
 	    );
 
 	 IMG_IMPORT
@@ -111,11 +104,9 @@ extern "C" {
 								   pui32ClientHeapCount,
 								   PVRSRV_HEAP_INFO
 								   * psHeapInfo
-#if defined(PVR_SECURE_HANDLES)
 								   ,
 								   IMG_BOOL *
 								   pbShared
-#endif
 	    );
 
 	 IMG_IMPORT
@@ -349,7 +340,4 @@ extern "C" {
 	    PVRSRVDissociateMemFromResmanKM(PVRSRV_KERNEL_MEM_INFO *
 					    psKernelMemInfo);
 
-#if defined (__cplusplus)
-}
-#endif
 #endif

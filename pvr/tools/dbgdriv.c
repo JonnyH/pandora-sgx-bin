@@ -24,9 +24,7 @@
  *
  ******************************************************************************/
 
-#ifdef LINUX
 #include <linux/string.h>
-#endif
 
 #include "img_types.h"
 #include "pvr_debug.h"

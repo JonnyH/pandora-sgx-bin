@@ -31,9 +31,6 @@
 #include "ra.h"
 #include "perproc.h"
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 	typedef struct _BM_HEAP_ BM_HEAP;
 
@@ -183,7 +180,4 @@ extern "C" {
 
 	IMG_HANDLE BM_GetMappingHandle(PVRSRV_KERNEL_MEM_INFO * psMemInfo);
 
-#if defined(__cplusplus)
-}
-#endif
 #endif
