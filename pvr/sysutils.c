@@ -28,10 +28,10 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/hardirq.h>
-#include <mach/omap-pm.h>
+#include <plat/omap-pm.h>
 #include <linux/bug.h>
-#include <mach/clock.h>
-
+#include <plat/clock.h>
+#include <plat/cpu.h>
 #include "sgxdefs.h"
 #include "services_headers.h"
 #include "sysinfo.h"
@@ -40,6 +40,7 @@
 #include "sgxinfokm.h"
 #include "syslocal.h"
 #include "env_data.h"
+#include "ocpdefs.h"
 
 #define	HZ_TO_MHZ(m) ((m) / 1000000)
 
@@ -56,23 +57,21 @@ static inline unsigned long scale_by_rate(unsigned long val,
 static inline unsigned long scale_prop_to_SGX_clock(unsigned long val,
 						    unsigned long rate)
 {
-	return scale_by_rate(val, rate, SYS_SGX_CLOCK_SPEED);
-}
-
-static inline unsigned long scale_inv_prop_to_SGX_clock(unsigned long val,
-							unsigned long rate)
-{
-	return scale_by_rate(val, SYS_SGX_CLOCK_SPEED, rate);
+	return scale_by_rate(val, rate, sgx_get_max_freq());
 }
 
 void SysGetSGXTimingInformation(struct SGX_TIMING_INFORMATION *psTimingInfo)
 {
 	unsigned long rate;
 
-	PVR_ASSERT(gpsSysSpecificData->bSGXClocksEnabled);
+#if defined(NO_HARDWARE)
+	rate = SYS_SGX_MAX_FREQ_NO_HW;
+#else
+	PVR_ASSERT(atomic_read(&gpsSysSpecificData->sSGXClocksEnabled) != 0);
 
 	rate = clk_get_rate(gpsSysSpecificData->psSGX_FCK);
 	PVR_ASSERT(rate != 0);
+#endif
 	psTimingInfo->ui32CoreClockSpeed = rate;
 	psTimingInfo->ui32HWRecoveryFreq =
 	    scale_prop_to_SGX_clock(SYS_SGX_HWRECOVERY_TIMEOUT_FREQ, rate);
@@ -82,7 +81,6 @@ void SysGetSGXTimingInformation(struct SGX_TIMING_INFORMATION *psTimingInfo)
 	    SYS_SGX_ACTIVE_POWER_LATENCY_MS;
 }
 
-
 static int vdd2_post_func(struct notifier_block *n, unsigned long event,
 			  void *ptr)
 {
@@ -90,7 +88,7 @@ static int vdd2_post_func(struct notifier_block *n, unsigned long event,
 	PVR_UNREFERENCED_PARAMETER(event);
 	PVR_UNREFERENCED_PARAMETER(ptr);
 
-	if (gpsSysSpecificData->bSGXClocksEnabled &&
+	if (atomic_read(&gpsSysSpecificData->sSGXClocksEnabled) != 0 &&
 	    gpsSysSpecificData->bSGXInitComplete) {
 #if defined(DEBUG)
 		unsigned long rate;
@@ -117,8 +115,8 @@ static int vdd2_pre_func(struct notifier_block *n, unsigned long event,
 	PVR_UNREFERENCED_PARAMETER(event);
 	PVR_UNREFERENCED_PARAMETER(ptr);
 
-	if (gpsSysSpecificData->bSGXClocksEnabled
-	    && gpsSysSpecificData->bSGXInitComplete) {
+	if (atomic_read(&gpsSysSpecificData->sSGXClocksEnabled) != 0 &&
+	    gpsSysSpecificData->bSGXInitComplete) {
 		BUG_ON(gpsSysData->eCurrentPowerState > PVRSRV_POWER_STATE_D1);
 		PVRSRVDevicePreClockSpeedChange(gpsSysSpecificData->
 						psSGXDevNode->sDevId.
@@ -138,8 +136,11 @@ static int vdd2_pre_post_func(struct notifier_block *n, unsigned long event,
 
 	cnd = (struct clk_notifier_data *)ptr;
 
-	PVR_TRACE("vdd2_pre_post_func: old clock rate = %lu", cnd->old_rate);
-	PVR_TRACE("vdd2_pre_post_func: new clock rate = %lu", cnd->new_rate);
+	PVR_TRACE("vdd2_pre_post_func: %s clock rate = %lu",
+		  (CLK_PRE_RATE_CHANGE == event) ? "old" :
+		  (CLK_POST_RATE_CHANGE == event) ? "new" :
+		  "???",
+		  cnd->rate);
 
 	if (CLK_PRE_RATE_CHANGE == event) {
 		PVRSRVDvfsLock();
@@ -167,8 +168,8 @@ static struct notifier_block vdd2_pre_post = {
 	NULL
 };
 
-static void RegisterConstraintNotifications(
-					struct SYS_SPECIFIC_DATA *psSysSpecData)
+static void RegisterConstraintNotifications(struct SYS_SPECIFIC_DATA
+					    *psSysSpecData)
 {
 	PVR_TRACE("Registering constraint notifications");
 
@@ -176,8 +177,8 @@ static void RegisterConstraintNotifications(
 	PVR_TRACE("VDD2 constraint notifications registered");
 }
 
-static void UnRegisterConstraintNotifications(
-					struct SYS_SPECIFIC_DATA *psSysSpecData)
+static void UnRegisterConstraintNotifications(struct SYS_SPECIFIC_DATA
+					      *psSysSpecData)
 {
 	PVR_TRACE("Unregistering constraint notifications");
 
@@ -203,14 +204,16 @@ static unsigned int sgx_current_load(void)
 	eError = SysAcquireData(&psSysData);
 	if (eError != PVRSRV_OK)
 		return 0;
-	psSysSpecData = (struct SYS_SPECIFIC_DATA *)
-						psSysData->pvSysSpecificData;
-	if ((!psSysSpecData) || (!psSysSpecData->bSGXClocksEnabled))
+	psSysSpecData =
+	    (struct SYS_SPECIFIC_DATA *)psSysData->pvSysSpecificData;
+	if (!psSysSpecData ||
+	    atomic_read(&psSysSpecData->sSGXClocksEnabled) == 0)
 		return 0;
 	psDeviceNode = psSysData->psDeviceNodeList;
 	while (psDeviceNode) {
-		if ((psDeviceNode->sDevId.eDeviceType == PVRSRV_DEVICE_TYPE_SGX)
-		    && (psDeviceNode->pvDevice)) {
+		if ((psDeviceNode->sDevId.eDeviceType ==
+			    PVRSRV_DEVICE_TYPE_SGX) &&
+		    psDeviceNode->pvDevice) {
 			struct PVRSRV_SGXDEV_INFO *psDevInfo =
 			    (struct PVRSRV_SGXDEV_INFO *)psDeviceNode->pvDevice;
 			unsigned int kicks = psDevInfo->ui32KickTACounter;
@@ -227,18 +230,19 @@ static unsigned int sgx_current_load(void)
 			time_prev += time_elapsed;
 			/*
 			 * if the period between calls to this function was
-			 * too long then load stats are invalid.
+			 * too long, then load stats are invalid
 			 */
 			if (time_elapsed > 5 * HZ)
 				return 0;
 			/*pr_err("SGX load %u\n", load); */
 
 			/*
-			 * 'load' shows how many times sgx was kicked per
-			 * 1000 jiffies 150 is arbitrarily chosen threshold.
-			 * If the number of kicks is below threshold then sgx
-			 * is doing some small jobs and we can keep the clocki
-			 * freq low.
+			 * 'load' shows how many times sgx was kicked
+			 * per 1000 jiffies
+			 * 150 is arbitrarily chosen threshold.
+			 * If the number of kicks is below threshold
+			 * then sgx is doing
+			 * some small jobs and we can keep the clock freq low.
 			 */
 			if (load < 150)
 				return 0;
@@ -257,9 +261,9 @@ static void sgx_lock_perf(struct work_struct *work)
 	int high;
 	unsigned int load;
 	struct delayed_work *d_work =
-			container_of(work, struct delayed_work, work);
+	    container_of(work, struct delayed_work, work);
 	struct ENV_DATA *psEnvData =
-			container_of(d_work, struct ENV_DATA, sPerfWork);
+	    container_of(d_work, struct ENV_DATA, sPerfWork);
 
 	load = sgx_current_load();
 	if (load) {
@@ -273,9 +277,9 @@ static void sgx_lock_perf(struct work_struct *work)
 	}
 	if (high != bHigh) {
 		omap_pm_set_min_bus_tput(&sgx_dev, OCP_INITIATOR_AGENT, vdd2);
-		omap_pm_set_min_mpu_freq(&sgx_dev, vdd1);
 		bHigh = high;
 	}
+
 	if (sgx_clock_enabled || load)
 		queue_delayed_work(psEnvData->psPerfWorkqueue,
 				   &psEnvData->sPerfWork, HZ / 5);
@@ -283,8 +287,8 @@ static void sgx_lock_perf(struct work_struct *work)
 
 static void sgx_need_perf(struct SYS_DATA *psSysData, int ena)
 {
-	struct ENV_DATA *psEnvData = (struct ENV_DATA *)
-					psSysData->pvEnvSpecificData;
+	struct ENV_DATA *psEnvData =
+	    (struct ENV_DATA *)psSysData->pvEnvSpecificData;
 
 	sgx_clock_enabled = ena;
 	cancel_delayed_work(&psEnvData->sPerfWork);
@@ -295,8 +299,8 @@ static void sgx_need_perf(struct SYS_DATA *psSysData, int ena)
 enum PVRSRV_ERROR OSInitPerf(void *pvSysData)
 {
 	struct SYS_DATA *psSysData = (struct SYS_DATA *)pvSysData;
-	struct ENV_DATA *psEnvData = (struct ENV_DATA *)
-						psSysData->pvEnvSpecificData;
+	struct ENV_DATA *psEnvData =
+	    (struct ENV_DATA *)psSysData->pvEnvSpecificData;
 
 	if (psEnvData->psPerfWorkqueue) {
 		PVR_DPF(PVR_DBG_ERROR, "OSInitPerf: already inited");
@@ -314,8 +318,8 @@ enum PVRSRV_ERROR OSInitPerf(void *pvSysData)
 enum PVRSRV_ERROR OSCleanupPerf(void *pvSysData)
 {
 	struct SYS_DATA *psSysData = (struct SYS_DATA *)pvSysData;
-	struct ENV_DATA *psEnvData = (struct ENV_DATA *)
-						psSysData->pvEnvSpecificData;
+	struct ENV_DATA *psEnvData =
+	    (struct ENV_DATA *)psSysData->pvEnvSpecificData;
 
 	if (!psEnvData->psPerfWorkqueue) {
 		PVR_DPF(PVR_DBG_ERROR, "OSCleanupPerf: not inited");
@@ -324,50 +328,109 @@ enum PVRSRV_ERROR OSCleanupPerf(void *pvSysData)
 
 	PVR_TRACE("Cleaning up DVFS");
 
+	sgx_clock_enabled = 0;
 	flush_workqueue(psEnvData->psPerfWorkqueue);
 	destroy_workqueue(psEnvData->psPerfWorkqueue);
 
 	return PVRSRV_OK;
 }
 
-enum PVRSRV_ERROR EnableSGXClocks(struct SYS_DATA *psSysData)
+static inline void setup_int_bypass(void)
+{
+	if (cpu_is_omap3630())
+		sgx_ocp_write_reg(EUR_CR_OCP_DEBUG_CONFIG,
+			      EUR_CR_OCP_DEBUG_CONFIG_THALIA_INT_BYPASS_MASK);
+}
+
+#ifndef NO_HARDWARE
+
+static enum PVRSRV_ERROR sgx_force_enable_clocks(struct SYS_DATA *psSysData)
 {
 	struct SYS_SPECIFIC_DATA *psSysSpecData =
 	    (struct SYS_SPECIFIC_DATA *)psSysData->pvSysSpecificData;
-#if defined(DEBUG)
-	unsigned long rate;
-#endif
 	int res;
-
-	if (psSysSpecData->bSGXClocksEnabled)
-		return PVRSRV_OK;
-
-	PVR_TRACE("EnableSGXClocks: Enabling SGX Clocks");
-
-#if defined(DEBUG)
-	rate = clk_get_rate(psSysSpecData->psMPU_CK);
-	PVR_TRACE("CPU Clock is %dMhz", HZ_TO_MHZ(rate));
-#endif
 
 	res = clk_enable(psSysSpecData->psSGX_FCK);
 	if (res < 0) {
-		PVR_DPF(PVR_DBG_ERROR, "EnableSGXClocks: "
-			"Couldn't enable SGX functional clock (%d)", res);
+		PVR_DPF(PVR_DBG_ERROR, "%s: "
+				"Couldn't enable SGX functional clock (%d)",
+			 __func__, res);
 		return PVRSRV_ERROR_GENERIC;
 	}
 
 	res = clk_enable(psSysSpecData->psSGX_ICK);
 	if (res < 0) {
-		PVR_DPF(PVR_DBG_ERROR, "EnableSGXClocks: "
-			"Couldn't enable SGX interface clock (%d)", res);
+		PVR_DPF(PVR_DBG_ERROR, "%s: "
+				"Couldn't enable SGX interface clock (%d)",
+			 __func__, res);
 
 		clk_disable(psSysSpecData->psSGX_FCK);
 		return PVRSRV_ERROR_GENERIC;
 	}
 
-	psSysSpecData->bSGXClocksEnabled = IMG_TRUE;
-	sgx_need_perf(psSysData, 1);
+	setup_int_bypass();
+
 	return PVRSRV_OK;
+}
+
+static void sgx_force_disable_clocks(struct SYS_DATA *psSysData)
+{
+	struct SYS_SPECIFIC_DATA *psSysSpecData =
+	    (struct SYS_SPECIFIC_DATA *)psSysData->pvSysSpecificData;
+
+	if (psSysSpecData->psSGX_ICK)
+		clk_disable(psSysSpecData->psSGX_ICK);
+
+	if (psSysSpecData->psSGX_FCK)
+		clk_disable(psSysSpecData->psSGX_FCK);
+}
+
+#else		/* NO_HARDWARE */
+
+static enum PVRSRV_ERROR sgx_force_enable_clocks(struct SYS_DATA *psSYsData)
+{
+	return PVRSRV_OK;
+}
+
+static void sgx_force_disable_clocks(struct SYS_DATA *psSYsData)
+{
+}
+
+#endif		/* NO_HARDWARE */
+
+static bool force_clocks_on(void)
+{
+#ifdef CONFIG_PVR_FORCE_CLOCKS_ON
+	return true;
+#else
+	return false;
+#endif
+}
+
+enum PVRSRV_ERROR EnableSGXClocks(struct SYS_DATA *psSysData)
+{
+	struct SYS_SPECIFIC_DATA *psSysSpecData =
+	    (struct SYS_SPECIFIC_DATA *)psSysData->pvSysSpecificData;
+	enum PVRSRV_ERROR res = PVRSRV_OK;
+
+	if (atomic_xchg(&psSysSpecData->sSGXClocksEnabled, 1))
+		return PVRSRV_OK;
+
+	/*
+	 * In case of force clocks on we have already enabled the clocks
+	 * at init time.
+	 */
+	if (!force_clocks_on())
+		res = sgx_force_enable_clocks(psSysData);
+
+	if (res == PVRSRV_OK) {
+		BUG_ON(!atomic_read(&psSysSpecData->sSGXClocksEnabled));
+		sgx_need_perf(psSysData, 1);
+	} else {
+		atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
+	}
+
+	return res;
 }
 
 void DisableSGXClocks(struct SYS_DATA *psSysData)
@@ -375,18 +438,14 @@ void DisableSGXClocks(struct SYS_DATA *psSysData)
 	struct SYS_SPECIFIC_DATA *psSysSpecData =
 	    (struct SYS_SPECIFIC_DATA *)psSysData->pvSysSpecificData;
 
-	if (!psSysSpecData->bSGXClocksEnabled)
+	if (!atomic_xchg(&psSysSpecData->sSGXClocksEnabled, 0))
 		return;
 
-	PVR_TRACE("DisableSGXClocks: Disabling SGX Clocks");
+	if (!force_clocks_on())
+		sgx_force_disable_clocks(psSysData);
 
-	if (psSysSpecData->psSGX_ICK)
-		clk_disable(psSysSpecData->psSGX_ICK);
+	BUG_ON(atomic_read(&psSysSpecData->sSGXClocksEnabled));
 
-	if (psSysSpecData->psSGX_FCK)
-		clk_disable(psSysSpecData->psSGX_FCK);
-
-	psSysSpecData->bSGXClocksEnabled = IMG_FALSE;
 	sgx_need_perf(psSysData, 0);
 }
 
@@ -416,7 +475,6 @@ static enum PVRSRV_ERROR InitSgxClocks(struct SYS_DATA *psSysData)
 	clk_put(core_ck);
 
 	RegisterConstraintNotifications(psSysSpecData);
-
 	return PVRSRV_OK;
 
 err2:
@@ -436,7 +494,6 @@ err0:
 static void CleanupSgxClocks(struct SYS_DATA *psSysData)
 {
 	struct SYS_SPECIFIC_DATA *psSysSpecData = psSysData->pvSysSpecificData;
-
 	UnRegisterConstraintNotifications(psSysSpecData);
 
 	if (psSysSpecData->psSGX_ICK) {
@@ -510,8 +567,8 @@ static enum PVRSRV_ERROR InitDebugClocks(struct SYS_DATA *psSysData)
 
 	rate = gpt_read_reg(psSysData, SYS_OMAP3430_GPTIMER_TSICR);
 	if (!(rate & 4)) {
-		PVR_TRACE(
-		 "Setting GPTIMER11 mode to posted (currently is non-posted)");
+		PVR_TRACE("Setting GPTIMER11 mode to posted "
+			  "(currently is non-posted)");
 		gpt_write_reg(psSysData, SYS_OMAP3430_GPTIMER_TSICR, rate | 4);
 	}
 
@@ -636,7 +693,12 @@ enum PVRSRV_ERROR EnableSystemClocks(struct SYS_DATA *psSysData)
 {
 	PVR_TRACE("EnableSystemClocks: Enabling System Clocks");
 
-
+	/*
+	 * We force clocks on by increasing their refcount here during
+	 * module init time and decreasing it at cleanup time.
+	 */
+	if (force_clocks_on())
+		sgx_force_enable_clocks(gpsSysData);
 	if (EnableDebugClocks(psSysData) != PVRSRV_OK)
 		goto err1;
 
@@ -650,6 +712,8 @@ void DisableSystemClocks(struct SYS_DATA *psSysData)
 {
 	PVR_TRACE("DisableSystemClocks: Disabling System Clocks");
 
-	DisableSGXClocks(psSysData);
 	DisableDebugClocks(psSysData);
+	/* Decrease the clocks' refcount that was increased at init time. */
+	if (force_clocks_on())
+		sgx_force_disable_clocks(gpsSysData);
 }

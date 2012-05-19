@@ -47,30 +47,34 @@ struct RA_STATISTICS {
 	u32 uImportCount;
 	u32 uExportCount;
 };
+struct RA_STATISTICS;
 
 struct RA_SEGMENT_DETAILS {
 	u32 uiSize;
 	struct IMG_CPU_PHYADDR sCpuPhyAddr;
 	void *hSegment;
 };
+struct RA_SEGMENT_DETAILS;
 
 struct RA_ARENA *RA_Create(char *name, u32 base, size_t uSize,
-		    struct BM_MAPPING *psMapping, size_t uQuantum,
-		    IMG_BOOL (*alloc)(void *_h, size_t uSize,
-				      size_t *pActualSize,
-				      struct BM_MAPPING **ppsMapping,
-				      u32 uFlags, u32 *pBase),
-		    void (*free)(void *, u32, struct BM_MAPPING *psMapping),
-		    void (*backingstore_free)(void *, u32, u32, void *),
-		    void *import_handle);
+			   struct BM_MAPPING *psMapping, size_t uQuantum,
+			   IMG_BOOL(*imp_alloc)(void *_h, size_t uSize,
+						size_t *pActualSize,
+						struct BM_MAPPING **ppsMapping,
+						u32 uFlags, u32 *pBase),
+			   void (*imp_free)(void *, u32, struct BM_MAPPING *),
+			   void (*backingstore_free)(void *, u32, u32, void *),
+			   void *import_handle);
 
 void RA_Delete(struct RA_ARENA *pArena);
 
+IMG_BOOL RA_TestDelete(struct RA_ARENA *pArena);
+
 IMG_BOOL RA_Add(struct RA_ARENA *pArena, u32 base, size_t uSize);
 
-IMG_BOOL RA_Alloc(struct RA_ARENA *pArena, size_t uSize, size_t *pActualSize,
+IMG_BOOL RA_Alloc(struct RA_ARENA *pArena, size_t uSize,
 	 struct BM_MAPPING **ppsMapping, u32 uFlags, u32 uAlignment,
-	 u32 uAlignmentOffset, u32 *pBase);
+	 u32 *pBase);
 
 void RA_Free(struct RA_ARENA *pArena, u32 base, IMG_BOOL bFreeBackingStore);
 
@@ -95,8 +99,8 @@ void RA_Free(struct RA_ARENA *pArena, u32 base, IMG_BOOL bFreeBackingStore);
 IMG_BOOL RA_GetNextLiveSegment(void *hArena,
 			       struct RA_SEGMENT_DETAILS *psSegDetails);
 
-enum PVRSRV_ERROR RA_GetStats(struct RA_ARENA *pArena,
-			 char **ppszStr, u32 *pui32StrLen);
+enum PVRSRV_ERROR RA_GetStats(struct RA_ARENA *pArena, char **ppszStr,
+				u32 *pui32StrLen);
 
 #endif
 

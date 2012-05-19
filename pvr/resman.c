@@ -24,18 +24,14 @@
  *
  ******************************************************************************/
 
-#include "services_headers.h"
-#include "resman.h"
-
-#ifndef AUTOCONF_INCLUDED
-#include <linux/config.h>
-#endif
-
 #include <linux/version.h>
 #include <linux/sched.h>
 #include <linux/hardirq.h>
 
 #include <linux/semaphore.h>
+
+#include "services_headers.h"
+#include "resman.h"
 
 static DECLARE_MUTEX(lock);
 
@@ -43,9 +39,8 @@ static DECLARE_MUTEX(lock);
 		if (in_interrupt()) {					   \
 			printk(KERN_ERR "ISR cannot take RESMAN mutex\n"); \
 			BUG();						   \
-		} else {						   \
+	} else								\
 			down(&lock);					   \
-		}							   \
 } while (0)
 #define RELEASE_SYNC_OBJ up(&lock)
 
@@ -91,10 +86,10 @@ static void FreeResourceByPtr(struct RESMAN_ITEM *psItem,
 					   IMG_BOOL bExecuteCallback);
 
 static int FreeResourceByCriteria(struct RESMAN_CONTEXT *psContext,
-		u32 ui32SearchCriteria,
-		u32 ui32ResType, void *pvParam,
-		u32 ui32Param,
-		IMG_BOOL bExecuteCallback);
+					   u32 ui32SearchCriteria,
+					   u32 ui32ResType, void *pvParam,
+					   u32 ui32Param,
+					   IMG_BOOL bExecuteCallback);
 
 #ifdef DEBUG
 static void ValidateResList(struct RESMAN_LIST *psResList);
@@ -124,7 +119,6 @@ enum PVRSRV_ERROR ResManInit(void)
 void ResManDeInit(void)
 {
 	if (gpsResList != NULL)
-
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(*gpsResList),
 			  gpsResList, NULL);
 }
@@ -143,7 +137,8 @@ enum PVRSRV_ERROR PVRSRVResManConnect(void *hPerProc,
 			    (void **) &psResManContext, NULL);
 	if (eError != PVRSRV_OK) {
 		PVR_DPF(PVR_DBG_ERROR, "PVRSRVResManConnect: "
-			 "ERROR allocating new RESMAN context struct");
+				"ERROR allocating new RESMAN context struct");
+
 		VALIDATERESLIST();
 		RELEASE_SYNC_OBJ;
 
@@ -180,15 +175,14 @@ static int free_one_res(struct RESMAN_CONTEXT *ctx, u32 restype)
 	int freed;
 
 	freed = FreeResourceByCriteria(ctx, RESMAN_CRITERIA_RESTYPE, restype,
-			NULL, 0, IMG_TRUE);
+					NULL, 0, IMG_TRUE);
 	if (freed && warn_unfreed_res())
-		PVR_DPF(PVR_DBG_WARNING, "pvr: %s: cleaning up %d "
-				"unfreed resource of type %d\n",
-				current->comm, freed, restype);
+		PVR_DPF(DBGPRIV_WARNING, "pvr: %s: cleaning up %d "
+			   "unfreed resource of type %d\n",
+			   current->comm, freed, restype);
 
 	return freed;
 }
-
 
 void PVRSRVResManDisconnect(struct RESMAN_CONTEXT *ctx, IMG_BOOL bKernelContext)
 {
@@ -201,6 +195,7 @@ void PVRSRVResManDisconnect(struct RESMAN_CONTEXT *ctx, IMG_BOOL bKernelContext)
 
 	if (!bKernelContext) {
 		int i = 0;
+
 		i += free_one_res(ctx, RESMAN_TYPE_OS_USERMODE_MAPPING);
 		i += free_one_res(ctx, RESMAN_TYPE_EVENT_OBJECT);
 		i += free_one_res(ctx, RESMAN_TYPE_HW_RENDER_CONTEXT);
@@ -220,10 +215,9 @@ void PVRSRVResManDisconnect(struct RESMAN_CONTEXT *ctx, IMG_BOOL bKernelContext)
 		i += free_one_res(ctx, RESMAN_TYPE_DEVICEMEM_CONTEXT);
 
 		if (i && warn_unfreed_res())
-			printk(KERN_DEBUG "pvr: %s: cleaning up %d "
-					"unfreed resources\n",
-					current->comm, i);
-
+			pr_warning("pvr: %s: cleaning up %d "
+				   "unfreed resources\n",
+				   current->comm, i);
 	}
 
 	PVR_ASSERT(ctx->psResItemList == NULL);
@@ -243,14 +237,21 @@ void PVRSRVResManDisconnect(struct RESMAN_CONTEXT *ctx, IMG_BOOL bKernelContext)
 }
 
 struct RESMAN_ITEM *ResManRegisterRes(struct RESMAN_CONTEXT *psResManContext,
-			   u32 ui32ResType, void *pvParam, u32 ui32Param,
-			   enum PVRSRV_ERROR (*pfnFreeResource)(void *pvParam,
-								u32 ui32Param))
+				      u32 ui32ResType, void *pvParam,
+				      u32 ui32Param,
+				      enum PVRSRV_ERROR (*pfnFreeResource)
+						(void *pvParam, u32 ui32Param))
 {
 	struct RESMAN_ITEM *psNewResItem;
 
 	PVR_ASSERT(psResManContext != NULL);
 	PVR_ASSERT(ui32ResType != 0);
+
+	if (psResManContext == NULL) {
+		PVR_DPF(PVR_DBG_ERROR, "ResManRegisterRes: "
+					"invalid parameter - psResManContext");
+		return (struct RESMAN_ITEM *)NULL;
+	}
 
 	ACQUIRE_SYNC_OBJ;
 
@@ -314,9 +315,8 @@ void ResManFreeResByPtr(struct RESMAN_ITEM *psResItem)
 }
 
 void ResManFreeResByCriteria(struct RESMAN_CONTEXT *psResManContext,
-		u32 ui32SearchCriteria,
-		u32 ui32ResType,
-		void *pvParam, u32 ui32Param)
+				u32 ui32SearchCriteria, u32 ui32ResType,
+				void *pvParam, u32 ui32Param)
 {
 	PVR_ASSERT(psResManContext != NULL);
 
@@ -329,7 +329,7 @@ void ResManFreeResByCriteria(struct RESMAN_CONTEXT *psResManContext,
 		 psResManContext, ui32SearchCriteria, ui32ResType,
 		 (u32) pvParam, ui32Param);
 
-	FreeResourceByCriteria(psResManContext, ui32SearchCriteria,
+	(void)FreeResourceByCriteria(psResManContext, ui32SearchCriteria,
 					ui32ResType, pvParam, ui32Param,
 					IMG_TRUE);
 
@@ -338,14 +338,22 @@ void ResManFreeResByCriteria(struct RESMAN_CONTEXT *psResManContext,
 	RELEASE_SYNC_OBJ;
 }
 
-void ResManDissociateRes(struct RESMAN_ITEM *psResItem,
+enum PVRSRV_ERROR ResManDissociateRes(struct RESMAN_ITEM *psResItem,
 			     struct RESMAN_CONTEXT *psNewResManContext)
 {
 	PVR_ASSERT(psResItem != NULL);
+
+	if (psResItem == NULL) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "ResManDissociateRes: invalid parameter - psResItem");
+		PVR_DBG_BREAK;
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+#ifdef DEBUG
 	PVR_ASSERT(psResItem->ui32Signature == RESMAN_SIGNATURE);
+#endif
 
 	if (psNewResManContext != NULL) {
-
 		if (psResItem->psNext)
 			psResItem->psNext->ppsThis = psResItem->ppsThis;
 		*psResItem->ppsThis = psResItem->psNext;
@@ -358,9 +366,11 @@ void ResManDissociateRes(struct RESMAN_ITEM *psResItem,
 	} else {
 		FreeResourceByPtr(psResItem, IMG_FALSE);
 	}
+
+	return PVRSRV_OK;
 }
 
-IMG_INTERNAL enum PVRSRV_ERROR ResManFindResourceByPtr(
+enum PVRSRV_ERROR ResManFindResourceByPtr(
 					struct RESMAN_CONTEXT *psResManContext,
 					struct RESMAN_ITEM *psItem)
 {
@@ -368,7 +378,16 @@ IMG_INTERNAL enum PVRSRV_ERROR ResManFindResourceByPtr(
 
 	PVR_ASSERT(psResManContext != NULL);
 	PVR_ASSERT(psItem != NULL);
+
+	if ((psItem == NULL) || (psResManContext == NULL)) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "ResManFindResourceByPtr: invalid parameter");
+		PVR_DBG_BREAK;
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+#ifdef DEBUG
 	PVR_ASSERT(psItem->ui32Signature == RESMAN_SIGNATURE);
+#endif
 
 	ACQUIRE_SYNC_OBJ;
 
@@ -387,12 +406,9 @@ IMG_INTERNAL enum PVRSRV_ERROR ResManFindResourceByPtr(
 	psCurItem = psResManContext->psResItemList;
 
 	while (psCurItem != NULL) {
-
 		if (psCurItem != psItem) {
-
 			psCurItem = psCurItem->psNext;
 		} else {
-
 			RELEASE_SYNC_OBJ;
 			return PVRSRV_OK;
 		}
@@ -406,7 +422,6 @@ IMG_INTERNAL enum PVRSRV_ERROR ResManFindResourceByPtr(
 static void FreeResourceByPtr(struct RESMAN_ITEM *psItem,
 				      IMG_BOOL bExecuteCallback)
 {
-	PVR_ASSERT(psItem != NULL);
 	PVR_ASSERT(psItem->ui32Signature == RESMAN_SIGNATURE);
 
 	PVR_DPF(PVR_DBG_MESSAGE,
@@ -427,15 +442,15 @@ static void FreeResourceByPtr(struct RESMAN_ITEM *psItem,
 	RELEASE_SYNC_OBJ;
 
 	if (bExecuteCallback &&
-		psItem->pfnFreeResource(psItem->pvParam, psItem->ui32Param) !=
+	    psItem->pfnFreeResource(psItem->pvParam, psItem->ui32Param) !=
 			PVRSRV_OK)
 		PVR_DPF(PVR_DBG_ERROR, "FreeResourceByPtr: "
-				"ERROR calling FreeResource function");
+					"ERROR calling FreeResource function");
 
 	ACQUIRE_SYNC_OBJ;
 
-	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(struct RESMAN_ITEM),
-			psItem, NULL);
+	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(struct RESMAN_ITEM), psItem,
+		  NULL);
 }
 
 static int FreeResourceByCriteria(struct RESMAN_CONTEXT *psResManContext,
@@ -450,26 +465,21 @@ static int FreeResourceByCriteria(struct RESMAN_CONTEXT *psResManContext,
 	psCurItem = psResManContext->psResItemList;
 
 	while (psCurItem != NULL) {
-
 		bMatch = IMG_TRUE;
 
-		if ((ui32SearchCriteria & RESMAN_CRITERIA_RESTYPE) &&
-		    psCurItem->ui32ResType != ui32ResType)
+		if (((ui32SearchCriteria & RESMAN_CRITERIA_RESTYPE) != 0UL) &&
+		    (psCurItem->ui32ResType != ui32ResType))
 			bMatch = IMG_FALSE;
-		else if ((ui32SearchCriteria & RESMAN_CRITERIA_PVOID_PARAM) &&
-			 psCurItem->pvParam != pvParam)
+		else if (((ui32SearchCriteria & RESMAN_CRITERIA_PVOID_PARAM) !=
+			  0UL) && (psCurItem->pvParam != pvParam))
 			bMatch = IMG_FALSE;
-
-		else
-		if ((ui32SearchCriteria & RESMAN_CRITERIA_UI32_PARAM) &&
-			 psCurItem->ui32Param != ui32Param)
+		else if (((ui32SearchCriteria & RESMAN_CRITERIA_UI32_PARAM) !=
+			  0UL) && (psCurItem->ui32Param != ui32Param))
 			bMatch = IMG_FALSE;
 
 		if (!bMatch) {
-
 			psCurItem = psCurItem->psNext;
 		} else {
-
 			FreeResourceByPtr(psCurItem, bExecuteCallback);
 			psCurItem = psResManContext->psResItemList;
 			freed++;
@@ -495,12 +505,10 @@ static void ValidateResList(struct RESMAN_LIST *psResList)
 	ppsThisContext = &psResList->psContextList;
 
 	while (psCurContext != NULL) {
-
 		PVR_ASSERT(psCurContext->ui32Signature == RESMAN_SIGNATURE);
 		if (psCurContext->ppsThis != ppsThisContext) {
-			PVR_DPF(PVR_DBG_WARNING,
-			 "psCC=%08X psCC->ppsThis=%08X "
-			 "psCC->psNext=%08X ppsTC=%08X",
+			PVR_DPF(PVR_DBG_WARNING, "psCC=%08X "
+			     "psCC->ppsThis=%08X psCC->psNext=%08X ppsTC=%08X",
 				 psCurContext, psCurContext->ppsThis,
 				 psCurContext->psNext, ppsThisContext);
 			PVR_ASSERT(psCurContext->ppsThis == ppsThisContext);
@@ -512,11 +520,10 @@ static void ValidateResList(struct RESMAN_LIST *psResList)
 			PVR_ASSERT(psCurItem->ui32Signature ==
 				   RESMAN_SIGNATURE);
 			if (psCurItem->ppsThis != ppsThisItem) {
-				PVR_DPF(PVR_DBG_WARNING,
-					 "psCurItem=%08X "
-					 "psCurItem->ppsThis=%08X "
-					 "psCurItem->psNext=%08X "
-					 "ppsThisItem=%08X",
+				PVR_DPF(PVR_DBG_WARNING, "psCurItem=%08X "
+					"psCurItem->ppsThis=%08X "
+					"psCurItem->psNext=%08X "
+					"ppsThisItem=%08X",
 					 psCurItem, psCurItem->ppsThis,
 					 psCurItem->psNext, ppsThisItem);
 				PVR_ASSERT(psCurItem->ppsThis == ppsThisItem);

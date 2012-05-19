@@ -28,19 +28,23 @@
 #ifndef __OSFUNC_H__
 #define __OSFUNC_H__
 
-
-#ifdef	__KERNEL__
+#if defined(__KERNEL__)
+#include <linux/hardirq.h>
 #include <linux/string.h>
 #endif
 
-#define KERNEL_ID		0xffffffffL
-#define POWER_MANAGER_ID	0xfffffffeL
-#define ISR_ID			0xfffffffdL
-#define TIMER_ID		0xfffffffcL
+#define PVRSRV_PAGEABLE_SELECT		PVRSRV_OS_PAGEABLE_HEAP
 
-#define HOST_PAGESIZE		OSGetPageSize
-#define HOST_PAGEMASK		(~(HOST_PAGESIZE()-1))
-#define HOST_PAGEALIGN(addr)	(((addr)+HOST_PAGESIZE()-1)&HOST_PAGEMASK)
+#define KERNEL_ID			0xffffffffL
+#define POWER_MANAGER_ID		0xfffffffeL
+#define ISR_ID				0xfffffffdL
+#define TIMER_ID			0xfffffffcL
+
+#define HOST_PAGESIZE			OSGetPageSize
+#define HOST_PAGEMASK			(~(HOST_PAGESIZE()-1))
+
+#define HOST_PAGEALIGN(addr)		(((addr) + HOST_PAGESIZE() - 1) & \
+					HOST_PAGEMASK)
 
 #define PVRSRV_OS_HEAP_MASK		0xf
 #define PVRSRV_OS_PAGEABLE_HEAP		0x1
@@ -59,10 +63,10 @@ enum PVRSRV_ERROR OSInitPerf(void *pvSysData);
 enum PVRSRV_ERROR OSCleanupPerf(void *pvSysData);
 struct IMG_CPU_PHYADDR OSMapLinToCPUPhys(void *pvLinAddr);
 void OSMemCopy(void *pvDst, void *pvSrc, u32 ui32Size);
-void __iomem *OSMapPhysToLin(struct IMG_CPU_PHYADDR BasePAddr, u32 ui32Bytes,
-		u32 ui32Flags, void **phOSMemHandle);
-IMG_BOOL OSUnMapPhysToLin(void __iomem *pvLinAddr, u32 ui32Bytes, u32 ui32Flags,
-		void *hOSMemHandle);
+void __iomem *OSMapPhysToLin(struct IMG_CPU_PHYADDR BasePAddr,
+		     u32 ui32Bytes, u32 ui32MappingFlags, void **phOSMemHandle);
+IMG_BOOL OSUnMapPhysToLin(void __iomem *pvLinAddr, u32 ui32Bytes,
+			u32 ui32MappingFlags, void *hPageAlloc);
 
 enum PVRSRV_ERROR OSReservePhys(struct IMG_CPU_PHYADDR BasePAddr, u32 ui32Bytes,
 		u32 ui32Flags, void **ppvCpuVAddr, void **phOSMemHandle);
@@ -77,16 +81,18 @@ enum PVRSRV_ERROR OSUnRegisterDiscontigMem(void *pvCpuVAddr, u32 ui32Bytes,
 
 static inline enum PVRSRV_ERROR OSReserveDiscontigPhys(
 		struct IMG_SYS_PHYADDR *pBasePAddr, u32 ui32Bytes,
-		u32 ui32Flags, void **ppvCpuVAddr, void **phOSMemHandle) {
+		u32 ui32Flags, void **ppvCpuVAddr, void **phOSMemHandle)
+{
 	*ppvCpuVAddr = NULL;
 	return OSRegisterDiscontigMem(pBasePAddr, *ppvCpuVAddr, ui32Bytes,
 				      ui32Flags, phOSMemHandle);
 }
 
 static inline enum PVRSRV_ERROR OSUnReserveDiscontigPhys(void *pvCpuVAddr,
-		u32 ui32Bytes, u32 ui32Flags, void *hOSMemHandle) {
+			u32 ui32Bytes, u32 ui32Flags, void *hOSMemHandle)
+{
 	OSUnRegisterDiscontigMem(pvCpuVAddr, ui32Bytes, ui32Flags,
-			hOSMemHandle);
+				hOSMemHandle);
 
 	return PVRSRV_OK;
 }
@@ -105,7 +111,7 @@ u32 OSGetCurrentProcessIDKM(void);
 u32 OSGetCurrentThreadID(void);
 void OSMemSet(void *pvDest, u8 ui8Value, u32 ui32Size);
 
-#ifdef DEBUG_LINUX_MEMORY_ALLOCATIONS
+#if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
 enum PVRSRV_ERROR _OSAllocMem(u32 ui32Flags, u32 ui32Size, void **ppvLinAddr,
 		void **phBlockAlloc, char *pszFilename, u32 ui32Line);
 #define OSAllocMem(ui32Flags, ui32Size, ppvLinAddr, phBlockAlloc)	\
@@ -119,11 +125,10 @@ void _OSFreeMem(u32 ui32Flags, u32 ui32Size, void *pvLinAddr,
 #else
 enum PVRSRV_ERROR OSAllocMem(u32 ui32Flags, u32 ui32Size, void **ppvLinAddr,
 		void **phBlockAlloc);
-void OSFreeMem(u32 ui32Flags, u32 ui32Size, void *pvLinAddr,
-		void *hBlockAlloc);
+void OSFreeMem(u32 ui32Flags, u32 ui32Size, void *pvLinAddr, void *hBlockAlloc);
 #endif
-enum PVRSRV_ERROR OSAllocPages(u32 ui32Flags, u32 ui32Size, void **ppvLinAddr,
-		void **phPageAlloc);
+enum PVRSRV_ERROR OSAllocPages(u32 ui32Flags, u32 ui32Size, u32 ui32PageSize,
+			       void **ppvLinAddr, void **phPageAlloc);
 enum PVRSRV_ERROR OSFreePages(u32 ui32Flags, u32 ui32Size, void *pvLinAddr,
 		void *hPageAlloc);
 struct IMG_CPU_PHYADDR OSMemHandleToCpuPAddr(void *hOSMemHandle,
@@ -170,6 +175,7 @@ enum PVRSRV_ERROR OSLockResource(struct PVRSRV_RESOURCE *psResource,
 		u32 ui32ID);
 enum PVRSRV_ERROR OSUnlockResource(struct PVRSRV_RESOURCE *psResource,
 		u32 ui32ID);
+IMG_BOOL OSIsResourceLocked(struct PVRSRV_RESOURCE *psResource, u32 ui32ID);
 enum PVRSRV_ERROR OSCreateResource(struct PVRSRV_RESOURCE *psResource);
 enum PVRSRV_ERROR OSDestroyResource(struct PVRSRV_RESOURCE *psResource);
 void OSBreakResourceLock(struct PVRSRV_RESOURCE *psResource, u32 ui32ID);
@@ -186,6 +192,12 @@ enum PVRSRV_ERROR OSEnableTimer(void *hTimer);
 enum PVRSRV_ERROR OSDisableTimer(void *hTimer);
 
 enum PVRSRV_ERROR OSGetSysMemSize(u32 *pui32Bytes);
+
+enum HOST_PCI_INIT_FLAGS {
+	HOST_PCI_INIT_FLAG_BUS_MASTER = 0x00000001,
+	HOST_PCI_INIT_FLAG_MSI = 0x00000002,
+	HOST_PCI_INIT_FLAG_FORCE_I32 = 0x7fffffff
+};
 
 enum PVRSRV_ERROR OSScheduleMISR(void *pvSysData);
 
@@ -206,8 +218,15 @@ enum PVRSRV_ERROR OSCopyFromUser(void *pvProcess, void *pvDest,
 
 enum PVRSRV_ERROR OSAcquirePhysPageAddr(void *pvCPUVAddr, u32 ui32Bytes,
 				   struct IMG_SYS_PHYADDR *psSysPAddr,
-				   void **phOSWrapMem, IMG_BOOL bUseLock);
-enum PVRSRV_ERROR OSReleasePhysPageAddr(void *hOSWrapMem, IMG_BOOL bUseLock);
+					void **phOSWrapMem);
+enum PVRSRV_ERROR OSReleasePhysPageAddr(void *hOSWrapMem);
 
+#if defined(__KERNEL__)
+#define	OS_SUPPORTS_IN_LISR
+static inline IMG_BOOL OSInLISR(void unref__ * pvSysData)
+{
+	return in_irq();
+}
+#endif
 
 #endif

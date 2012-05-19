@@ -34,6 +34,12 @@
 #define PVRSRV_MAX_BRIDGE_IN_SIZE	0x1000
 #define PVRSRV_MAX_BRIDGE_OUT_SIZE	0x1000
 
+struct PVR_PCI_DEV {
+	struct pci_dev *psPCIDev;
+	enum HOST_PCI_INIT_FLAGS ePCIFlags;
+	IMG_BOOL abPCIResourceInUse[DEVICE_COUNT_RESOURCE];
+};
+
 struct ENV_DATA {
 	void *pvBridgeData;
 	struct pm_dev *psPowerDevice;
@@ -43,9 +49,9 @@ struct ENV_DATA {
 	void *pvISRCookie;
 	struct workqueue_struct *psMISRWorkqueue;
 	struct work_struct sMISRWork;
+	void *pvSysData;
 	struct workqueue_struct *psPerfWorkqueue;
 	struct delayed_work sPerfWork;
-	void *pvSysData;	/*for MISR work */
 };
 
 #endif

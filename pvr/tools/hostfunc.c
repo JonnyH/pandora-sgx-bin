@@ -24,6 +24,7 @@
  *
  ******************************************************************************/
 
+#include <linux/version.h>
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -32,15 +33,27 @@
 #include <linux/string.h>
 #include <asm/page.h>
 #include <linux/vmalloc.h>
+#include <linux/mutex.h>
+#include <linux/hardirq.h>
+
+#if defined(SUPPORT_DBGDRV_EVENT_OBJECTS)
+#include <linux/sched.h>
+#include <linux/wait.h>
+#include <linux/jiffies.h>
+#include <linux/delay.h>
+#endif
 
 #include "img_types.h"
 #include "pvr_debug.h"
 
-u32 gPVRDebugLevel = DBGPRIV_WARNING;
+#include "dbgdrvif.h"
+#include "hostfunc.h"
 
 #define PVR_STRING_TERMINATOR		'\0'
 #define PVR_IS_FILE_SEPARATOR(character) \
 	(((character) == '\\') || ((character) == '/'))
+
+static u32 gPVRDebugLevel = DBGPRIV_WARNING;
 
 void PVRSRVDebugPrintf(u32 ui32DebugLevel,
 		       const char *pszFileName,
@@ -171,21 +184,84 @@ void HostCreateRegDeclStreams(void)
 
 void *HostCreateMutex(void)
 {
+	struct mutex *psSem;
 
-	return NULL;
+	psSem = kmalloc(sizeof(*psSem), GFP_KERNEL);
+	if (psSem)
+		mutex_init(psSem);
+
+	return psSem;
 }
 
 void HostAquireMutex(void *pvMutex)
 {
+	BUG_ON(in_interrupt());
 
+#if defined(PVR_DEBUG_DBGDRV_DETECT_HOST_MUTEX_COLLISIONS)
+	if (mutex_trylock((struct mutex *)pvMutex)) {
+		printk(KERN_INFO "HostAquireMutex: Waiting for mutex\n");
+		mutex_lock((struct mutex *)pvMutex);
+	}
+#else
+	mutex_lock((struct mutex *)pvMutex);
+#endif
 }
 
 void HostReleaseMutex(void *pvMutex)
 {
-
+	mutex_unlock((struct mutex *)pvMutex);
 }
 
 void HostDestroyMutex(void *pvMutex)
 {
-
+	kfree(pvMutex);
 }
+
+#if defined(SUPPORT_DBGDRV_EVENT_OBJECTS)
+
+#define	EVENT_WAIT_TIMEOUT_MS	500
+#define	EVENT_WAIT_TIMEOUT_JIFFIES	(EVENT_WAIT_TIMEOUT_MS * HZ / 1000)
+
+static int iStreamData;
+static wait_queue_head_t sStreamDataEvent;
+
+s32 HostCreateEventObjects(void)
+{
+	init_waitqueue_head(&sStreamDataEvent);
+
+	return 0;
+}
+
+void HostWaitForEvent(enum DBG_EVENT eEvent)
+{
+	switch (eEvent) {
+	case DBG_EVENT_STREAM_DATA:
+
+		wait_event_interruptible_timeout(sStreamDataEvent,
+						 iStreamData != 0,
+						 EVENT_WAIT_TIMEOUT_JIFFIES);
+		iStreamData = 0;
+		break;
+	default:
+
+		msleep_interruptible(EVENT_WAIT_TIMEOUT_MS);
+		break;
+	}
+}
+
+void HostSignalEvent(enum DBG_EVENT eEvent)
+{
+	switch (eEvent) {
+	case DBG_EVENT_STREAM_DATA:
+		iStreamData = 1;
+		wake_up_interruptible(&sStreamDataEvent);
+		break;
+	default:
+		break;
+	}
+}
+
+void HostDestroyEventObjects(void)
+{
+}
+#endif

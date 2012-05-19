@@ -34,7 +34,7 @@
 #define	IMG_NO_REG				1
 
 #ifndef PVR_UNREFERENCED_PARAMETER
-#define	PVR_UNREFERENCED_PARAMETER(param) (param) = (param)
+#define	PVR_UNREFERENCED_PARAMETER(param)	(param) = (param)
 #endif
 
 #ifdef __GNUC__
@@ -42,7 +42,5 @@
 #else
 #define unref__
 #endif
-
-#define IMG_INTERNAL	__attribute__ ((visibility("hidden")))
 
 #endif

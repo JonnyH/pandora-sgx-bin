@@ -24,46 +24,14 @@
  *
  ******************************************************************************/
 
-#include <linux/version.h>
-#include <linux/errno.h>
-#include <linux/mutex.h>
-#include <linux/module.h>
+#ifndef __IMG_LINUX_MUTILS_H__
+#define __IMG_LINUX_MUTILS_H__
 
-#include "img_defs.h"
-#include "services.h"
+#define	PGPROT_WC(pv)		pgprot_writecombine(pv)
+#define	PGPROT_UC(pv)		pgprot_noncached(pv)
 
-#include "mutex.h"
+#define	IOREMAP(pa, bytes)	ioremap_cached(pa, bytes)
+#define IOREMAP_WC(pa, bytes)	ioremap_wc(pa, bytes)
+#define	IOREMAP_UC(pa, bytes)	ioremap_nocache(pa, bytes)
 
-void LinuxInitMutex(struct mutex *psPVRSRVMutex)
-{
-	mutex_init(psPVRSRVMutex);
-}
-
-void LinuxLockMutex(struct mutex *psPVRSRVMutex)
-{
-	mutex_lock(psPVRSRVMutex);
-}
-
-enum PVRSRV_ERROR LinuxLockMutexInterruptible(struct mutex *psPVRSRVMutex)
-{
-	if (mutex_lock_interruptible(psPVRSRVMutex) == -EINTR)
-		return PVRSRV_ERROR_GENERIC;
-	else
-		return PVRSRV_OK;
-}
-
-s32 LinuxTryLockMutex(struct mutex *psPVRSRVMutex)
-{
-	return mutex_trylock(psPVRSRVMutex);
-}
-
-void LinuxUnLockMutex(struct mutex *psPVRSRVMutex)
-{
-	mutex_unlock(psPVRSRVMutex);
-}
-
-IMG_BOOL LinuxIsLockedMutex(struct mutex *psPVRSRVMutex)
-{
-	return mutex_is_locked(psPVRSRVMutex);
-}
-
+#endif

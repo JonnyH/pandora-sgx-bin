@@ -43,17 +43,8 @@ struct COMMAND_COMPLETE_DATA {
 
 enum PVRSRV_ERROR PVRSRVProcessQueues(u32 ui32CallerID, IMG_BOOL bFlush);
 
-#ifdef __KERNEL__
+#if defined(__KERNEL__)
 #include <linux/types.h>
-/*
-   HACK: The header was included already in img_types.h, but there we keep the
-   original value of __inline__. Without that include we'd  have at this point
-   __inline = __inline __attribute__((always_inline)). Keep it the old way for
-   now to avoid introducing changes related to this.
- */
-#undef inline
-#define inline inline __attribute__((always_inline))
-
 off_t QueuePrintQueues(char *buffer, size_t size, off_t off);
 #endif
 

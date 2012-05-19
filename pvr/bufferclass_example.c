@@ -27,7 +27,7 @@
 #include "bufferclass_example.h"
 
 static void *gpvAnchor;
-static IMG_BOOL (*pfnGetPVRJTable)(struct PVRSRV_BC_BUFFER2SRV_KMJTABLE *);
+static IMG_BOOL(*pfnGetPVRJTable)(struct PVRSRV_BC_BUFFER2SRV_KMJTABLE *);
 
 struct BC_EXAMPLE_DEVINFO *GetAnchorPtr(void)
 {
@@ -95,13 +95,10 @@ static enum PVRSRV_ERROR GetBCInfo(void *hDevice, struct BUFFER_INFO *psBCInfo)
 	return PVRSRV_OK;
 }
 
-static enum PVRSRV_ERROR GetBCBufferAddr(void *hDevice,
-				    void *hBuffer,
-				    struct IMG_SYS_PHYADDR **ppsSysAddr,
-				    u32 *pui32ByteSize,
-				    void **ppvCpuVAddr,
-				    void **phOSMapInfo,
-				    IMG_BOOL *pbIsContiguous)
+static enum PVRSRV_ERROR GetBCBufferAddr(void *hDevice, void *hBuffer,
+			    struct IMG_SYS_PHYADDR **ppsSysAddr,
+			    u32 *pui32ByteSize, void __iomem **ppvCpuVAddr,
+			    void **phOSMapInfo, IMG_BOOL *pbIsContiguous)
 {
 	struct BC_EXAMPLE_BUFFER *psBuffer;
 
@@ -182,9 +179,9 @@ enum PVRSRV_ERROR BC_Example_Init(void)
 
 			if (BCAllocContigMemory(ui32Size,
 						&psDevInfo->psSystemBuffer[i].
-						hMemHandle,
+							hMemHandle,
 						&psDevInfo->psSystemBuffer[i].
-						sCPUVAddr,
+							sCPUVAddr,
 						&sSystemBufferCPUPAddr) !=
 			    PVRSRV_OK)
 				break;
@@ -196,7 +193,7 @@ enum PVRSRV_ERROR BC_Example_Init(void)
 			    CpuPAddrToSysPAddrBC(sSystemBufferCPUPAddr);
 			psDevInfo->psSystemBuffer[i].sPageAlignSysAddr.uiAddr =
 			    (psDevInfo->psSystemBuffer[i].sSysAddr.
-			     uiAddr & 0xFFFFF000);
+						     uiAddr & 0xFFFFF000);
 			psDevInfo->psSystemBuffer[i].psSyncData = NULL;
 		}
 
@@ -240,7 +237,7 @@ enum PVRSRV_ERROR BC_Example_Deinit(void)
 		    &psDevInfo->sPVRJTable;
 
 		if (psJTable->
-		    pfnPVRSRVRemoveBCDevice(psDevInfo->ui32DeviceID) !=
+			pfnPVRSRVRemoveBCDevice(psDevInfo->ui32DeviceID) !=
 		    PVRSRV_OK)
 			return PVRSRV_ERROR_GENERIC;
 
@@ -251,11 +248,11 @@ enum PVRSRV_ERROR BC_Example_Deinit(void)
 
 		for (i = 0; i < psDevInfo->ui32NumBuffers; i++)
 			BCFreeContigMemory(psDevInfo->psSystemBuffer[i].
-					   ui32Size,
+						   ui32Size,
 					   psDevInfo->psSystemBuffer[i].
-					   hMemHandle,
+						   hMemHandle,
 					   psDevInfo->psSystemBuffer[i].
-					   sCPUVAddr,
+						   sCPUVAddr,
 					   SysPAddrToCpuPAddrBC(psDevInfo->
 								psSystemBuffer
 								[i].sSysAddr));

@@ -44,9 +44,8 @@ struct MMU_HEAP *MMU_Create(struct MMU_CONTEXT *psMMUContext,
 
 void MMU_Delete(struct MMU_HEAP *pMMU);
 
-IMG_BOOL MMU_Alloc(struct MMU_HEAP *pMMU, size_t uSize, size_t *pActualSize,
-		u32 uFlags, u32 uDevVAddrAlignment,
-		struct IMG_DEV_VIRTADDR *pDevVAddr);
+IMG_BOOL MMU_Alloc(struct MMU_HEAP *pMMU, size_t uSize, u32 uFlags,
+		u32 uDevVAddrAlignment, struct IMG_DEV_VIRTADDR *pDevVAddr);
 
 void MMU_Free(struct MMU_HEAP *pMMU, struct IMG_DEV_VIRTADDR DevVAddr,
 	      u32 ui32Size);

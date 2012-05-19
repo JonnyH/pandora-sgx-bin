@@ -27,9 +27,8 @@
 #ifndef __PVR_BRIDGE_KM_H_
 #define __PVR_BRIDGE_KM_H_
 
-#include <linux/file.h>
+#include <linux/fs.h>			/* for struct file */
 
-#include "kernelbuffer.h"
 #include "pvr_bridge.h"
 #include "perproc.h"
 
@@ -93,17 +92,13 @@ enum PVRSRV_ERROR PVRSRVUnmapDeviceMemoryKM(
 		struct PVRSRV_KERNEL_MEM_INFO *psMemInfo);
 
 enum PVRSRV_ERROR PVRSRVWrapExtMemoryKM(void *hDevCookie,
-		struct PVRSRV_PER_PROCESS_DATA *psPerProc, u32 ui32ByteSize,
-		u32 ui32PageOffset, IMG_BOOL bPhysContig,
+		struct PVRSRV_PER_PROCESS_DATA *psPerProc, void *hDevMemContext,
+		u32 ui32ByteSize, u32 ui32PageOffset, IMG_BOOL bPhysContig,
 		struct IMG_SYS_PHYADDR *psSysAddr, void *pvLinAddr,
 		struct PVRSRV_KERNEL_MEM_INFO **ppsMemInfo);
 
-enum PVRSRV_ERROR PVRSRVIsWrappedExtMemoryKM(void *hDevCookie,
-		struct PVRSRV_PER_PROCESS_DATA *psPerProc, u32 *pui32ByteSize,
-		void **pvLinAddr);
-
-enum PVRSRV_ERROR PVRSRVUnwrapExtMemoryKM(
-		struct PVRSRV_KERNEL_MEM_INFO *psMemInfo);
+enum PVRSRV_ERROR PVRSRVUnwrapExtMemoryKM(struct PVRSRV_KERNEL_MEM_INFO
+					      *psMemInfo);
 
 enum PVRSRV_ERROR PVRSRVEnumerateDCKM(enum PVRSRV_DEVICE_CLASS DeviceClass,
 		u32 *pui32DevCount, u32 *pui32DevID);
@@ -158,13 +153,11 @@ enum PVRSRV_ERROR PVRSRVCloseBCDeviceKM(void *hDeviceKM,
 
 enum PVRSRV_ERROR PVRSRVGetBCInfoKM(void *hDeviceKM,
 		struct BUFFER_INFO *psBufferInfo);
-enum PVRSRV_ERROR PVRSRVGetBCBufferKM(void *hDeviceKM, u32 ui32BufferIndex,
-		void **phBuffer);
-extern IMG_BOOL PVRGetBufferClassJTable(
-		struct PVRSRV_BC_BUFFER2SRV_KMJTABLE *psJTable);
+enum PVRSRV_ERROR PVRSRVGetBCBufferKM(void *hDeviceKM,
+		u32 ui32BufferIndex, void **phBuffer);
 
 enum PVRSRV_ERROR PVRSRVMapDeviceClassMemoryKM(
-		struct PVRSRV_PER_PROCESS_DATA *psPerProc,
+		struct PVRSRV_PER_PROCESS_DATA *psPerProc, void *hDevMemContext,
 		void *hDeviceClassBuffer,
 		struct PVRSRV_KERNEL_MEM_INFO **ppsMemInfo, void **phOSMapInfo);
 
@@ -192,7 +185,6 @@ enum PVRSRV_ERROR PVRSRVFreeSharedSysMemoryKM(
 enum PVRSRV_ERROR PVRSRVDissociateMemFromResmanKM(
 		struct PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo);
 
-long PVRSRV_BridgeDispatchKM(struct file *file, unsigned int cmd,
-			     unsigned long arg);
+long PVRSRV_BridgeDispatchKM(struct file *, unsigned, unsigned long);
 
 #endif

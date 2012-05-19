@@ -44,7 +44,6 @@ struct MMU_CONTEXT;
 #define PVRSRV_BACKINGSTORE_LOCALMEM_NONCONTIG		\
 		(1<<(PVRSRV_MEM_BACKINGSTORE_FIELD_SHIFT+3))
 
-typedef u32 DEVICE_MEMORY_HEAP_TYPE;
 #define DEVICE_MEMORY_HEAP_PERCONTEXT			0
 #define DEVICE_MEMORY_HEAP_KERNEL			1
 #define DEVICE_MEMORY_HEAP_SHARED			2
@@ -60,9 +59,12 @@ struct DEVICE_MEMORY_HEAP_INFO {
 	struct IMG_DEV_VIRTADDR sDevVAddrBase;
 	u32 ui32HeapSize;
 	u32 ui32Attribs;
-	DEVICE_MEMORY_HEAP_TYPE DevMemHeapType;
+	u32 DevMemHeapType;
 	void *hDevMemHeap;
 	struct RA_ARENA *psLocalDevMemArena;
+
+	u32 ui32DataPageSize;
+
 };
 
 struct DEVICE_MEMORY_INFO {
@@ -81,7 +83,10 @@ struct DEV_ARENA_DESCRIPTOR {
 	char *pszName;
 	struct IMG_DEV_VIRTADDR BaseDevVAddr;
 	u32 ui32Size;
-	DEVICE_MEMORY_HEAP_TYPE DevMemHeapType;
+	u32 DevMemHeapType;
+
+	u32 ui32DataPageSize;
+
 	struct DEVICE_MEMORY_HEAP_INFO *psDeviceMemoryHeapInfo;
 };
 
@@ -94,6 +99,9 @@ struct PVRSRV_DEVICE_NODE {
 	enum PVRSRV_ERROR (*pfnInitDevice)(void *);
 	enum PVRSRV_ERROR (*pfnDeInitDevice)(void *);
 
+	enum PVRSRV_ERROR (*pfnInitDeviceCompatCheck)(
+						struct PVRSRV_DEVICE_NODE *);
+
 	enum PVRSRV_ERROR (*pfnMMUInitialise)(struct PVRSRV_DEVICE_NODE *,
 			struct MMU_CONTEXT **,
 			struct IMG_DEV_PHYADDR *);
@@ -102,8 +110,7 @@ struct PVRSRV_DEVICE_NODE {
 	struct MMU_HEAP *(*pfnMMUCreate)(struct MMU_CONTEXT *,
 			struct DEV_ARENA_DESCRIPTOR *, struct RA_ARENA **);
 	void (*pfnMMUDelete)(struct MMU_HEAP *);
-	IMG_BOOL (*pfnMMUAlloc)(struct MMU_HEAP *pMMU,
-			size_t uSize, size_t *pActualSize, u32 uFlags,
+	IMG_BOOL (*pfnMMUAlloc)(struct MMU_HEAP *pMMU, size_t uSize, u32 uFlags,
 			u32 uDevVAddrAlignment,
 			struct IMG_DEV_VIRTADDR *pDevVAddr);
 	void (*pfnMMUFree)(struct MMU_HEAP *, struct IMG_DEV_VIRTADDR, u32);
@@ -146,7 +153,7 @@ struct PVRSRV_DEVICE_NODE {
 	struct DEVICE_MEMORY_INFO sDevMemoryInfo;
 	void *pvDevice;
 	u32 ui32pvDeviceSize;
-	void *hDeviceOSMemHandle;
+
 	struct RESMAN_CONTEXT *hResManContext;
 	struct SYS_DATA *psSysData;
 	struct RA_ARENA *psLocalDevMemArena;
@@ -161,10 +168,13 @@ enum PVRSRV_ERROR PVRSRVRegisterDevice(struct SYS_DATA *psSysData,
 enum PVRSRV_ERROR PVRSRVInitialiseDevice(u32 ui32DevIndex);
 enum PVRSRV_ERROR PVRSRVFinaliseSystem(IMG_BOOL bInitSuccesful);
 
+enum PVRSRV_ERROR PVRSRVDevInitCompatCheck(struct PVRSRV_DEVICE_NODE
+					   *psDeviceNode);
+
 enum PVRSRV_ERROR PVRSRVDeinitialiseDevice(u32 ui32DevIndex);
 
 
-enum PVRSRV_ERROR PollForValueKM(volatile u32 *pui32LinMemAddr,
+enum PVRSRV_ERROR PollForValueKM(u32 __iomem *pui32LinMemAddr,
 	    u32 ui32Value, u32 ui32Mask, u32 ui32Waitus, u32 ui32Tries);
 
 enum PVRSRV_ERROR PVRSRVInit(struct SYS_DATA *psSysData);

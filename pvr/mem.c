@@ -56,9 +56,11 @@ enum PVRSRV_ERROR PVRSRVAllocSharedSysMemoryKM(
 		       sizeof(struct PVRSRV_KERNEL_MEM_INFO),
 		       (void **) &psKernelMemInfo, NULL) != PVRSRV_OK) {
 		PVR_DPF(PVR_DBG_ERROR, "PVRSRVAllocSharedSysMemoryKM: "
-			 "Failed to alloc memory for meminfo");
+					"Failed to alloc memory for meminfo");
 		return PVRSRV_ERROR_OUT_OF_MEMORY;
 	}
+
+	OSMemSet(psKernelMemInfo, 0, sizeof(*psKernelMemInfo));
 
 	ui32Flags &= ~PVRSRV_HAP_MAPTYPE_MASK;
 	ui32Flags |= PVRSRV_HAP_MULTI_PROCESS;
@@ -66,11 +68,11 @@ enum PVRSRV_ERROR PVRSRVAllocSharedSysMemoryKM(
 	psKernelMemInfo->ui32AllocSize = ui32Size;
 
 	if (OSAllocPages(psKernelMemInfo->ui32Flags,
-			 psKernelMemInfo->ui32AllocSize,
+			 psKernelMemInfo->ui32AllocSize, HOST_PAGESIZE(),
 			 &psKernelMemInfo->pvLinAddrKM,
 			 &psKernelMemInfo->sMemBlk.hOSMemHandle) != PVRSRV_OK) {
 		PVR_DPF(PVR_DBG_ERROR, "PVRSRVAllocSharedSysMemoryKM: "
-			 "Failed to alloc memory for block");
+					"Failed to alloc memory for block");
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
 			  sizeof(struct PVRSRV_KERNEL_MEM_INFO),
 			  psKernelMemInfo, NULL);
@@ -104,14 +106,25 @@ enum PVRSRV_ERROR PVRSRVFreeSharedSysMemoryKM(
 enum PVRSRV_ERROR PVRSRVDissociateMemFromResmanKM(
 				struct PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo)
 {
+	enum PVRSRV_ERROR eError = PVRSRV_OK;
+
 	if (!psKernelMemInfo)
 		return PVRSRV_ERROR_INVALID_PARAMS;
 
 	if (psKernelMemInfo->sMemBlk.hResItem) {
-		ResManDissociateRes(psKernelMemInfo->sMemBlk.hResItem,
-				    NULL);
+		eError = ResManDissociateRes(psKernelMemInfo->sMemBlk.hResItem,
+					     NULL);
+
+		if (eError != PVRSRV_OK) {
+			PVR_DPF(PVR_DBG_ERROR,
+					"PVRSRVDissociateMemFromResmanKM: "
+					"ResManDissociateRes failed");
+			PVR_DBG_BREAK;
+			return eError;
+		}
+
 		psKernelMemInfo->sMemBlk.hResItem = NULL;
 	}
 
-	return PVRSRV_OK;
+	return eError;
 }

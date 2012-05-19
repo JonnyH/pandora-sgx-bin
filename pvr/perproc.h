@@ -55,4 +55,25 @@ void PVRSRVPerProcessDataDisconnect(u32 ui32PID);
 enum PVRSRV_ERROR PVRSRVPerProcessDataInit(void);
 enum PVRSRV_ERROR PVRSRVPerProcessDataDeInit(void);
 
+static inline struct PVRSRV_PER_PROCESS_DATA *PVRSRVFindPerProcessData(void)
+{
+	return PVRSRVPerProcessData(OSGetCurrentProcessIDKM());
+}
+
+static inline void *PVRSRVProcessPrivateData(struct PVRSRV_PER_PROCESS_DATA
+					     *psPerProc)
+{
+	return (psPerProc != NULL) ? psPerProc->hOsPrivateData : NULL;
+}
+
+static inline void *PVRSRVPerProcessPrivateData(u32 ui32PID)
+{
+	return PVRSRVProcessPrivateData(PVRSRVPerProcessData(ui32PID));
+}
+
+static inline void *PVRSRVFindPerProcessPrivateData(void)
+{
+	return PVRSRVProcessPrivateData(PVRSRVFindPerProcessData());
+}
+
 #endif

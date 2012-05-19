@@ -27,6 +27,10 @@
 #ifndef _SGXDEFS_H_
 #define	_SGXDEFS_H_
 
+#ifndef SGX530
+#error unsupported SGX revision
+#endif
+
 #include "sgx530defs.h"
 #include "sgxerrata.h"
 #include "sgxfeaturedefs.h"

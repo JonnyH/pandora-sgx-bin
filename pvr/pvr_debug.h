@@ -27,56 +27,60 @@
 #ifndef __PVR_DEBUG_H__
 #define __PVR_DEBUG_H__
 
-#include <linux/file.h>
+#include <linux/fs.h>
 
 #include "img_types.h"
 
-
 #define PVR_MAX_DEBUG_MESSAGE_LEN	512
 
-#define DBGPRIV_FATAL		0x01
-#define DBGPRIV_ERROR		0x02
-#define DBGPRIV_WARNING		0x04
-#define DBGPRIV_MESSAGE		0x08
-#define DBGPRIV_VERBOSE		0x10
-#define DBGPRIV_CALLTRACE	0x20
-#define DBGPRIV_ALLOC		0x40
-#define DBGPRIV_ALLLEVELS	(DBGPRIV_FATAL | DBGPRIV_ERROR | \
-				 DBGPRIV_WARNING | DBGPRIV_MESSAGE | \
-				 DBGPRIV_VERBOSE)
+#define DBGPRIV_FATAL			0x01UL
+#define DBGPRIV_ERROR			0x02UL
+#define DBGPRIV_WARNING			0x04UL
+#define DBGPRIV_MESSAGE			0x08UL
+#define DBGPRIV_VERBOSE			0x10UL
+#define DBGPRIV_CALLTRACE		0x20UL
+#define DBGPRIV_ALLOC			0x40UL
+#define DBGPRIV_ALLLEVELS		(DBGPRIV_FATAL | DBGPRIV_ERROR |     \
+					 DBGPRIV_WARNING | DBGPRIV_MESSAGE | \
+					 DBGPRIV_VERBOSE)
 
-#define PVR_DBG_FATAL		DBGPRIV_FATAL
-#define PVR_DBG_ERROR		DBGPRIV_ERROR
-#define PVR_DBG_WARNING		DBGPRIV_WARNING
-#define PVR_DBG_MESSAGE		DBGPRIV_MESSAGE
-#define PVR_DBG_VERBOSE		DBGPRIV_VERBOSE
-#define PVR_DBG_CALLTRACE	DBGPRIV_CALLTRACE
-#define PVR_DBG_ALLOC		DBGPRIV_ALLOC
+#define PVR_DBG_FATAL			DBGPRIV_FATAL
+#define PVR_DBG_ERROR			DBGPRIV_ERROR
+#define PVR_DBG_WARNING			DBGPRIV_WARNING
+#define PVR_DBG_MESSAGE			DBGPRIV_MESSAGE
+#define PVR_DBG_VERBOSE			DBGPRIV_VERBOSE
+#define PVR_DBG_CALLTRACE		DBGPRIV_CALLTRACE
+#define PVR_DBG_ALLOC			DBGPRIV_ALLOC
 
 #if defined(DEBUG)
-#define PVR_ASSERT(EXPR)						\
-	do {								\
-		if (!(EXPR))						\
-			PVRSRVDebugAssertFail(__FILE__, __LINE__);	\
+
+#define PVR_ASSERT(EXPR)						     \
+	do {								     \
+		if (!(EXPR))						     \
+			PVRSRVDebugAssertFail(__FILE__, __LINE__);	     \
 	} while (0)
 
-#define PVR_DPF(level, fmt, ...)				\
+#define PVR_DPF(level, fmt, ...)					     \
 	PVRSRVDebugPrintf(level, __FILE__, __LINE__, fmt, ## __VA_ARGS__)
-#define PVR_TRACE(fmt, ...)	PVRSRVTrace(fmt, ## __VA_ARGS__)
 
-extern u32 gPVRDebugLevel;
+#define PVR_TRACE(fmt, ...)						     \
+	PVRSRVTrace(fmt, ##__VA_ARGS__)
 
 void PVRSRVDebugAssertFail(const char *pszFile, u32 ui32Line);
 void PVRSRVDebugPrintf(u32 ui32DebugLevel, const char *pszFileName,
 		       u32 ui32Line, const char *pszFormat, ...);
 void PVRSRVTrace(const char *pszFormat, ...);
-void PVRDebugSetLevel(u32 uDebugLevel);
+
 int PVRDebugProcSetLevel(struct file *file, const char __user *buffer,
 			 unsigned long count, void *data);
 int PVRDebugProcGetLevel(char *page, char **start, off_t off, int count,
 			 int *eof, void *data);
+void PVRDebugSetLevel(u32 uDebugLevel);
 
-#define PVR_DBG_BREAK		do { } while (0)
+void pvr_dbg_init(void);
+void pvr_dbg_cleanup(void);
+
+#define PVR_DBG_BREAK
 
 #else
 
@@ -84,8 +88,9 @@ int PVRDebugProcGetLevel(char *page, char **start, off_t off, int count,
 
 #define PVR_ASSERT(EXPR)		do { } while (0)
 #define PVR_DPF(level, fmt, ...)	do { } while (0)
-#define PVR_TRACE(fmt, ...)		PVRSRVTrace(fmt, ## __VA_ARGS__)
-#define PVR_DBG_BREAK		do { } while (0)
+#define PVR_TRACE(fmt, ...)	\
+	PVRSRVTrace(fmt, ##__VA_ARGS__)
+#define PVR_DBG_BREAK			do { } while (0)
 
 void PVRSRVTrace(const char *pszFormat, ...);
 
@@ -95,6 +100,9 @@ void PVRSRVTrace(const char *pszFormat, ...);
 #define PVR_DPF(level, fmt, ...)	do { } while (0)
 #define PVR_TRACE(fmt, ...)		do { } while (0)
 #define PVR_DBG_BREAK			do { } while (0)
+
+static inline void pvr_dbg_init(void) {};
+static inline void pvr_dbg_cleanup(void) {};
 
 #endif
 #endif

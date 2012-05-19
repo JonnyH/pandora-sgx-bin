@@ -24,10 +24,6 @@
  *
  ******************************************************************************/
 
-#ifndef AUTOCONF_INCLUDED
-#include <linux/config.h>
-#endif
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/version.h>
@@ -42,11 +38,17 @@
 #include "pvr_debug.h"
 #include "pvrversion.h"
 #include "proc.h"
+#include "perproc.h"
+#include "env_perproc.h"
+
+/* The proc entry for our /proc/pvr directory */
 
 static struct proc_dir_entry *dir;
 
 static off_t procDumpSysNodes(char *buf, size_t size, off_t off);
 static off_t procDumpVersion(char *buf, size_t size, off_t off);
+
+static const char PVRProcDirRoot[] = "pvr";
 
 off_t printAppend(char *buffer, size_t size, off_t off, const char *format, ...)
 {
@@ -54,14 +56,19 @@ off_t printAppend(char *buffer, size_t size, off_t off, const char *format, ...)
 	int space = size - off;
 	va_list ap;
 
+	PVR_ASSERT(space >= 0);
+
 	va_start(ap, format);
 	n = vsnprintf(buffer + off, space, format, ap);
 	va_end(ap);
 
-	if (n > space || n < 0)
-		return size;
-	else
+	if (n >= space || n < 0) {
+
+		buffer[size - 1] = 0;
+		return size - 1;
+	} else {
 		return off + n;
+}
 }
 
 static int pvr_read_proc(char *page, char **start, off_t off,
@@ -83,16 +90,17 @@ static int pvr_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
-int CreateProcEntry(const char *name, read_proc_t rhandler,
-		    write_proc_t whandler, void *data)
+static int CreateProcEntryInDir(struct proc_dir_entry *pdir, const char *name,
+				read_proc_t rhandler, write_proc_t whandler,
+				void *data)
 {
 	struct proc_dir_entry *file;
 	mode_t mode;
 
-	if (!dir) {
-		PVR_DPF(PVR_DBG_ERROR, "CreateProcEntry: "
-			"cannot make proc entry /proc/pvr/%s: no parent",
-			 name);
+	if (!pdir) {
+		PVR_DPF(PVR_DBG_ERROR,
+			"CreateProcEntryInDir: parent directory doesn't exist");
+
 		return -ENOMEM;
 	}
 
@@ -104,23 +112,85 @@ int CreateProcEntry(const char *name, read_proc_t rhandler,
 	if (whandler)
 		mode |= S_IWUSR;
 
-	file = create_proc_entry(name, mode, dir);
+	file = create_proc_entry(name, mode, pdir);
 
 	if (file) {
-		file->owner = THIS_MODULE;
 		file->read_proc = rhandler;
 		file->write_proc = whandler;
 		file->data = data;
 
-		PVR_DPF(PVR_DBG_MESSAGE, "Created /proc/pvr/%s", name);
+		PVR_DPF(PVR_DBG_MESSAGE, "Created proc entry %s in %s", name,
+			 pdir->name);
 
 		return 0;
 	}
 
-	PVR_DPF(PVR_DBG_ERROR, "CreateProcEntry: "
-		 "cannot make proc entry /proc/pvr/%s: no memory", name);
+	PVR_DPF(PVR_DBG_ERROR,
+		 "CreateProcEntry: cannot create proc entry %s in %s", name,
+		 pdir->name);
 
 	return -ENOMEM;
+}
+
+int CreateProcEntry(const char *name, read_proc_t rhandler,
+		    write_proc_t whandler, void *data)
+{
+	return CreateProcEntryInDir(dir, name, rhandler, whandler, data);
+}
+
+int CreatePerProcessProcEntry(const char *name, read_proc_t rhandler,
+			      write_proc_t whandler, void *data)
+{
+	struct PVRSRV_ENV_PER_PROCESS_DATA *psPerProc;
+	u32 ui32PID;
+
+	if (!dir) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "CreatePerProcessProcEntries: /proc/%s doesn't exist",
+			 PVRProcDirRoot);
+
+		return -ENOMEM;
+	}
+
+	ui32PID = OSGetCurrentProcessIDKM();
+
+	psPerProc = PVRSRVPerProcessPrivateData(ui32PID);
+	if (!psPerProc) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "CreatePerProcessProcEntries: no per process data");
+
+		return -ENOMEM;
+	}
+
+	if (!psPerProc->psProcDir) {
+		char dirname[16];
+		int ret;
+
+		ret = snprintf(dirname, sizeof(dirname), "%u", ui32PID);
+
+		if (ret <= 0 || ret >= sizeof(dirname)) {
+			PVR_DPF(PVR_DBG_ERROR, "CreatePerProcessProcEntries: "
+					"couldn't generate per process proc "
+					"directory name \"%u\"",
+					 ui32PID);
+
+			return -ENOMEM;
+		} else {
+			psPerProc->psProcDir = proc_mkdir(dirname, dir);
+			if (!psPerProc->psProcDir) {
+				PVR_DPF(PVR_DBG_ERROR,
+					"CreatePerProcessProcEntries: "
+					"couldn't create per process proc "
+					"directory /proc/%s/%u",
+					 PVRProcDirRoot, ui32PID);
+
+				return -ENOMEM;
+			}
+		}
+	}
+
+	return CreateProcEntryInDir(psPerProc->psProcDir, name, rhandler,
+				    whandler, data);
 }
 
 int CreateProcReadEntry(const char *name,
@@ -130,8 +200,8 @@ int CreateProcReadEntry(const char *name,
 
 	if (!dir) {
 		PVR_DPF(PVR_DBG_ERROR, "CreateProcReadEntry: "
-			 "cannot make proc entry /proc/pvr/%s: no parent",
-			 name);
+				"cannot make proc entry /proc/%s/%s: no parent",
+			 PVRProcDirRoot, name);
 
 		return -ENOMEM;
 	}
@@ -140,26 +210,24 @@ int CreateProcReadEntry(const char *name,
 	    create_proc_read_entry(name, S_IFREG | S_IRUGO, dir, pvr_read_proc,
 				   (void *)handler);
 
-	if (file) {
-		file->owner = THIS_MODULE;
-
+	if (file)
 		return 0;
-	}
 
 	PVR_DPF(PVR_DBG_ERROR, "CreateProcReadEntry: "
-			"cannot make proc entry /proc/pvr/%s: no memory",
-		 name);
+				"cannot make proc entry /proc/%s/%s: no memory",
+		 PVRProcDirRoot, name);
 
 	return -ENOMEM;
 }
 
 int CreateProcEntries(void)
 {
-	dir = proc_mkdir("pvr", NULL);
+	dir = proc_mkdir(PVRProcDirRoot, NULL);
 
 	if (!dir) {
-		PVR_DPF(PVR_DBG_ERROR, "CreateProcEntries: "
-			"cannot make /proc/pvr directory");
+		PVR_DPF(PVR_DBG_ERROR,
+			 "CreateProcEntries: cannot make /proc/%s directory",
+			 PVRProcDirRoot);
 
 		return -ENOMEM;
 	}
@@ -168,15 +236,17 @@ int CreateProcEntries(void)
 	    CreateProcReadEntry("version", procDumpVersion) ||
 	    CreateProcReadEntry("nodes", procDumpSysNodes)) {
 		PVR_DPF(PVR_DBG_ERROR,
-			 "CreateProcEntries: couldn't make /proc/pvr files");
+			 "CreateProcEntries: couldn't make /proc/%s files",
+			 PVRProcDirRoot);
 
 		return -ENOMEM;
 	}
 #ifdef DEBUG
 	if (CreateProcEntry
 	    ("debug_level", PVRDebugProcGetLevel, PVRDebugProcSetLevel, NULL)) {
-		PVR_DPF(PVR_DBG_ERROR, "CreateProcEntries: "
-			"couldn't make /proc/pvr/debug_level");
+		PVR_DPF(PVR_DBG_ERROR,
+			"CreateProcEntries: couldn't make /proc/%s/debug_level",
+			 PVRProcDirRoot);
 
 		return -ENOMEM;
 	}
@@ -187,10 +257,46 @@ int CreateProcEntries(void)
 
 void RemoveProcEntry(const char *name)
 {
-	if (dir)
+	if (dir) {
 		remove_proc_entry(name, dir);
+		PVR_DPF(PVR_DBG_MESSAGE, "Removing /proc/%s/%s",
+			 PVRProcDirRoot, name);
+	}
+}
 
-	PVR_DPF(PVR_DBG_MESSAGE, "Removing /proc/pvr/%s", name);
+void RemovePerProcessProcEntry(const char *name)
+{
+	struct PVRSRV_ENV_PER_PROCESS_DATA *psPerProc =
+	    PVRSRVFindPerProcessPrivateData();
+
+	if (!psPerProc) {
+		PVR_DPF(PVR_DBG_ERROR, "CreatePerProcessProcEntries: "
+					"can't remove %s, no per process data",
+			 name);
+		return;
+	}
+
+	if (psPerProc->psProcDir) {
+		remove_proc_entry(name, psPerProc->psProcDir);
+
+		PVR_DPF(PVR_DBG_MESSAGE, "Removing proc entry %s from %s",
+			 name, psPerProc->psProcDir->name);
+	}
+}
+
+void RemovePerProcessProcDir(struct PVRSRV_ENV_PER_PROCESS_DATA *psPerProc)
+{
+	if (psPerProc->psProcDir) {
+		while (psPerProc->psProcDir->subdir) {
+			PVR_DPF(PVR_DBG_WARNING,
+				 "Belatedly removing /proc/%s/%s/%s",
+				 PVRProcDirRoot, psPerProc->psProcDir->name,
+				 psPerProc->psProcDir->subdir->name);
+
+			RemoveProcEntry(psPerProc->psProcDir->subdir->name);
+		}
+		RemoveProcEntry(psPerProc->psProcDir->name);
+	}
 }
 
 void RemoveProcEntries(void)
@@ -203,13 +309,13 @@ void RemoveProcEntries(void)
 	RemoveProcEntry("version");
 
 	while (dir->subdir) {
-		PVR_DPF(PVR_DBG_WARNING, "Belatedly removing /proc/pvr/%s",
-			 dir->subdir->name);
+		PVR_DPF(PVR_DBG_WARNING, "Belatedly removing /proc/%s/%s",
+			 PVRProcDirRoot, dir->subdir->name);
 
 		RemoveProcEntry(dir->subdir->name);
 	}
 
-	remove_proc_entry("pvr", NULL);
+	remove_proc_entry(PVRProcDirRoot, NULL);
 }
 
 static off_t procDumpVersion(char *buf, size_t size, off_t off)
@@ -277,8 +383,7 @@ static const char *deviceClassToString(enum PVRSRV_DEVICE_CLASS deviceClass)
 	}
 }
 
-static
-off_t procDumpSysNodes(char *buf, size_t size, off_t off)
+static off_t procDumpSysNodes(char *buf, size_t size, off_t off)
 {
 	struct SYS_DATA *psSysData;
 	struct PVRSRV_DEVICE_NODE *psDevNode;
@@ -288,9 +393,9 @@ off_t procDumpSysNodes(char *buf, size_t size, off_t off)
 		return 0;
 
 	if (off == 0)
-		return printAppend(buf, size, 0, "Registered nodes\n"
-			"Addr     Type     Class    Index Ref pvDev     "
-			"Size Res\n");
+		return printAppend(buf, size, 0,
+				   "Registered nodes\n"
+		"Addr     Type     Class    Index Ref pvDev     Size Res\n");
 
 	if (SysAcquireData(&psSysData) != PVRSRV_OK)
 		return PVRSRV_ERROR_GENERIC;

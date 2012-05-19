@@ -27,25 +27,8 @@
 #ifndef _SGXERRATA_KM_H_
 #define _SGXERRATA_KM_H_
 
-#if SGX_CORE_REV == 103
-#else
-#if SGX_CORE_REV == 110
-#else
-#if SGX_CORE_REV == 111
-#else
-#if SGX_CORE_REV == 120
-#else
-#if SGX_CORE_REV == 121
-#else
-#if SGX_CORE_REV == 125
-
-#else
-#error "sgxerrata.h: SGX530 Core Revision unspecified"
-#endif
-#endif
-#endif
-#endif
-#endif
+#ifndef SGX530
+#error unsupported SGX version
 #endif
 
 #endif

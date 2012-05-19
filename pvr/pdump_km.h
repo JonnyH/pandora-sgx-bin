@@ -38,7 +38,7 @@
 #define PDUMP_PT_UNIQUETAG		((void *)0)
 
 #ifndef PDUMP
-#define MAKEUNIQUETAG(hMemInfo)		0
+#define MAKEUNIQUETAG(hMemInfo)	(0)
 #endif
 
 #ifdef PDUMP
@@ -49,10 +49,21 @@
 
 #define PDUMP_REG_FUNC_NAME PDumpReg
 
-enum PVRSRV_ERROR PDumpMemPolKM(struct PVRSRV_KERNEL_MEM_INFO *psMemInfo,
-		u32 ui32Offset, u32 ui32Value, u32 ui32Mask,
-		enum PDUMP_POLL_OPERATOR eOperator, IMG_BOOL bLastFrame,
-		IMG_BOOL bOverwrite, void *hUniqueTag);
+enum PVRSRV_ERROR PDumpMemPolKM(struct PVRSRV_KERNEL_MEM_INFO
+					   *psMemInfo, u32 ui32Offset,
+					   u32 ui32Value, u32 ui32Mask,
+					   enum PDUMP_POLL_OPERATOR eOperator,
+					   IMG_BOOL bLastFrame,
+					   IMG_BOOL bOverwrite,
+					   void *hUniqueTag);
+
+enum PVRSRV_ERROR PDumpMemUM(struct PVRSRV_PER_PROCESS_DATA
+					*psProcData, void *pvAltLinAddr,
+					void *pvLinAddr,
+					struct PVRSRV_KERNEL_MEM_INFO
+					*psMemInfo, u32 ui32Offset,
+					u32 ui32Bytes, u32 ui32Flags,
+					void *hUniqueTag);
 
 enum PVRSRV_ERROR PDumpMemKM(void *pvAltLinAddr,
 		struct PVRSRV_KERNEL_MEM_INFO *psMemInfo, u32 ui32Offset,
@@ -64,12 +75,17 @@ enum PVRSRV_ERROR PDumpMemPagesKM(enum PVRSRV_DEVICE_TYPE eDeviceType,
 		u32 ui32Length, u32 ui32Flags, void *hUniqueTag);
 
 enum PVRSRV_ERROR PDumpMem2KM(enum PVRSRV_DEVICE_TYPE eDeviceType,
-		void *pvLinAddr, u32 ui32Bytes, u32 ui32Flags,
-		IMG_BOOL bInitialisePages, void *hUniqueTag1,
-		void *hUniqueTag2);
-
+			      void *pvLinAddr,
+			      u32 ui32Bytes,
+			      u32 ui32Flags,
+			      IMG_BOOL bInitialisePages,
+			      void *hUniqueTag1, void *hUniqueTag2);
+void PDumpInitCommon(void);
+void PDumpDeInitCommon(void);
 void PDumpInit(void);
 void PDumpDeInit(void);
+enum PVRSRV_ERROR PDumpStartInitPhaseKM(void);
+enum PVRSRV_ERROR PDumpStopInitPhaseKM(void);
 enum PVRSRV_ERROR PDumpSetFrameKM(u32 ui32Frame);
 enum PVRSRV_ERROR PDumpCommentKM(char *pszComment, u32 ui32Flags);
 enum PVRSRV_ERROR PDumpDriverInfoKM(char *pszString, u32 ui32Flags);
@@ -81,10 +97,11 @@ enum PVRSRV_ERROR PDumpBitmapKM(char *pszFileName, u32 ui32FileOffset,
 		struct IMG_DEV_VIRTADDR sDevBaseAddr, u32 ui32Size,
 		enum PDUMP_PIXEL_FORMAT ePixelFormat,
 		enum PDUMP_MEM_FORMAT eMemFormat, u32 ui32PDumpFlags);
-
+void PDumpHWPerfCBKM(char *pszFileName, u32 ui32FileOffset,
+		struct IMG_DEV_VIRTADDR sDevBaseAddr,
+		u32 ui32Size, u32 ui32PDumpFlags);
 enum PVRSRV_ERROR PDumpReadRegKM(char *pszFileName, u32 ui32FileOffset,
 		u32 ui32Address, u32 ui32Size, u32 ui32PDumpFlags);
-
 void PDUMP_REG_FUNC_NAME(u32 dwReg, u32 dwData);
 
 void PDumpMsvdxRegRead(const char *const pRegRegion, const u32 dwRegOffset);
@@ -106,22 +123,29 @@ void PDumpCommentWithFlags(u32 ui32Flags, char *pszFormat, ...);
 enum PVRSRV_ERROR PDumpRegPolKM(u32 ui32RegAddr, u32 ui32RegValue,
 				u32 ui32Mask);
 enum PVRSRV_ERROR PDumpRegPolWithFlagsKM(u32 ui32RegAddr, u32 ui32RegValue,
-		u32 ui32Mask, u32 ui32Flags);
+				u32 ui32Mask, u32 ui32Flags);
 
 IMG_BOOL PDumpIsLastCaptureFrameKM(void);
 IMG_BOOL PDumpIsCaptureFrameKM(void);
 
-void PDumpMallocPages(enum PVRSRV_DEVICE_TYPE eDeviceType, u32 ui32DevVAddr,
-		void *pvLinAddr, void *hOSMemHandle, u32 ui32NumBytes,
-		void *hUniqueTag);
+void PDumpMallocPages(enum PVRSRV_DEVICE_TYPE eDeviceType,
+		      u32 ui32DevVAddr, void *pvLinAddr, void *hOSMemHandle,
+		      u32 ui32NumBytes, u32 ui32PageSize, void *hUniqueTag);
 void PDumpMallocPagesPhys(enum PVRSRV_DEVICE_TYPE eDeviceType,
 		u32 ui32DevVAddr, u32 *pui32PhysPages, u32 ui32NumPages,
 		void *hUniqueTag);
 void PDumpMallocPageTable(enum PVRSRV_DEVICE_TYPE eDeviceType,
 		void *pvLinAddr, u32 ui32NumBytes, void *hUniqueTag);
+enum PVRSRV_ERROR PDumpSetMMUContext(enum PVRSRV_DEVICE_TYPE eDeviceType,
+				     char *pszMemSpace, u32 *pui32MMUContextID,
+				     u32 ui32MMUType, void *hUniqueTag1,
+				     void *pvPDCPUAddr);
+enum PVRSRV_ERROR PDumpClearMMUContext(enum PVRSRV_DEVICE_TYPE eDeviceType,
+				       char *pszMemSpace,
+				       u32 ui32MMUContextID, u32 ui32MMUType);
 void PDumpFreePages(struct BM_HEAP *psBMHeap,
-		struct IMG_DEV_VIRTADDR sDevVAddr,
-		u32 ui32NumBytes, void *hUniqueTag, IMG_BOOL bInterleaved);
+		struct IMG_DEV_VIRTADDR sDevVAddr, u32 ui32NumBytes,
+		 u32 ui32PageSize, void *hUniqueTag, IMG_BOOL bInterleaved);
 void PDumpFreePageTable(enum PVRSRV_DEVICE_TYPE eDeviceType,
 		void *pvLinAddr, u32 ui32NumBytes, void *hUniqueTag);
 void PDumpPDReg(u32 ui32Reg, u32 ui32dwData, void *hUniqueTag);
@@ -148,11 +172,11 @@ void PDumpCycleCountRegRead(const u32 dwRegOffset, IMG_BOOL bLastFrame);
 void PDumpCounterRegisters(u32 ui32DumpFrameNum, IMG_BOOL bLastFrame,
 		u32 *pui32Registers, u32 ui32NumRegisters);
 
-void PDumpEndInitPhase(void);
-
-void PDumpCBP(struct PVRSRV_KERNEL_MEM_INFO *psROffMemInfo, u32 ui32ROffOffset,
-		u32 ui32WPosVal, u32 ui32PacketSize, u32 ui32BufferSize,
-		u32 ui32Flags, void *hUniqueTag);
+void PDumpCBP(struct PVRSRV_KERNEL_MEM_INFO *psROffMemInfo,
+	      u32 ui32ROffOffset,
+	      u32 ui32WPosVal,
+	      u32 ui32PacketSize,
+	      u32 ui32BufferSize, u32 ui32Flags, void *hUniqueTag);
 
 void PDumpIDLWithFlags(u32 ui32Clocks, u32 ui32Flags);
 void PDumpIDL(u32 ui32Clocks);
@@ -163,8 +187,9 @@ void PDumpResumeKM(void);
 #define PDUMPMEMPOL				PDumpMemPolKM
 #define PDUMPMEM				PDumpMemKM
 #define PDUMPMEM2				PDumpMem2KM
-#define PDUMPINIT				PDumpInit
-#define PDUMPDEINIT				PDumpDeInit
+#define PDUMPMEMUM				PDumpMemUM
+#define PDUMPINIT				PDumpInitCommon
+#define PDUMPDEINIT				PDumpDeInitCommon
 #define PDUMPISLASTFRAME			PDumpIsLastCaptureFrameKM
 #define PDUMPTESTFRAME				PDumpIsCaptureFrameKM
 #define PDUMPTESTNEXTFRAME			PDumpTestNextFrame
@@ -176,13 +201,15 @@ void PDumpResumeKM(void);
 #define PDUMPREGPOLWITHFLAGS			PDumpRegPolWithFlagsKM
 #define PDUMPMALLOCPAGES			PDumpMallocPages
 #define PDUMPMALLOCPAGETABLE			PDumpMallocPageTable
+#define PDUMPSETMMUCONTEXT			PDumpSetMMUContext
+#define PDUMPCLEARMMUCONTEXT			PDumpClearMMUContext
 #define PDUMPFREEPAGES				PDumpFreePages
 #define PDUMPFREEPAGETABLE			PDumpFreePageTable
 #define PDUMPPDREG				PDumpPDReg
 #define PDUMPPDREGWITHFLAGS			PDumpPDRegWithFlags
 #define PDUMPCBP				PDumpCBP
 #define PDUMPMALLOCPAGESPHYS			PDumpMallocPagesPhys
-#define PDUMPENDINITPHASE			PDumpEndInitPhase
+#define PDUMPENDINITPHASE			PDumpStopInitPhaseKM
 #define PDUMPMSVDXREGWRITE			PDumpMsvdxRegWrite
 #define PDUMPMSVDXREGREAD			PDumpMsvdxRegRead
 #define PDUMPMSVDXPOL				PDumpMsvdxRegPol
@@ -198,6 +225,7 @@ void PDumpResumeKM(void);
 #define PDUMPMEMPOL(args...)
 #define PDUMPMEM(args...)
 #define PDUMPMEM2(args...)
+#define PDUMPMEMUM(args...)
 #define PDUMPINIT(args...)
 #define PDUMPDEINIT(args...)
 #define PDUMPISLASTFRAME(args...)
@@ -210,6 +238,8 @@ void PDumpResumeKM(void);
 #define PDUMPREGPOLWITHFLAGS(args...)
 #define PDUMPMALLOCPAGES(args...)
 #define PDUMPMALLOCPAGETABLE(args...)
+#define PDUMPSETMMUCONTEXT(args...)
+#define PDUMPCLEARMMUCONTEXT(args...)
 #define PDUMPFREEPAGES(args...)
 #define PDUMPFREEPAGETABLE(args...)
 #define PDUMPPDREG(args...)

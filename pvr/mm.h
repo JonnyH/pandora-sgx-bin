@@ -27,28 +27,28 @@
 #ifndef __IMG_LINUX_MM_H__
 #define __IMG_LINUX_MM_H__
 
-#ifndef AUTOCONF_INCLUDED
-#include <linux/config.h>
-#endif
-
 #include <linux/version.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
+#include <linux/list.h>
 
 #include <linux/io.h>
 
-#define	PHYS_TO_PFN(phys) ((phys) >> PAGE_SHIFT)
-#define PFN_TO_PHYS(pfn) ((pfn) << PAGE_SHIFT)
+#define	PHYS_TO_PFN(phys)			((phys) >> PAGE_SHIFT)
+#define PFN_TO_PHYS(pfn)			((pfn) << PAGE_SHIFT)
 
-#define RANGE_TO_PAGES(range) (((range) + (PAGE_SIZE - 1)) >> PAGE_SHIFT)
+#define RANGE_TO_PAGES(range)						\
+	(((range) + (PAGE_SIZE - 1)) >> PAGE_SHIFT)
 
 #define	ADDR_TO_PAGE_OFFSET(addr) (((unsigned long)(addr)) & (PAGE_SIZE - 1))
 
-#define	REMAP_PFN_RANGE(vma, addr, pfn, size, prot)	\
+#define	REMAP_PFN_RANGE(vma, addr, pfn, size, prot)			\
 	remap_pfn_range(vma, addr, pfn, size, prot)
 
-#define	IO_REMAP_PFN_RANGE(vma, addr, pfn, size, prot)	\
+#define	IO_REMAP_PFN_RANGE(vma, addr, pfn, size, prot)			\
 	io_remap_pfn_range(vma, addr, pfn, size, prot)
+
+#define	VM_INSERT_PAGE(vma, addr, page) vm_insert_page(vma, addr, page)
 
 static inline u32 VMallocToPhys(void *pCpuVAddr)
 {
@@ -92,6 +92,7 @@ struct LinuxMemArea {
 		} sVmalloc;
 		struct _sPageList {
 			struct page **pvPageList;
+			void *hBlockPageList;
 		} sPageList;
 		struct _sSubAlloc {
 			struct LinuxMemArea *psParentLinuxMemArea;
@@ -99,6 +100,10 @@ struct LinuxMemArea {
 		} sSubAlloc;
 	} uData;
 	u32 ui32ByteSize;
+	u32 ui32AreaFlags;
+	IMG_BOOL bMMapRegistered;
+	struct list_head sMMapItem;
+	struct list_head sMMapOffsetStructList;
 };
 
 struct kmem_cache;
@@ -180,26 +185,6 @@ struct page *LinuxMemAreaOffsetToPage(struct LinuxMemArea *psLinuxMemArea,
 				      u32 ui32ByteOffset);
 
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-#define KMapWrapper(psPage) _KMapWrapper(psPage, __FILE__, __LINE__)
-#else
-#define KMapWrapper(psPage) _KMapWrapper(psPage, NULL, 0)
-#endif
-void *_KMapWrapper(struct page *psPage, char *pszFileName, u32 ui32Line);
-
-#if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-#define KUnMapWrapper(psPage) _KUnMapWrapper(psPage, __FILE__, __LINE__)
-#else
-#define KUnMapWrapper(psPage) _KUnMapWrapper(psPage, NULL, 0)
-#endif
-void _KUnMapWrapper(struct page *psPage, char *pszFileName,
-			u32 ui32Line);
-
-struct kmem_cache *KMemCacheCreateWrapper(char *pszName, size_t Size,
-				       size_t Align, u32 ui32Flags);
-
-void KMemCacheDestroyWrapper(struct kmem_cache *psCache);
-
-#if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
 #define KMemCacheAllocWrapper(psCache, Flags)	\
 		_KMemCacheAllocWrapper(psCache, Flags, __FILE__, __LINE__)
 #else
@@ -254,10 +239,24 @@ struct IMG_CPU_PHYADDR LinuxMemAreaToCpuPAddr(
 	PHYS_TO_PFN(LinuxMemAreaToCpuPAddr(psLinuxMemArea,		\
 					   ui32ByteOffset).uiAddr)
 
+void inv_cache_mem_area(const struct LinuxMemArea *mem_area);
+
 IMG_BOOL LinuxMemAreaPhysIsContig(struct LinuxMemArea *psLinuxMemArea);
 
-enum LINUX_MEM_AREA_TYPE LinuxMemAreaRootType(
-				struct LinuxMemArea *psLinuxMemArea);
+static inline struct LinuxMemArea *LinuxMemAreaRoot(struct LinuxMemArea
+						    *psLinuxMemArea)
+{
+	if (psLinuxMemArea->eAreaType == LINUX_MEM_AREA_SUB_ALLOC)
+		return psLinuxMemArea->uData.sSubAlloc.psParentLinuxMemArea;
+	else
+		return psLinuxMemArea;
+}
+
+static inline enum LINUX_MEM_AREA_TYPE LinuxMemAreaRootType(struct LinuxMemArea
+							    *psLinuxMemArea)
+{
+	return LinuxMemAreaRoot(psLinuxMemArea)->eAreaType;
+}
 
 const char *LinuxMemAreaTypeToString(enum LINUX_MEM_AREA_TYPE eMemAreaType);
 

@@ -83,13 +83,15 @@ struct DBGKM_SERVICE_TABLE g_sDBGKMServices = {
 	ExtDBGDrivWriteCM,
 	ExtDBGDrivSetMarker,
 	ExtDBGDrivGetMarker,
-	ExtDBGDrivEndInitPhase,
+	ExtDBGDrivStartInitPhase,
+	ExtDBGDrivStopInitPhase,
 	ExtDBGDrivIsCaptureFrame,
 	ExtDBGDrivWriteLF,
 	ExtDBGDrivReadLF,
 	ExtDBGDrivGetStreamOffset,
 	ExtDBGDrivSetStreamOffset,
 	ExtDBGDrivIsLastCaptureFrame,
+	ExtDBGDrivWaitForEvent
 };
 
 void *ExtDBGDrivCreateStream(char *pszName,
@@ -428,12 +430,24 @@ u32 ExtDBGDrivReadLF(struct DBG_STREAM *psStream,
 	return ui32Ret;
 }
 
-void ExtDBGDrivEndInitPhase(struct DBG_STREAM *psStream)
+void ExtDBGDrivStartInitPhase(struct DBG_STREAM *psStream)
 {
 
 	HostAquireMutex(g_pvAPIMutex);
 
-	DBGDrivEndInitPhase(psStream);
+	DBGDrivStartInitPhase(psStream);
+
+	HostReleaseMutex(g_pvAPIMutex);
+
+	return;
+}
+
+void ExtDBGDrivStopInitPhase(struct DBG_STREAM *psStream)
+{
+
+	HostAquireMutex(g_pvAPIMutex);
+
+	DBGDrivStopInitPhase(psStream);
 
 	HostReleaseMutex(g_pvAPIMutex);
 
@@ -462,6 +476,15 @@ void ExtDBGDrivSetStreamOffset(struct DBG_STREAM *psStream,
 	DBGDrivSetStreamOffset(psStream, ui32StreamOffset);
 
 	HostReleaseMutex(g_pvAPIMutex);
+}
+
+void ExtDBGDrivWaitForEvent(enum DBG_EVENT eEvent)
+{
+#if defined(SUPPORT_DBGDRV_EVENT_OBJECTS)
+	DBGDrivWaitForEvent(eEvent);
+#else
+	PVR_UNREFERENCED_PARAMETER(eEvent);
+#endif
 }
 
 u32 AtoI(char *szIn)
@@ -869,14 +892,15 @@ u32 DBGDrivWriteStringCM(struct DBG_STREAM *psStream,
 	if (!StreamValid(psStream))
 		return 0xFFFFFFFF;
 
-	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
+	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED) {
 		if (!(psStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE))
 			return 0;
-	else
+	} else {
 		if (psStream->ui32CapMode == DEBUG_CAPMODE_HOTKEY)
 			if ((psStream->ui32Current != g_ui32HotKeyFrame)
 			    || (g_bHotKeyPressed == IMG_FALSE))
 				return 0;
+	}
 
 	return DBGDrivWriteString(psStream, pszString, ui32Level);
 
@@ -945,6 +969,11 @@ u32 DBGDrivWriteString(struct DBG_STREAM *psStream,
 	} else {
 		ui32Len = 0;
 	}
+
+#if defined(SUPPORT_DBGDRV_EVENT_OBJECTS)
+	if (ui32Len)
+		HostSignalEvent(DBG_EVENT_STREAM_DATA);
+#endif
 
 	return ui32Len;
 }
@@ -1018,14 +1047,16 @@ u32 DBGDrivWrite(struct DBG_STREAM *psMainStream,
 	if (!(psMainStream->ui32DebugLevel & ui32Level))
 		return 0xFFFFFFFF;
 
-	if (psMainStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
+	if (psMainStream->ui32CapMode & DEBUG_CAPMODE_FRAMED) {
 		if (!(psMainStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE))
 			return 0xFFFFFFFF;
-	else
+	} else {
 	if (psMainStream->ui32CapMode == DEBUG_CAPMODE_HOTKEY)
 		if ((psMainStream->ui32Current != g_ui32HotKeyFrame)
 		    || (g_bHotKeyPressed == IMG_FALSE))
 			return 0xFFFFFFFF;
+
+	}
 
 	if (psMainStream->bInitPhaseComplete)
 		psStream = psMainStream;
@@ -1046,6 +1077,10 @@ u32 DBGDrivWrite(struct DBG_STREAM *psMainStream,
 	Write(psStream, (u8 *) &ui32InBuffSize, 4);
 	Write(psStream, pui8InBuf, ui32InBuffSize);
 
+#if defined(SUPPORT_DBGDRV_EVENT_OBJECTS)
+	if (ui32InBuffSize)
+		HostSignalEvent(DBG_EVENT_STREAM_DATA);
+#endif
 	return ui32InBuffSize;
 }
 
@@ -1058,14 +1093,15 @@ u32 DBGDrivWriteCM(struct DBG_STREAM *psStream,
 	if (!StreamValid(psStream))
 		return 0xFFFFFFFF;
 
-	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
+	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED) {
 		if (!(psStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE))
 			return 0xFFFFFFFF;
-	else
+	} else {
 		if (psStream->ui32CapMode == DEBUG_CAPMODE_HOTKEY)
 			if ((psStream->ui32Current != g_ui32HotKeyFrame)
 			    || (g_bHotKeyPressed == IMG_FALSE))
 				return 0xFFFFFFFF;
+	}
 
 	return DBGDrivWrite2(psStream, pui8InBuf, ui32InBuffSize, ui32Level);
 }
@@ -1094,11 +1130,11 @@ u32 DBGDrivWrite2(struct DBG_STREAM *psMainStream,
 	if (!(psStream->ui32OutMode & DEBUG_OUTMODE_STREAMENABLE))
 		return 0;
 
-	if (psStream->ui32Flags & DEBUG_FLAGS_NO_BUF_EXPANDSION)
+	if (psStream->ui32Flags & DEBUG_FLAGS_NO_BUF_EXPANDSION) {
 
 		if (ui32Space < 32)
 			return 0;
-	else
+	} else {
 		if ((ui32Space < 32) || (ui32Space <= (ui32InBuffSize + 4))) {
 			u32 ui32NewBufSize;
 
@@ -1113,12 +1149,17 @@ u32 DBGDrivWrite2(struct DBG_STREAM *psMainStream,
 
 			ui32Space = SpaceInStream(psStream);
 		}
+	}
 
 	if (ui32Space <= (ui32InBuffSize + 4))
 		ui32InBuffSize = ui32Space - 4;
 
 	Write(psStream, pui8InBuf, ui32InBuffSize);
 
+#if defined(SUPPORT_DBGDRV_EVENT_OBJECTS)
+	if (ui32InBuffSize)
+		HostSignalEvent(DBG_EVENT_STREAM_DATA);
+#endif
 	return ui32InBuffSize;
 }
 
@@ -1141,12 +1182,13 @@ u32 DBGDrivRead(struct DBG_STREAM *psMainStream,
 	if (psStream->ui32RPtr == psStream->ui32WPtr)
 		return 0;
 
-	if (psStream->ui32RPtr <= psStream->ui32WPtr)
+	if (psStream->ui32RPtr <= psStream->ui32WPtr) {
 		ui32Data = psStream->ui32WPtr - psStream->ui32RPtr;
-	else
+	} else {
 		ui32Data =
 		    psStream->ui32WPtr + (psStream->ui32Size -
 					  psStream->ui32RPtr);
+	}
 
 	if (ui32Data > ui32OutBuffSize)
 		ui32Data = ui32OutBuffSize;
@@ -1233,7 +1275,7 @@ void DBGDrivSetFrame(struct DBG_STREAM *psStream, u32 ui32Frame)
 	else
 		psStream->ui32Flags &= ~DEBUG_FLAGS_ENABLESAMPLE;
 
-	if (g_bHotkeyMiddump)
+	if (g_bHotkeyMiddump) {
 		if ((ui32Frame >= g_ui32HotkeyMiddumpStart) &&
 		    (ui32Frame <= g_ui32HotkeyMiddumpEnd) &&
 		    (((ui32Frame -
@@ -1245,6 +1287,7 @@ void DBGDrivSetFrame(struct DBG_STREAM *psStream, u32 ui32Frame)
 			if (psStream->ui32Current > g_ui32HotkeyMiddumpEnd)
 				g_bHotkeyMiddump = IMG_FALSE;
 		}
+	}
 
 	if (g_bHotKeyRegistered) {
 		g_bHotKeyRegistered = IMG_FALSE;
@@ -1260,7 +1303,7 @@ void DBGDrivSetFrame(struct DBG_STREAM *psStream, u32 ui32Frame)
 		}
 
 		if ((psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
-		    && (psStream->ui32CapMode & DEBUG_CAPMODE_HOTKEY))
+		    && (psStream->ui32CapMode & DEBUG_CAPMODE_HOTKEY)) {
 			if (!g_bHotkeyMiddump) {
 
 				g_ui32HotkeyMiddumpStart =
@@ -1276,6 +1319,7 @@ void DBGDrivSetFrame(struct DBG_STREAM *psStream, u32 ui32Frame)
 				PVR_DPF(PVR_DBG_MESSAGE,
 					 "Turning off sampling\n");
 			}
+		}
 
 	}
 
@@ -1316,7 +1360,7 @@ u32 DBGDrivIsCaptureFrame(struct DBG_STREAM *psStream,
 	if (!StreamValid(psStream))
 		return IMG_FALSE;
 
-	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
+	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED) {
 
 		if (g_bHotkeyMiddump) {
 			if ((psStream->ui32Current >=
@@ -1339,12 +1383,12 @@ u32 DBGDrivIsCaptureFrame(struct DBG_STREAM *psStream,
 			      psStream->ui32SampleRate) == 0))
 				return IMG_TRUE;
 		}
-	else
-	if (psStream->ui32CapMode == DEBUG_CAPMODE_HOTKEY)
+	} else if (psStream->ui32CapMode == DEBUG_CAPMODE_HOTKEY) {
 		if ((psStream->ui32Current ==
 		     (g_ui32HotKeyFrame - ui32FrameShift))
 		    && (g_bHotKeyPressed))
 			return IMG_TRUE;
+	}
 
 
 	return IMG_FALSE;
@@ -1436,14 +1480,14 @@ u32 DBGDrivWriteLF(struct DBG_STREAM *psStream,
 	if (!(psStream->ui32DebugLevel & ui32Level))
 		return 0xFFFFFFFF;
 
-	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED)
+	if (psStream->ui32CapMode & DEBUG_CAPMODE_FRAMED) {
 		if (!(psStream->ui32Flags & DEBUG_FLAGS_ENABLESAMPLE))
 			return 0xFFFFFFFF;
-	else
-	if (psStream->ui32CapMode == DEBUG_CAPMODE_HOTKEY)
+	} else if (psStream->ui32CapMode == DEBUG_CAPMODE_HOTKEY) {
 		if ((psStream->ui32Current != g_ui32HotKeyFrame)
 		    || (g_bHotKeyPressed == IMG_FALSE))
 			return 0xFFFFFFFF;
+	}
 
 	psLFBuffer = FindLFBuf(psStream);
 
@@ -1494,10 +1538,22 @@ u32 DBGDrivReadLF(struct DBG_STREAM *psStream,
 	return ui32Data;
 }
 
-void DBGDrivEndInitPhase(struct DBG_STREAM *psStream)
+void DBGDrivStartInitPhase(struct DBG_STREAM *psStream)
+{
+	psStream->bInitPhaseComplete = IMG_FALSE;
+}
+
+void DBGDrivStopInitPhase(struct DBG_STREAM *psStream)
 {
 	psStream->bInitPhaseComplete = IMG_TRUE;
 }
+
+#if defined(SUPPORT_DBGDRV_EVENT_OBJECTS)
+void DBGDrivWaitForEvent(enum DBG_EVENT eEvent)
+{
+	HostWaitForEvent(eEvent);
+}
+#endif
 
 static IMG_BOOL ExpandStreamBuffer(struct DBG_STREAM *psStream, u32 ui32NewSize)
 {

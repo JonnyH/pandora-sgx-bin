@@ -141,6 +141,13 @@
 #define DEBUG_SERVICE_READLF						\
 	CTL_CODE(FILE_DEVICE_UNKNOWN, DEBUG_SERVICE_IOCTL_BASE + 0x17,	\
 					METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define DEBUG_SERVICE_WAITFOREVENT					\
+	CTL_CODE(FILE_DEVICE_UNKNOWN, DEBUG_SERVICE_IOCTL_BASE + 0x18,	\
+		 METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+enum DBG_EVENT {
+	DBG_EVENT_STREAM_DATA = 1
+};
 
 struct DBG_IN_CREATESTREAM {
 	u32 ui32Pages;
@@ -289,7 +296,8 @@ struct DBGKM_SERVICE_TABLE {
 			u32 ui32InBuffSize, u32 ui32Level);
 	void  (*pfnSetMarker)(struct DBG_STREAM *psStream, u32 ui32Marker);
 	u32   (*pfnGetMarker)(struct DBG_STREAM *psStream);
-	void  (*pfnEndInitPhase)(struct DBG_STREAM *psStream);
+	void (*pfnStartInitPhase) (struct DBG_STREAM *psStream);
+	void (*pfnStopInitPhase) (struct DBG_STREAM *psStream);
 	u32   (*pfnIsCaptureFrame)(struct DBG_STREAM *psStream,
 			IMG_BOOL bCheckPreviousFrame);
 	u32   (*pfnWriteLF)(struct DBG_STREAM *psStream, u8 *pui8InBuf,
@@ -300,6 +308,7 @@ struct DBGKM_SERVICE_TABLE {
 	void  (*pfnSetStreamOffset)(struct DBG_STREAM *psStream,
 			u32 ui32StreamOffset);
 	u32   (*pfnIsLastCaptureFrame)(struct DBG_STREAM *psStream);
+	void (*pfnWaitForEvent) (enum DBG_EVENT eEvent);
 };
 
 extern struct DBGKM_SERVICE_TABLE g_sDBGKMServices;

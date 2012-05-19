@@ -100,10 +100,11 @@ u32 DBGDrivWriteLF(struct DBG_STREAM *psStream,
 u32 DBGDrivReadLF(struct DBG_STREAM *psStream,
 				      u32 ui32OutBuffSize,
 				      u8 *pui8OutBuf);
-void DBGDrivEndInitPhase(struct DBG_STREAM *psStream);
+void DBGDrivStartInitPhase(struct DBG_STREAM *psStream);
+void DBGDrivStopInitPhase(struct DBG_STREAM *psStream);
 u32 DBGDrivGetStreamOffset(struct DBG_STREAM *psStream);
-void DBGDrivSetStreamOffset(struct DBG_STREAM *psStream,
-					     u32 ui32StreamOffset);
+void DBGDrivSetStreamOffset(struct DBG_STREAM *psStream, u32 ui32StreamOffset);
+void DBGDrivWaitForEvent(enum DBG_EVENT eEvent);
 
 void DestroyAllStreams(void);
 
@@ -153,21 +154,16 @@ u32 ExtDBGDrivGetFrame(struct DBG_STREAM *psStream);
 void ExtDBGDrivOverrideMode(struct DBG_STREAM *psStream,
 					     u32 ui32Mode);
 void ExtDBGDrivDefaultMode(struct DBG_STREAM *psStream);
-u32 ExtDBGDrivWrite2(struct DBG_STREAM *psStream,
-					 u8 *pui8InBuf,
-					 u32 ui32InBuffSize,
-					 u32 ui32Level);
-u32 ExtDBGDrivWriteStringCM(struct DBG_STREAM *psStream,
-						char *pszString,
-						u32 ui32Level);
-u32 ExtDBGDrivWriteCM(struct DBG_STREAM *psStream,
-					  u8 *pui8InBuf,
-					  u32 ui32InBuffSize,
+u32 ExtDBGDrivWrite2(struct DBG_STREAM *psStream, u8 *pui8InBuf,
+		     u32 ui32InBuffSize, u32 ui32Level);
+u32 ExtDBGDrivWriteStringCM(struct DBG_STREAM *psStream, char *pszString,
 					  u32 ui32Level);
-void ExtDBGDrivSetMarker(struct DBG_STREAM *psStream,
-					  u32 ui32Marker);
+u32 ExtDBGDrivWriteCM(struct DBG_STREAM *psStream, u8 *pui8InBuf,
+		      u32 ui32InBuffSize, u32 ui32Level);
+void ExtDBGDrivSetMarker(struct DBG_STREAM *psStream, u32 ui32Marker);
 u32 ExtDBGDrivGetMarker(struct DBG_STREAM *psStream);
-void ExtDBGDrivEndInitPhase(struct DBG_STREAM *psStream);
+void ExtDBGDrivStartInitPhase(struct DBG_STREAM *psStream);
+void ExtDBGDrivStopInitPhase(struct DBG_STREAM *psStream);
 u32 ExtDBGDrivIsLastCaptureFrame(struct DBG_STREAM *psStream);
 u32 ExtDBGDrivIsCaptureFrame(struct DBG_STREAM *psStream,
 						 IMG_BOOL bCheckPreviousFrame);
@@ -182,5 +178,6 @@ u32 ExtDBGDrivReadLF(struct DBG_STREAM *psStream,
 u32 ExtDBGDrivGetStreamOffset(struct DBG_STREAM *psStream);
 void ExtDBGDrivSetStreamOffset(struct DBG_STREAM *psStream,
 						u32 ui32StreamOffset);
+void ExtDBGDrivWaitForEvent(enum DBG_EVENT eEvent);
 
 #endif

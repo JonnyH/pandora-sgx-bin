@@ -30,7 +30,7 @@
 enum SGX_CORE_ID_TYPE {
 	SGX_CORE_ID_INVALID	= 0,
 	SGX_CORE_ID_530		= 2,
-	SGX_UNUSED		= 3,
+	SGX_CORE_ID_535		= 3,
 };
 
 struct SGX_CORE_INFO {

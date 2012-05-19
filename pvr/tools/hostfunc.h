@@ -48,4 +48,11 @@ void HostAquireMutex(void *pvMutex);
 void HostReleaseMutex(void *pvMutex);
 void HostDestroyMutex(void *pvMutex);
 
+#if defined(SUPPORT_DBGDRV_EVENT_OBJECTS)
+s32 HostCreateEventObjects(void);
+void HostWaitForEvent(enum DBG_EVENT eEvent);
+void HostSignalEvent(enum DBG_EVENT eEvent);
+void HostDestroyEventObjects(void);
+#endif
+
 #endif

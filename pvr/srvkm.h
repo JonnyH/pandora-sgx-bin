@@ -35,4 +35,16 @@ void PVRSRVProcessDisconnect(u32 ui32PID);
 						   u32 *puiBufSize,
 						   IMG_BOOL bSave);
 
+#define LOOP_UNTIL_TIMEOUT(TIMEOUT)					 \
+{									 \
+	u32 uiOffset, uiStart, uiCurrent;				 \
+	for (uiOffset = 0, uiStart = OSClockus(), uiCurrent = uiStart+1; \
+		(uiCurrent - uiStart + uiOffset) < TIMEOUT;		 \
+		uiCurrent = OSClockus(),				 \
+		uiOffset = uiCurrent < uiStart ?			 \
+			IMG_UINT32_MAX - uiStart : uiOffset,		 \
+		uiStart = uiCurrent < uiStart ? 0 : uiStart)
+
+#define END_LOOP_UNTIL_TIMEOUT()					 \
+}
 #endif

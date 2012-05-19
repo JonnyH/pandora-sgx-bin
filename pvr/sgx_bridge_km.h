@@ -40,7 +40,7 @@ enum PVRSRV_ERROR SGXSubmitTransferKM(void *hDevHandle,
 
 
 enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
-		struct PVR3DIF4_CCB_KICK *psCCBKick);
+				  struct SGX_CCB_KICK *psCCBKick);
 
 enum PVRSRV_ERROR SGXGetPhysPageAddrKM(void *hDevMemHeap,
 		struct IMG_DEV_VIRTADDR sDevVAddr,
@@ -51,26 +51,33 @@ enum PVRSRV_ERROR SGXGetMMUPDAddrKM(void *hDevCookie,
 		void *hDevMemContext, struct IMG_DEV_PHYADDR *psPDDevPAddr);
 
 enum PVRSRV_ERROR SGXGetClientInfoKM(void *hDevCookie,
-		struct PVR3DIF4_CLIENT_INFO *psClientInfo);
+					 struct SGX_CLIENT_INFO *psClientInfo);
 
 enum PVRSRV_ERROR SGXGetMiscInfoKM(struct PVRSRV_SGXDEV_INFO *psDevInfo,
-		struct SGX_MISC_INFO *psMiscInfo);
+				       struct SGX_MISC_INFO *psMiscInfo,
+				       struct PVRSRV_DEVICE_NODE *psDeviceNode);
 
 enum PVRSRV_ERROR SGXReadDiffCountersKM(void *hDevHandle, u32 ui32Reg,
-		u32 *pui32Old, IMG_BOOL bNew, u32 ui32New, u32 ui32NewReset,
-		u32 ui32CountersReg, u32 *pui32Time, IMG_BOOL *pbActive,
-		struct PVRSRV_SGXDEV_DIFF_INFO *psDiffs);
+			    u32 *pui32Old, IMG_BOOL bNew, u32 ui32New,
+			    u32 ui32NewReset, u32 ui32CountersReg,
+			    u32 *pui32Time, IMG_BOOL *pbActive,
+			    struct PVRSRV_SGXDEV_DIFF_INFO *psDiffs);
+enum PVRSRV_ERROR SGXReadHWPerfCBKM(void *hDevHandle, u32 ui32ArraySize,
+			    struct PVRSRV_SGX_HWPERF_CB_ENTRY *psHWPerfCBData,
+			    u32 *pui32DataCount, u32 *pui32ClockSpeed,
+			    u32 *pui32HostTimeStamp);
 
 enum PVRSRV_ERROR SGX2DQueryBlitsCompleteKM(
-		struct PVRSRV_SGXDEV_INFO *psDevInfo,
-		struct PVRSRV_KERNEL_SYNC_INFO *psSyncInfo,
-		IMG_BOOL bWaitForComplete);
+			    struct PVRSRV_SGXDEV_INFO *psDevInfo,
+			    struct PVRSRV_KERNEL_SYNC_INFO *psSyncInfo,
+			    IMG_BOOL bWaitForComplete);
 
 enum PVRSRV_ERROR SGXGetInfoForSrvinitKM(void *hDevHandle,
-		struct SGX_BRIDGE_INFO_FOR_SRVINIT *psInitInfo);
+			    struct SGX_BRIDGE_INFO_FOR_SRVINIT *psInitInfo);
 
 enum PVRSRV_ERROR DevInitSGXPart2KM(struct PVRSRV_PER_PROCESS_DATA *psPerProc,
-		void *hDevHandle, struct SGX_BRIDGE_INIT_INFO *psInitInfo);
+			    void *hDevHandle,
+			    struct SGX_BRIDGE_INIT_INFO *psInitInfo);
 
 enum PVRSRV_ERROR SGXFindSharedPBDescKM(
 	struct PVRSRV_PER_PROCESS_DATA *psPerProc,
@@ -95,6 +102,8 @@ enum PVRSRV_ERROR SGXAddSharedPBDescKM(
 		u32 ui32SharedPBDescSubKernelMemInfosCount);
 
 enum PVRSRV_ERROR SGXGetInternalDevInfoKM(void *hDevCookie,
-		struct PVR3DIF4_INTERNAL_DEVINFO *psSGXInternalDevInfo);
+			struct SGX_INTERNAL_DEVINFO *psSGXInternalDevInfo);
+
+int sgx_force_reset(void);
 
 #endif

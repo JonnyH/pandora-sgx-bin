@@ -27,9 +27,6 @@
 #ifndef __OMAPLFB_H__
 #define __OMAPLFB_H__
 
-extern IMG_BOOL PVRGetDisplayClassJTable(
-			struct PVRSRV_DC_DISP2SRV_KMJTABLE *psJTable);
-
 #define OMAPLCD_IRQ			25
 
 #define OMAPLCD_SYSCONFIG		0x0410
@@ -75,28 +72,12 @@ struct OMAPLFB_BUFFER {
 	struct OMAPLFB_BUFFER *psNext;
 };
 
-struct OMAPLFB_VSYNC_FLIP_ITEM {
-	void *hCmdComplete;
-	struct IMG_SYS_PHYADDR *sSysAddr;
-	u32 ui32SwapInterval;
-	IMG_BOOL bValid;
-	IMG_BOOL bFlipped;
-	IMG_BOOL bCmdCompleted;
-};
-
 struct OMAPLFB_SWAPCHAIN {
 
 	u32 ui32BufferCount;
 	struct OMAPLFB_BUFFER *psBuffer;
-	struct OMAPLFB_VSYNC_FLIP_ITEM *psVSyncFlips;
-	u32 ui32InsertIndex;
-	u32 ui32RemoveIndex;
-	void __iomem *pvRegs;
 	struct PVRSRV_DC_DISP2SRV_KMJTABLE *psPVRJTable;
-	IMG_BOOL bFlushCommands;
-	u32 ui32SetFlushStateRefCount;
 	IMG_BOOL bBlanked;
-	spinlock_t *psSwapChainLock;
 };
 
 struct OMAPLFB_FBINFO {
@@ -123,20 +104,16 @@ struct OMAPLFB_DEVINFO {
 	struct OMAPLFB_FBINFO sFBInfo;
 	u32 ui32RefCount;
 	struct OMAPLFB_SWAPCHAIN *psSwapChain;
-	IMG_BOOL bFlushCommands;
 	struct IMG_DEV_VIRTADDR sDisplayDevVAddr;
 	struct fb_info *psLINFBInfo;
 	struct notifier_block sLINNotifBlock;
-	IMG_BOOL bDeviceSuspended;
-	spinlock_t SwapChainLock;
 };
 
 #define	OMAPLFB_PAGE_SIZE 4096
 #define	OMAPLFB_PAGE_MASK (OMAPLFB_PAGE_SIZE - 1)
 #define	OMAPLFB_PAGE_TRUNC (~OMAPLFB_PAGE_MASK)
 
-#define	OMAPLFB_PAGE_ROUNDUP(x)		\
-	(((x) + OMAPLFB_PAGE_MASK) & OMAPLFB_PAGE_TRUNC)
+#define	OMAPLFB_PAGE_ROUNDUP(x) (((x) + OMAPLFB_PAGE_MASK) & OMAPLFB_PAGE_TRUNC)
 
 #ifdef	DEBUG
 #define	DEBUG_PRINTK(x) printk x
@@ -159,14 +136,5 @@ void *OMAPLFBAllocKernelMem(u32 ui32Size);
 void OMAPLFBFreeKernelMem(void *pvMem);
 enum PVRSRV_ERROR OMAPLFBGetLibFuncAddr(char *szFunctionName,
 	IMG_BOOL (**ppfnFuncTable)(struct PVRSRV_DC_DISP2SRV_KMJTABLE *));
-enum PVRSRV_ERROR OMAPLFBInstallVSyncISR(struct OMAPLFB_SWAPCHAIN *psSwapChain);
-enum PVRSRV_ERROR OMAPLFBUninstallVSyncISR(
-	struct OMAPLFB_SWAPCHAIN *psSwapChain);
-IMG_BOOL OMAPLFBVSyncIHandler(struct OMAPLFB_SWAPCHAIN *psSwapChain);
-void OMAPLFBEnableVSyncInterrupt(struct OMAPLFB_SWAPCHAIN *psSwapChain);
-void OMAPLFBDisableVSyncInterrupt(struct OMAPLFB_SWAPCHAIN *psSwapChain);
-void OMAPLFBEnableDisplayRegisterAccess(void);
-void OMAPLFBDisableDisplayRegisterAccess(void);
-void OMAPLFBFlip(struct OMAPLFB_SWAPCHAIN *psSwapChain, u32 aPhyAddr);
 
 #endif

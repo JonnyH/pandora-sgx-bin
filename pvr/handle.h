@@ -52,13 +52,18 @@ enum PVRSRV_HANDLE_TYPE {
 	PVRSRV_HANDLE_TYPE_SHARED_SYS_MEM_INFO,
 	PVRSRV_HANDLE_TYPE_SHARED_EVENT_OBJECT,
 	PVRSRV_HANDLE_TYPE_EVENT_OBJECT_CONNECT,
+	PVRSRV_HANDLE_TYPE_MMAP_INFO,
+	PVRSRV_HANDLE_TYPE_SOC_TIMER
 };
 
 enum PVRSRV_HANDLE_ALLOC_FLAG {
 	PVRSRV_HANDLE_ALLOC_FLAG_NONE = 0,
-	PVRSRV_HANDLE_ALLOC_FLAG_SHARED = 1,
-	PVRSRV_HANDLE_ALLOC_FLAG_MULTI = 2,
-	PVRSRV_HANDLE_ALLOC_FLAG_PRIVATE = 4
+
+	PVRSRV_HANDLE_ALLOC_FLAG_SHARED = 0x01,
+
+	PVRSRV_HANDLE_ALLOC_FLAG_MULTI = 0x02,
+
+	PVRSRV_HANDLE_ALLOC_FLAG_PRIVATE = 0x04
 };
 
 struct PVRSRV_HANDLE_BASE;
@@ -117,8 +122,16 @@ enum PVRSRV_ERROR PVRSRVCommitHandleBatch(struct PVRSRV_HANDLE_BASE *psBase);
 
 void PVRSRVReleaseHandleBatch(struct PVRSRV_HANDLE_BASE *psBase);
 
-enum PVRSRV_ERROR PVRSRVAllocHandleBase(struct PVRSRV_HANDLE_BASE **ppsBase,
-				   u32 ui32PID);
+enum PVRSRV_ERROR PVRSRVSetMaxHandle(struct PVRSRV_HANDLE_BASE *psBase,
+				     u32 ui32MaxHandle);
+
+u32 PVRSRVGetMaxHandle(struct PVRSRV_HANDLE_BASE *psBase);
+
+enum PVRSRV_ERROR PVRSRVEnableHandlePurging(struct PVRSRV_HANDLE_BASE *psBase);
+
+enum PVRSRV_ERROR PVRSRVPurgeHandles(struct PVRSRV_HANDLE_BASE *psBase);
+
+enum PVRSRV_ERROR PVRSRVAllocHandleBase(struct PVRSRV_HANDLE_BASE **ppsBase);
 
 enum PVRSRV_ERROR PVRSRVFreeHandleBase(struct PVRSRV_HANDLE_BASE *psBase);
 
@@ -131,7 +144,7 @@ enum PVRSRV_ERROR PVRSRVHandleDeInit(void);
     (void)PVRSRVAllocHandle(psBase, phHandle, pvData, eType, eFlag)
 
 #define PVRSRVAllocSubHandleNR(psBase, phHandle, pvData, eType, eFlag, hParent)\
-    (void)PVRSRVAllocSubHandle(psBase, phHandle, pvData, eType, eFlag, hParent)
-
+	(void)PVRSRVAllocSubHandle(psBase, phHandle, pvData, eType, \
+				   eFlag, hParent)
 
 #endif

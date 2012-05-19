@@ -30,15 +30,15 @@
 #include "img_types.h"
 #include "osfunc.h"
 
-typedef u32 HASH_FUNC(size_t uKeySize, void *pKey, u32 uHashTabLen);
-typedef IMG_BOOL HASH_KEY_COMP(size_t uKeySize, void *pKey1, void *pKey2);
-
 struct HASH_TABLE;
 u32 HASH_Func_Default(size_t uKeySize, void *pKey, u32 uHashTabLen);
 IMG_BOOL HASH_Key_Comp_Default(size_t uKeySize, void *pKey1, void *pKey2);
 struct HASH_TABLE *HASH_Create_Extended(u32 uInitialLen, size_t uKeySize,
-				 HASH_FUNC *pfnHashFunc,
-				 HASH_KEY_COMP *pfnKeyComp);
+				 u32 (*pfnHashFunc)(size_t uKeySize, void *pkey,
+						    u32 uHashTabLen),
+				 IMG_BOOL (*pfnKeyComp)(size_t uKeySize,
+							void *pKey1,
+							void *pkey2));
 struct HASH_TABLE *HASH_Create(u32 uInitialLen);
 void HASH_Delete(struct HASH_TABLE *pHash);
 IMG_BOOL HASH_Insert_Extended(struct HASH_TABLE *pHash, void *pKey, u32 v);

@@ -28,15 +28,10 @@
 #define __IMG_TYPES_H__
 
 #include <linux/types.h>
-/*
-   HACK: Without the include the PVR driver would have at this point __inline =
-   __inline, that lets the compiler decide about inlining. With the above
-   include this would change to __inline __atribute__((always_inline)). Keep
-   it the old way for now to avoid introducing changes related to this. See
-   also queue.h.
- */
-#undef inline
-#define inline inline
+
+#if !defined(IMG_UINT32_MAX)
+#define IMG_UINT32_MAX 0xFFFFFFFFUL
+#endif
 
 typedef enum tag_img_bool {
 	IMG_FALSE = 0,
@@ -64,9 +59,7 @@ struct SYSTEM_ADDR {
 
 	u32 ui32PageCount;
 	union {
-
 		struct IMG_SYS_PHYADDR sContig;
-
 		struct IMG_SYS_PHYADDR asNonContig[1];
 	} u;
 };

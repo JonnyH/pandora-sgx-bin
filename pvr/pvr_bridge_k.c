@@ -33,6 +33,7 @@
 #include "syscommon.h"
 #include "pvr_debug.h"
 #include "proc.h"
+#include "private_data.h"
 
 #include "sgx_bridge.h"
 
@@ -70,7 +71,7 @@ static off_t printLinuxBridgeStats(char *buffer, size_t count, off_t off)
 	struct PVRSRV_BRIDGE_DISPATCH_TABLE_ENTRY *psEntry;
 	off_t Ret;
 
-	LinuxLockMutex(&gPVRSRVLock);
+	mutex_lock(&gPVRSRVLock);
 
 	if (!off) {
 		if (count < 500) {
@@ -78,18 +79,16 @@ static off_t printLinuxBridgeStats(char *buffer, size_t count, off_t off)
 			goto unlock_and_return;
 		}
 		Ret = printAppend(buffer, count, 0,
-		  "Total ioctl call count = %u\n"
-		  "Total number of bytes copied via copy_from_user = %u\n"
-		  "Total number of bytes copied via copy_to_user = %u\n"
-		  "Total number of bytes copied via copy_*_user = %u\n\n"
-		  "%-45s | %-40s | %10s | %20s | %10s\n",
+			"Total ioctl call count = %u\n"
+			"Total number of bytes copied via copy_from_user = %u\n"
+			"Total number of bytes copied via copy_to_user = %u\n"
+			"Total number of bytes copied via copy_*_user = %u\n\n"
+			"%-45s | %-40s | %10s | %20s | %10s\n",
 		  g_BridgeGlobalStats.ui32IOCTLCount,
-		  g_BridgeGlobalStats.
-		  ui32TotalCopyFromUserBytes,
+		  g_BridgeGlobalStats.ui32TotalCopyFromUserBytes,
 		  g_BridgeGlobalStats.ui32TotalCopyToUserBytes,
-		  g_BridgeGlobalStats.
-		  ui32TotalCopyFromUserBytes +
-		  g_BridgeGlobalStats.ui32TotalCopyToUserBytes,
+		  g_BridgeGlobalStats.ui32TotalCopyFromUserBytes +
+			  g_BridgeGlobalStats.ui32TotalCopyToUserBytes,
 		  "Bridge Name", "Wrapper Function",
 		  "Call Count", "copy_from_user Bytes",
 		  "copy_to_user Bytes");
@@ -117,7 +116,7 @@ static off_t printLinuxBridgeStats(char *buffer, size_t count, off_t off)
 			  psEntry->ui32CopyToUserTotalBytes);
 
 unlock_and_return:
-	LinuxUnLockMutex(&gPVRSRVLock);
+	mutex_unlock(&gPVRSRVLock);
 	return Ret;
 }
 #endif
@@ -133,7 +132,7 @@ long PVRSRV_BridgeDispatchKM(struct file *file, unsigned int cmd,
 	struct PVRSRV_PER_PROCESS_DATA *psPerProc;
 	int err = -EFAULT;
 
-	LinuxLockMutex(&gPVRSRVLock);
+	mutex_lock(&gPVRSRVLock);
 
 	if (!OSAccessOK(PVR_VERIFY_WRITE, psBridgePackageUM,
 			sizeof(struct PVRSRV_BRIDGE_PACKAGE))) {
@@ -183,8 +182,10 @@ long PVRSRV_BridgeDispatchKM(struct file *file, unsigned int cmd,
 						sBridgePackageKM.ui32BridgeID);
 
 	err = BridgedDispatchKM(psPerProc, &sBridgePackageKM);
+	if (err != PVRSRV_OK)
+		goto unlock_and_return;
 
 unlock_and_return:
-	LinuxUnLockMutex(&gPVRSRVLock);
+	mutex_unlock(&gPVRSRVLock);
 	return err;
 }

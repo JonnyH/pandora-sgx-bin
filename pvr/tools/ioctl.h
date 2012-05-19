@@ -50,7 +50,7 @@ u32 DBGDIOCDrivGetMarker(void *, void *);
 u32 DBGDIOCDrivIsCaptureFrame(void *, void *);
 u32 DBGDIOCDrivWriteLF(void *, void *);
 u32 DBGDIOCDrivReadLF(void *, void *);
-u32 DBGDIOCDrivResetStream(void *, void *);
+u32 DBGDIOCDrivWaitForEvent(void *, void *);
 
 u32(*g_DBGDrivProc[])(void *, void *) = {
 DBGDIOCDrivCreateStream,
@@ -74,7 +74,7 @@ DBGDIOCDrivCreateStream,
 	    DBGDIOCDrivSetMarker,
 	    DBGDIOCDrivGetMarker,
 	    DBGDIOCDrivIsCaptureFrame,
-	    DBGDIOCDrivWriteLF, DBGDIOCDrivReadLF, DBGDIOCDrivResetStream,};
+	    DBGDIOCDrivWriteLF, DBGDIOCDrivReadLF, DBGDIOCDrivWaitForEvent};
 
 #define MAX_DBGVXD_W32_API (sizeof(g_DBGDrivProc)/sizeof(u32))
 

@@ -37,6 +37,9 @@
 #include "device.h"
 #include "buffer_manager.h"
 
+#if defined(NO_HARDWARE) && defined(__KERNEL__)
+#include <linux/io.h>
+#endif
 
 struct SYS_DEVICE_ID {
 	u32 uiID;
@@ -75,12 +78,13 @@ struct SYS_DATA {
 
 	char *pszVersionString;
 	struct PVRSRV_EVENTOBJECT *psGlobalEventObject;
+#if defined(PDUMP)
+	IMG_BOOL bPowerUpPDumped;
+#endif
 };
 
 enum PVRSRV_ERROR SysInitialise(void);
 enum PVRSRV_ERROR SysFinalise(void);
-
-u32 GetCPUTranslatedAddress(void);
 
 enum PVRSRV_ERROR SysDeinitialise(struct SYS_DATA *psSysData);
 
@@ -151,8 +155,25 @@ static inline void SysDeinitialiseCommon(struct SYS_DATA *psSysData)
 	OSDestroyResource(&psSysData->sPowerStateChangeResource);
 }
 
-#define	SysReadHWReg(p, o) OSReadHWReg(p, o)
-#define SysWriteHWReg(p, o, v) OSWriteHWReg(p, o, v)
+#if !(defined(NO_HARDWARE) && defined(__KERNEL__))
+#define	SysReadHWReg(p, o)	OSReadHWReg(p, o)
+#define SysWriteHWReg(p, o, v)	OSWriteHWReg(p, o, v)
+#else
+static inline u32 SysReadHWReg(void *pvLinRegBaseAddr, u32 ui32Offset)
+{
+	return (u32)readl(pvLinRegBaseAddr + ui32Offset);
+}
 
+static inline void SysWriteHWReg(void *pvLinRegBaseAddr, u32 ui32Offset,
+				 u32 ui32Value)
+{
+	writel(ui32Value, pvLinRegBaseAddr + ui32Offset);
+}
+#endif
+
+bool sgx_is_530(void);
+u32 sgx_get_rev(void);
+void sgx_ocp_write_reg(u32 reg, u32 val);
+unsigned long sgx_get_max_freq(void);
 
 #endif

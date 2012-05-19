@@ -27,8 +27,15 @@
 #if !defined(__KERNELDISPLAY_H__)
 #define __KERNELDISPLAY_H__
 
+#include <linux/module.h>
+
+#define DC_FLIP_COMMAND				0
+
+#define DC_STATE_NO_FLUSH_COMMANDS		0
+#define DC_STATE_FLUSH_COMMANDS			1
 
 struct PVRSRV_DC_SRV2DISP_KMJTABLE {
+	struct module *owner;
 	u32 ui32TableSize;
 	enum PVRSRV_ERROR (*pfnOpenDCDevice)(u32, void **,
 					struct PVRSRV_SYNC_DATA *);
@@ -53,9 +60,6 @@ struct PVRSRV_DC_SRV2DISP_KMJTABLE {
 	enum PVRSRV_ERROR (*pfnSetDCDstColourKey)(void *, void *, u32);
 	enum PVRSRV_ERROR (*pfnSetDCSrcColourKey)(void *, void *, u32);
 	enum PVRSRV_ERROR (*pfnGetDCBuffers)(void *, void *, u32 *, void **);
-	enum PVRSRV_ERROR (*pfnSwapToDCBuffer)(void *, void *, u32, void *, u32,
-					  struct IMG_RECT *);
-	enum PVRSRV_ERROR (*pfnSwapToDCSystem)(void *, void *);
 	void (*pfnSetDCState)(void *, u32);
 };
 
@@ -95,9 +99,6 @@ struct DISPLAYCLASS_FLIP_COMMAND {
 	u32 ui32SwapInterval;
 };
 
-#define DC_FLIP_COMMAND				0
-
-#define DC_STATE_NO_FLUSH_COMMANDS		0
-#define DC_STATE_FLUSH_COMMANDS			1
+IMG_BOOL PVRGetDisplayClassJTable(struct PVRSRV_DC_DISP2SRV_KMJTABLE *psJTable);
 
 #endif

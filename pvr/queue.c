@@ -38,12 +38,10 @@ static int QueuePrintCommands(struct PVRSRV_QUEUE_INFO *psQueue, char *buffer,
 	struct PVRSRV_COMMAND *psCmd;
 
 	while (ui32ReadOffset != ui32WriteOffset) {
-		psCmd =
-		    (struct PVRSRV_COMMAND *)((u32) psQueue->pvLinQueueKM +
+		psCmd = (struct PVRSRV_COMMAND *)((u32) psQueue->pvLinQueueKM +
 					ui32ReadOffset);
 
-		off =
-		    printAppend(buffer, size, off,
+		off = printAppend(buffer, size, off,
 			"%p %p  %5u  %6u  %3u  %5u   %2u   %2u    %3u  \n",
 				psQueue, psCmd, psCmd->ui32ProcessID,
 				psCmd->CommandType, psCmd->ui32CmdSize,
@@ -69,9 +67,8 @@ off_t QueuePrintQueues(char *buffer, size_t size, off_t off)
 
 	if (!off)
 		return printAppend(buffer, size, 0,
-			"Command Queues\n"
-			"Queue    CmdPtr      Pid Command Size DevInd  "
-			"DSC  SSC  #Data ...\n");
+			"Command Queues\nQueue    CmdPtr      "
+			   "Pid Command Size DevInd  DSC  SSC  #Data ...\n");
 
 	for (psQueue = psSysData->psQueueList; --off && psQueue;
 	     psQueue = psQueue->psNextKM)
@@ -125,7 +122,7 @@ enum PVRSRV_ERROR PVRSRVCreateCommandQueueKM(u32 ui32QueueSize,
 		       sizeof(struct PVRSRV_QUEUE_INFO),
 		       (void **) &psQueueInfo, &hMemBlock) != PVRSRV_OK) {
 		PVR_DPF(PVR_DBG_ERROR, "PVRSRVCreateCommandQueueKM: "
-				"Failed to alloc queue struct");
+					"Failed to alloc queue struct");
 		goto ErrorExit;
 	}
 	OSMemSet(psQueueInfo, 0, sizeof(struct PVRSRV_QUEUE_INFO));
@@ -137,7 +134,7 @@ enum PVRSRV_ERROR PVRSRVCreateCommandQueueKM(u32 ui32QueueSize,
 		       ui32Power2QueueSize + PVRSRV_MAX_CMD_SIZE,
 		       &psQueueInfo->pvLinQueueKM, &hMemBlock) != PVRSRV_OK) {
 		PVR_DPF(PVR_DBG_ERROR, "PVRSRVCreateCommandQueueKM: "
-				"Failed to alloc queue buffer");
+					"Failed to alloc queue buffer");
 		goto ErrorExit;
 	}
 
@@ -194,8 +191,6 @@ enum PVRSRV_ERROR PVRSRVDestroyCommandQueueKM(
 	struct SYS_DATA *psSysData;
 	enum PVRSRV_ERROR eError;
 	IMG_BOOL bTimeout = IMG_TRUE;
-	IMG_BOOL bStart = IMG_FALSE;
-	u32 uiStart = 0;
 
 	eError = SysAcquireData(&psSysData);
 	if (eError != PVRSRV_OK)
@@ -203,25 +198,21 @@ enum PVRSRV_ERROR PVRSRVDestroyCommandQueueKM(
 
 	psQueue = psSysData->psQueueList;
 
-	do {
+	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US) {
 		if (psQueueInfo->ui32ReadOffset ==
 		    psQueueInfo->ui32WriteOffset) {
 			bTimeout = IMG_FALSE;
 			break;
 		}
-
-		if (bStart == IMG_FALSE) {
-			bStart = IMG_TRUE;
-			uiStart = OSClockus();
-		}
 		OSWaitus(MAX_HW_TIME_US / WAIT_TRY_COUNT);
-	} while ((OSClockus() - uiStart) < MAX_HW_TIME_US);
+	}
+	END_LOOP_UNTIL_TIMEOUT();
 
 	if (bTimeout) {
-
-		PVR_DPF(PVR_DBG_ERROR, "PVRSRVDestroyCommandQueueKM : "
-					"Failed to empty queue");
+		PVR_DPF(PVR_DBG_ERROR,
+			 "PVRSRVDestroyCommandQueueKM : Failed to empty queue");
 		eError = PVRSRV_ERROR_CANNOT_FLUSH_QUEUE;
+		goto ErrorExit;
 	}
 
 	eError = OSLockResource(&psSysData->sQProcessResource, KERNEL_ID);
@@ -285,8 +276,6 @@ enum PVRSRV_ERROR PVRSRVGetQueueSpaceKM(struct PVRSRV_QUEUE_INFO *psQueue,
 				    u32 ui32ParamSize, void **ppvSpace)
 {
 	IMG_BOOL bTimeout = IMG_TRUE;
-	IMG_BOOL bStart = IMG_FALSE;
-	u32 uiStart = 0, uiCurrent = 0;
 
 	ui32ParamSize = (ui32ParamSize + 3) & 0xFFFFFFFC;
 
@@ -297,32 +286,22 @@ enum PVRSRV_ERROR PVRSRVGetQueueSpaceKM(struct PVRSRV_QUEUE_INFO *psQueue,
 		return PVRSRV_ERROR_CMD_TOO_BIG;
 	}
 
-	do {
+	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US) {
 		if (GET_SPACE_IN_CMDQ(psQueue) > ui32ParamSize) {
 			bTimeout = IMG_FALSE;
 			break;
 		}
-
-		if (bStart == IMG_FALSE) {
-			bStart = IMG_TRUE;
-			uiStart = OSClockus();
-		}
 		OSWaitus(MAX_HW_TIME_US / WAIT_TRY_COUNT);
-
-		uiCurrent = OSClockus();
-		if (uiCurrent < uiStart)
-
-			uiStart = 0;
-	} while ((uiCurrent - uiStart) < MAX_HW_TIME_US);
+	}
+	END_LOOP_UNTIL_TIMEOUT();
 
 	if (bTimeout == IMG_TRUE) {
 		*ppvSpace = NULL;
 
 		return PVRSRV_ERROR_CANNOT_GET_QUEUE_SPACE;
 	} else {
-		*ppvSpace =
-		    (void *) (psQueue->ui32WriteOffset +
-				  (u32) psQueue->pvLinQueueUM);
+		*ppvSpace = (void *)(psQueue->ui32WriteOffset +
+						(u32)psQueue->pvLinQueueUM);
 	}
 
 	return PVRSRV_OK;
@@ -400,22 +379,25 @@ enum PVRSRV_ERROR PVRSRVInsertCommandKM(struct PVRSRV_QUEUE_INFO *psQueue,
 enum PVRSRV_ERROR PVRSRVSubmitCommandKM(struct PVRSRV_QUEUE_INFO *psQueue,
 				    struct PVRSRV_COMMAND *psCommand)
 {
-	if (psCommand->ui32DstSyncCount > 0)
-		psCommand->psDstSync = (struct PVRSRV_SYNC_OBJECT *)
-			(((u8 *) psQueue->pvLinQueueKM) +
-			 psQueue->ui32WriteOffset +
-			 sizeof(struct PVRSRV_COMMAND));
 
-	if (psCommand->ui32SrcSyncCount > 0)
+	if (psCommand->ui32DstSyncCount > 0) {
+		psCommand->psDstSync = (struct PVRSRV_SYNC_OBJECT *)
+					(((u8 *)psQueue->pvLinQueueKM) +
+					 psQueue->ui32WriteOffset +
+					 sizeof(struct PVRSRV_COMMAND));
+	}
+
+	if (psCommand->ui32SrcSyncCount > 0) {
 		psCommand->psSrcSync = (struct PVRSRV_SYNC_OBJECT *)
-			(((u8 *) psQueue->pvLinQueueKM) +
-			 psQueue->ui32WriteOffset +
-			 sizeof(struct PVRSRV_COMMAND) +
-			 (psCommand->ui32DstSyncCount *
-				sizeof(struct PVRSRV_SYNC_OBJECT)));
+					(((u8 *)psQueue->pvLinQueueKM) +
+					psQueue->ui32WriteOffset +
+					sizeof(struct PVRSRV_COMMAND) +
+					(psCommand->ui32DstSyncCount *
+					   sizeof(struct PVRSRV_SYNC_OBJECT)));
+	}
 
 	psCommand->pvData = (struct PVRSRV_SYNC_OBJECT *)
-			(((u8 *) psQueue->pvLinQueueKM) +
+			(((u8 *)psQueue->pvLinQueueKM) +
 			 psQueue->ui32WriteOffset +
 			 sizeof(struct PVRSRV_COMMAND) +
 			 (psCommand->ui32DstSyncCount *
@@ -429,8 +411,8 @@ enum PVRSRV_ERROR PVRSRVSubmitCommandKM(struct PVRSRV_QUEUE_INFO *psQueue,
 }
 
 static enum PVRSRV_ERROR PVRSRVProcessCommand(struct SYS_DATA *psSysData,
-					      struct PVRSRV_COMMAND *psCommand,
-					      IMG_BOOL bFlush)
+				  struct PVRSRV_COMMAND *psCommand,
+				  IMG_BOOL bFlush)
 {
 	struct PVRSRV_SYNC_OBJECT *psWalkerObj;
 	struct PVRSRV_SYNC_OBJECT *psEndObj;
@@ -450,14 +432,16 @@ static enum PVRSRV_ERROR PVRSRVProcessCommand(struct SYS_DATA *psSysData,
 		ui32ReadOpsComplete = psSyncData->ui32ReadOpsComplete;
 
 		if ((ui32WriteOpsComplete != psWalkerObj->ui32WriteOpsPending)
-		    || (ui32ReadOpsComplete != psWalkerObj->ui32ReadOpsPending))
+		    || (ui32ReadOpsComplete !=
+			psWalkerObj->ui32ReadOpsPending)) {
 			if (!bFlush ||
 			    !SYNCOPS_STALE(ui32WriteOpsComplete,
-					   psWalkerObj->ui32WriteOpsPending)
-			    || !SYNCOPS_STALE(ui32ReadOpsComplete,
-					      psWalkerObj->
-					      ui32ReadOpsPending))
+					   psWalkerObj->ui32WriteOpsPending) ||
+			    !SYNCOPS_STALE(ui32ReadOpsComplete,
+					   psWalkerObj->ui32ReadOpsPending)) {
 				return PVRSRV_ERROR_FAILED_DEPENDENCIES;
+			}
+		}
 
 		psWalkerObj++;
 	}
@@ -471,26 +455,29 @@ static enum PVRSRV_ERROR PVRSRVProcessCommand(struct SYS_DATA *psSysData,
 		ui32ReadOpsComplete = psSyncData->ui32ReadOpsComplete;
 		ui32WriteOpsComplete = psSyncData->ui32WriteOpsComplete;
 
-		if ((ui32WriteOpsComplete != psWalkerObj->ui32WriteOpsPending)
-		    || (ui32ReadOpsComplete !=
-					psWalkerObj->ui32ReadOpsPending)) {
-			if (!bFlush && SYNCOPS_STALE(ui32WriteOpsComplete,
-			    psWalkerObj->ui32WriteOpsPending) &&
+		if ((ui32WriteOpsComplete !=
+		     psWalkerObj->ui32WriteOpsPending) ||
+		    (ui32ReadOpsComplete !=
+			psWalkerObj->ui32ReadOpsPending)) {
+			if (!bFlush &&
+			    SYNCOPS_STALE(ui32WriteOpsComplete,
+					  psWalkerObj->ui32WriteOpsPending) &&
 			    SYNCOPS_STALE(ui32ReadOpsComplete,
-					     psWalkerObj->ui32ReadOpsPending))
+					psWalkerObj->ui32ReadOpsPending)) {
 				PVR_DPF(PVR_DBG_WARNING,
-					 "PVRSRVProcessCommand: "
-					 "Stale syncops psSyncData:0x%x "
-					 "ui32WriteOpsComplete:0x%x "
-					 "ui32WriteOpsPending:0x%x",
+			"PVRSRVProcessCommand: Stale syncops psSyncData:0x%x "
+			"ui32WriteOpsComplete:0x%x ui32WriteOpsPending:0x%x",
 					 psSyncData, ui32WriteOpsComplete,
 					 psWalkerObj->ui32WriteOpsPending);
+			}
 
-			if (!bFlush || !SYNCOPS_STALE(ui32WriteOpsComplete,
-			    psWalkerObj->ui32WriteOpsPending) ||
+			if (!bFlush ||
+			    !SYNCOPS_STALE(ui32WriteOpsComplete,
+					   psWalkerObj->ui32WriteOpsPending) ||
 			    !SYNCOPS_STALE(ui32ReadOpsComplete,
-					    psWalkerObj->ui32ReadOpsPending))
+					   psWalkerObj->ui32ReadOpsPending)) {
 				return PVRSRV_ERROR_FAILED_DEPENDENCIES;
+			}
 		}
 		psWalkerObj++;
 	}
@@ -555,16 +542,18 @@ enum PVRSRV_ERROR PVRSRVProcessQueues(u32 ui32CallerID, IMG_BOOL bFlush)
 					"Couldn't acquire queue processing "
 					"lock for FLUSH");
 			} else {
-				PVR_DPF(PVR_DBG_MESSAGE, "PVRSRVProcessQueues:"
-				   " Couldn't acquire queue processing lock");
+				PVR_DPF(PVR_DBG_MESSAGE,
+						"PVRSRVProcessQueues: "
+						"Couldn't acquire queue "
+						"processing lock");
 			}
 		} else {
 			PVR_DPF(PVR_DBG_MESSAGE, "PVRSRVProcessQueues: "
-				"Queue processing lock-acquire failed when "
-				"called from the Services driver.");
-			PVR_DPF(PVR_DBG_MESSAGE, "                     "
-				"This is due to MISR queue processing being "
-				"interrupted by the Services driver.");
+				"Queue processing lock-acquire failed "
+				"when called from the Services driver.");
+			PVR_DPF(PVR_DBG_MESSAGE,
+				"This is due to MISR queue processing "
+				"being interrupted by the Services driver.");
 		}
 
 		return PVRSRV_OK;
@@ -628,13 +617,15 @@ void PVRSRVCommandCompleteKM(void *hCmdCookie, IMG_BOOL bScheduleMISR)
 	if (SysAcquireData(&psSysData) != PVRSRV_OK)
 		return;
 
-	for (i = 0; i < psCmdCompleteData->ui32DstSyncCount; i++)
+	for (i = 0; i < psCmdCompleteData->ui32DstSyncCount; i++) {
 		psCmdCompleteData->psDstSync[i].psKernelSyncInfoKM->psSyncData->
 		    ui32WriteOpsComplete++;
+	}
 
-	for (i = 0; i < psCmdCompleteData->ui32SrcSyncCount; i++)
+	for (i = 0; i < psCmdCompleteData->ui32SrcSyncCount; i++) {
 		psCmdCompleteData->psSrcSync[i].psKernelSyncInfoKM->psSyncData->
 		    ui32ReadOpsComplete++;
+	}
 
 	psCmdCompleteData->bInUse = IMG_FALSE;
 
@@ -651,16 +642,14 @@ void PVRSRVCommandCompleteCallbacks(void)
 
 	if (SysAcquireData(&psSysData) != PVRSRV_OK) {
 		PVR_DPF(PVR_DBG_ERROR, "PVRSRVCommandCompleteCallbacks: "
-			 "SysAcquireData failed");
+					"SysAcquireData failed");
 		return;
 	}
 
 	psDeviceNode = psSysData->psDeviceNodeList;
 	while (psDeviceNode != NULL) {
 		if (psDeviceNode->pfnDeviceCommandComplete != NULL)
-
-			(*psDeviceNode->
-			 pfnDeviceCommandComplete) (psDeviceNode);
+			(*psDeviceNode->pfnDeviceCommandComplete)(psDeviceNode);
 		psDeviceNode = psDeviceNode->psNext;
 	}
 }
@@ -692,7 +681,7 @@ enum PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(u32 ui32DevIndex,
 
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP, ui32CmdCount *
 				     sizeof(IMG_BOOL (*)(void *, u32, void *)),
-			    (void **) &psSysData->ppfnCmdProcList[ui32DevIndex],
+			    (void **)&psSysData->ppfnCmdProcList[ui32DevIndex],
 			    NULL);
 	if (eError != PVRSRV_OK) {
 		PVR_DPF(PVR_DBG_ERROR,
@@ -711,14 +700,13 @@ enum PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(u32 ui32DevIndex,
 			    (void **) &psSysData->
 			    ppsCmdCompleteData[ui32DevIndex], NULL);
 	if (eError != PVRSRV_OK) {
-		PVR_DPF(PVR_DBG_ERROR, "PVRSRVRegisterCmdProcListKM: "
-			 "Failed to alloc CC data");
+		PVR_DPF(PVR_DBG_ERROR,
+			"PVRSRVRegisterCmdProcListKM: Failed to alloc CC data");
 		goto ErrorExit;
 	}
-	/*
-	   clear the list to ensure that we don't try to access
-	   uninitialised pointer in the 'error' execution path
-	 */
+
+	/* clear the list to ensure that we don't try to access uninitialised
+	 * pointer in the 'error' execution path */
 	OSMemSet(psSysData->ppsCmdCompleteData[ui32DevIndex], 0x00,
 		 ui32AllocSize);
 
@@ -730,11 +718,12 @@ enum PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(u32 ui32DevIndex,
 		eError = OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 				    ui32AllocSize,
 				    (void **)&psSysData->
-				    ppsCmdCompleteData[ui32DevIndex][i],
+					    ppsCmdCompleteData[ui32DevIndex][i],
 				    NULL);
 		if (eError != PVRSRV_OK) {
 			PVR_DPF(PVR_DBG_ERROR, "PVRSRVRegisterCmdProcListKM: "
-						"Failed to alloc cmd %d", i);
+						"Failed to alloc cmd %d",
+				 i);
 			goto ErrorExit;
 		}
 
@@ -750,7 +739,7 @@ enum PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(u32 ui32DevIndex,
 		psCmdCompleteData->psSrcSync = (struct PVRSRV_SYNC_OBJECT *)
 		     (((u32) psCmdCompleteData->psDstSync) +
 					(sizeof(struct PVRSRV_SYNC_OBJECT) *
-					 ui32MaxSyncsPerCmd[i][0]));
+						 ui32MaxSyncsPerCmd[i][0]));
 		psCmdCompleteData->ui32AllocSize = ui32AllocSize;
 	}
 
@@ -759,16 +748,17 @@ enum PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(u32 ui32DevIndex,
 ErrorExit:
 
 	if (psSysData->ppsCmdCompleteData[ui32DevIndex] != NULL) {
-		for (i = 0; i < ui32CmdCount; i++)
+		for (i = 0; i < ui32CmdCount; i++) {
 			if (psSysData->ppsCmdCompleteData[ui32DevIndex][i] !=
 			    NULL) {
 				psCmdCompleteData =
 				    psSysData->
-				    ppsCmdCompleteData[ui32DevIndex][i];
+					    ppsCmdCompleteData[ui32DevIndex][i];
 				OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 					  psCmdCompleteData->ui32AllocSize,
 					  psCmdCompleteData, NULL);
 			}
+		}
 
 		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 			  ui32CmdCount * sizeof(struct COMMAND_COMPLETE_DATA *),
@@ -776,11 +766,10 @@ ErrorExit:
 			  NULL);
 	}
 
-	if (psSysData->ppfnCmdProcList[ui32DevIndex] != NULL)
-		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
-			  ui32CmdCount *
-				     sizeof(IMG_BOOL (*)(void *, u32, void *)),
+	if (psSysData->ppfnCmdProcList[ui32DevIndex] != NULL) {
+		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP, 0,
 			  psSysData->ppfnCmdProcList[ui32DevIndex], NULL);
+	}
 
 	return eError;
 }
@@ -805,8 +794,12 @@ enum PVRSRV_ERROR PVRSRVRemoveCmdProcListKM(u32 ui32DevIndex, u32 ui32CmdCount)
 		return eError;
 	}
 
-	if (psSysData->ppsCmdCompleteData[ui32DevIndex] != NULL) {
-		for (i = 0; i < ui32CmdCount; i++)
+	if (psSysData->ppsCmdCompleteData[ui32DevIndex] == NULL) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "PVRSRVRemoveCmdProcListKM: Invalid command array");
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	} else {
+		for (i = 0; i < ui32CmdCount; i++) {
 
 			if (psSysData->ppsCmdCompleteData[ui32DevIndex][i] !=
 			    NULL) {
@@ -817,17 +810,19 @@ enum PVRSRV_ERROR PVRSRVRemoveCmdProcListKM(u32 ui32DevIndex, u32 ui32CmdCount)
 					  psCmdCompleteData->ui32AllocSize,
 					  psCmdCompleteData, NULL);
 			}
+		}
 
 		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 			  ui32CmdCount * sizeof(struct COMMAND_COMPLETE_DATA *),
 			  psSysData->ppsCmdCompleteData[ui32DevIndex], NULL);
 	}
 
-	if (psSysData->ppfnCmdProcList[ui32DevIndex] != NULL)
+	if (psSysData->ppfnCmdProcList[ui32DevIndex] != NULL) {
 		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 			  ui32CmdCount *
 				sizeof(IMG_BOOL (*)(void *, u32, void *)),
 			  psSysData->ppfnCmdProcList[ui32DevIndex], NULL);
+	}
 
 	return PVRSRV_OK;
 }

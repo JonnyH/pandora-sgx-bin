@@ -31,23 +31,25 @@
 #include "servicesext.h"
 #include "kernelbuffer.h"
 
+extern IMG_BOOL PVRGetBufferClassJTable(
+				struct PVRSRV_BC_BUFFER2SRV_KMJTABLE *psJTable);
 
-#define BC_EXAMPLE_NUM_BUFFERS	3
+#define BC_EXAMPLE_NUM_BUFFERS		3
 
-#define YUV420 1
+#define YUV420				1
 #ifdef YUV420
 
-#define BC_EXAMPLE_WIDTH		(320)
-#define BC_EXAMPLE_HEIGHT		(160)
-#define BC_EXAMPLE_STRIDE		(320)
-#define BC_EXAMPLE_PIXELFORMAT	(PVRSRV_PIXEL_FORMAT_NV12)
+#define BC_EXAMPLE_WIDTH		320
+#define BC_EXAMPLE_HEIGHT		160
+#define BC_EXAMPLE_STRIDE		320
+#define BC_EXAMPLE_PIXELFORMAT		PVRSRV_PIXEL_FORMAT_NV12
 
 #else
 
-#define BC_EXAMPLE_WIDTH		(320)
-#define BC_EXAMPLE_HEIGHT		(160)
-#define BC_EXAMPLE_STRIDE		(320*2)
-#define BC_EXAMPLE_PIXELFORMAT	(PVRSRV_PIXEL_FORMAT_RGB565)
+#define BC_EXAMPLE_WIDTH		320
+#define BC_EXAMPLE_HEIGHT		160
+#define BC_EXAMPLE_STRIDE		(320 * 2)
+#define BC_EXAMPLE_PIXELFORMAT		PVRSRV_PIXEL_FORMAT_RGB565
 
 #endif
 
@@ -58,7 +60,7 @@ struct BC_EXAMPLE_BUFFER {
 	void *hMemHandle;
 	struct IMG_SYS_PHYADDR sSysAddr;
 	struct IMG_SYS_PHYADDR sPageAlignSysAddr;
-	void *sCPUVAddr;
+	void __iomem *sCPUVAddr;
 	struct PVRSRV_SYNC_DATA *psSyncData;
 	struct BC_EXAMPLE_BUFFER *psNext;
 };
@@ -84,9 +86,9 @@ void *BCAllocKernelMem(u32 ui32Size);
 void BCFreeKernelMem(void *pvMem);
 
 enum PVRSRV_ERROR BCAllocContigMemory(u32 ui32Size, void **phMemHandle,
-				 void **pLinAddr,
+				 void __iomem **pLinAddr,
 				 struct IMG_CPU_PHYADDR *pPhysAddr);
-void BCFreeContigMemory(u32 ui32Size, void *hMemHandle, void *LinAddr,
+void BCFreeContigMemory(u32 ui32Size, void *hMemHandle, void __iomem *LinAddr,
 			struct IMG_CPU_PHYADDR PhysAddr);
 
 struct IMG_SYS_PHYADDR CpuPAddrToSysPAddrBC(struct IMG_CPU_PHYADDR cpu_paddr);

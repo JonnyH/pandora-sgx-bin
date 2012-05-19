@@ -27,7 +27,6 @@
 #ifndef _BUFFER_MANAGER_H_
 #define _BUFFER_MANAGER_H_
 
-#include <linux/kernel.h>
 #include "img_types.h"
 #include "ra.h"
 #include "perproc.h"
@@ -65,10 +64,6 @@ struct BM_BUF {
 
 	struct BM_MAPPING *pMapping;
 	u32 ui32RefCount;
-	u32 uHashKey;
-	void *pvKernelSyncInfo;
-	void *pvPageList;
-	void *hOSWrapMem;
 };
 
 struct BM_HEAP {
@@ -106,10 +101,6 @@ void *BM_CreateContext(struct PVRSRV_DEVICE_NODE *psDeviceNode,
 		struct PVRSRV_PER_PROCESS_DATA *psPerProc,
 		IMG_BOOL *pbCreated);
 
-struct BM_BUF *bm_get_buf_virt(void *heap_handle, void *virt_start);
-IMG_BOOL BM_IsWrapped(void *hDevMemHeap, u32 ui32Offset,
-		      struct IMG_SYS_PHYADDR sSysAddr);
-
 void BM_DestroyContext(void *hBMContext);
 
 static inline void pvr_get_ctx(struct BM_CONTEXT *ctx)
@@ -131,24 +122,21 @@ static inline bool pvr_put_ctx(struct BM_CONTEXT *ctx)
 	return false;
 }
 
-
 void *BM_CreateHeap(void *hBMContext,
 		    struct DEVICE_MEMORY_HEAP_INFO *psDevMemHeapInfo);
 void BM_DestroyHeap(void *hDevMemHeap);
 IMG_BOOL BM_Reinitialise(struct PVRSRV_DEVICE_NODE *psDeviceNode);
-IMG_BOOL BM_Alloc(void *hDevMemHeap, struct IMG_DEV_VIRTADDR *psDevVAddr,
-		size_t uSize, u32 *pui32Flags, u32 uDevVAddrAlignment,
-		void **phBuf);
-IMG_BOOL BM_IsWrapped(void *hDevMemHeap, u32 ui32Offset,
-		struct IMG_SYS_PHYADDR sSysAddr);
 
-IMG_BOOL BM_IsWrappedCheckSize(void *hDevMemHeap, u32 ui32Offset,
-		struct IMG_SYS_PHYADDR sSysAddr, u32 ui32ByteSize);
+IMG_BOOL BM_Alloc(void *hDevMemHeap,
+	 struct IMG_DEV_VIRTADDR *psDevVAddr,
+	 size_t uSize, u32 *pui32Flags, u32 uDevVAddrAlignment, void **phBuf);
 
-IMG_BOOL BM_Wrap(void *hDevMemHeap, u32 ui32Size, u32 ui32Offset,
-		IMG_BOOL bPhysContig, struct IMG_SYS_PHYADDR *psSysAddr,
-		IMG_BOOL bFreePageList, void *pvCPUVAddr, u32 *pui32Flags,
-		void **phBuf);
+IMG_BOOL BM_Wrap(void *hDevMemHeap,
+	u32 ui32Size,
+	u32 ui32Offset,
+	IMG_BOOL bPhysContig,
+	struct IMG_SYS_PHYADDR *psSysAddr,
+	void *pvCPUVAddr, u32 *pui32Flags, void **phBuf);
 
 void BM_Free(void *hBuf, u32 ui32Flags);
 void *BM_HandleToCpuVaddr(void *hBuf);

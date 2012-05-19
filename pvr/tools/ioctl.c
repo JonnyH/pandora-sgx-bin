@@ -387,18 +387,13 @@ u32 DBGDIOCDrivReadLF(void *pvInBuffer, void *pvOutBuffer)
 	return IMG_TRUE;
 }
 
-u32 DBGDIOCDrivResetStream(void *pvInBuffer, void *pvOutBuffer)
+u32 DBGDIOCDrivWaitForEvent(void *pvInBuffer, void *pvOutBuffer)
 {
-	u32 *pui32BytesCopied;
-	struct DBG_IN_READ *psInParams;
+	enum DBG_EVENT eEvent = (enum DBG_EVENT)(*(u32 *) pvInBuffer);
 
-	psInParams = (struct DBG_IN_READ *)pvInBuffer;
-	pui32BytesCopied = (u32 *) pvOutBuffer;
+	PVR_UNREFERENCED_PARAMETER(pvOutBuffer);
 
-	*pui32BytesCopied =
-	    ExtDBGDrivReadLF((struct DBG_STREAM *)psInParams->pvStream,
-			     psInParams->ui32OutBufferSize,
-			     psInParams->pui8OutBuffer);
+	ExtDBGDrivWaitForEvent(eEvent);
 
 	return IMG_TRUE;
 }

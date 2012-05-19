@@ -54,10 +54,9 @@ enum {
 };
 
 #define RESMAN_CRITERIA_ALL				0x00000000
-#define RESMAN_CRITERIA_RESTYPE			0x00000001
-#define RESMAN_CRITERIA_PVOID_PARAM		0x00000002
-#define RESMAN_CRITERIA_UI32_PARAM		0x00000004
-
+#define RESMAN_CRITERIA_RESTYPE				0x00000001
+#define RESMAN_CRITERIA_PVOID_PARAM			0x00000002
+#define RESMAN_CRITERIA_UI32_PARAM			0x00000004
 
 struct RESMAN_ITEM;
 struct RESMAN_CONTEXT;
@@ -66,8 +65,10 @@ enum PVRSRV_ERROR ResManInit(void);
 void ResManDeInit(void);
 
 struct RESMAN_ITEM *ResManRegisterRes(struct RESMAN_CONTEXT *hResManContext,
-	u32 ui32ResType, void *pvParam, u32 ui32Param,
-	enum PVRSRV_ERROR (*pfnFreeResource)(void *pvParam, u32 ui32Param));
+				      u32 ui32ResType, void *pvParam,
+				      u32 ui32Param,
+				      enum PVRSRV_ERROR (*pfnFreeResource)
+						(void *pvParam, u32 ui32Param));
 
 void ResManFreeResByPtr(struct RESMAN_ITEM *psResItem);
 
@@ -75,8 +76,9 @@ void ResManFreeResByCriteria(struct RESMAN_CONTEXT *hResManContext,
 		u32 ui32SearchCriteria, u32 ui32ResType, void *pvParam,
 		u32 ui32Param);
 
-void ResManDissociateRes(struct RESMAN_ITEM *psResItem,
-		struct RESMAN_CONTEXT *psNewResManContext);
+enum PVRSRV_ERROR ResManDissociateRes(struct RESMAN_ITEM *psResItem,
+				      struct RESMAN_CONTEXT
+				      *psNewResManContext);
 
 enum PVRSRV_ERROR ResManFindResourceByPtr(struct RESMAN_CONTEXT *hResManContext,
 		struct RESMAN_ITEM *psItem);

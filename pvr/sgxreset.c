@@ -32,20 +32,19 @@
 
 #include "pdump_km.h"
 
-#define SGX_BIF_DIR_LIST_REG_EDM	EUR_CR_BIF_DIR_LIST_BASE0
-
 static void SGXResetSoftReset(struct PVRSRV_SGXDEV_INFO *psDevInfo,
 				  IMG_BOOL bResetBIF, u32 ui32PDUMPFlags,
 				  IMG_BOOL bPDump)
 {
 	u32 ui32SoftResetRegVal =
-#ifdef EUR_CR_SOFT_RESET_TWOD_RESET_MASK
-	    EUR_CR_SOFT_RESET_TWOD_RESET_MASK |
-#endif
 	    EUR_CR_SOFT_RESET_DPM_RESET_MASK |
 	    EUR_CR_SOFT_RESET_TA_RESET_MASK |
 	    EUR_CR_SOFT_RESET_USE_RESET_MASK |
 	    EUR_CR_SOFT_RESET_ISP_RESET_MASK | EUR_CR_SOFT_RESET_TSP_RESET_MASK;
+
+#ifdef EUR_CR_SOFT_RESET_TWOD_RESET_MASK
+	ui32SoftResetRegVal |= EUR_CR_SOFT_RESET_TWOD_RESET_MASK;
+#endif
 
 #if !defined(PDUMP)
 	PVR_UNREFERENCED_PARAMETER(ui32PDUMPFlags);
@@ -95,22 +94,19 @@ static void SGXResetInvalDC(struct PVRSRV_SGXDEV_INFO *psDevInfo,
 		PDUMPREGWITHFLAGS(EUR_CR_BIF_CTRL, ui32RegVal, ui32PDUMPFlags);
 	SGXResetSleep(psDevInfo, ui32PDUMPFlags, bPDump);
 
-	{
-
-		if (PollForValueKM
-		    ((u32 *)((u8 __force *)psDevInfo->pvRegsBaseKM +
-				   EUR_CR_BIF_MEM_REQ_STAT), 0,
-		     EUR_CR_BIF_MEM_REQ_STAT_READS_MASK,
-		     MAX_HW_TIME_US / WAIT_TRY_COUNT,
-		     WAIT_TRY_COUNT) != PVRSRV_OK)
-			PVR_DPF(PVR_DBG_ERROR,
-				 "Wait for DC invalidate failed.");
-
-		if (bPDump)
-			PDUMPREGPOLWITHFLAGS(EUR_CR_BIF_MEM_REQ_STAT, 0,
-					     EUR_CR_BIF_MEM_REQ_STAT_READS_MASK,
-					     ui32PDUMPFlags);
+	if (PollForValueKM(
+	    (u32 __iomem *)((u8 __iomem *)psDevInfo->pvRegsBaseKM +
+						EUR_CR_BIF_MEM_REQ_STAT),
+	     0, EUR_CR_BIF_MEM_REQ_STAT_READS_MASK,
+	     MAX_HW_TIME_US / WAIT_TRY_COUNT, WAIT_TRY_COUNT) != PVRSRV_OK) {
+		PVR_DPF(PVR_DBG_ERROR, "Wait for DC invalidate failed.");
+		PVR_DBG_BREAK;
 	}
+
+	if (bPDump)
+		PDUMPREGPOLWITHFLAGS(EUR_CR_BIF_MEM_REQ_STAT, 0,
+				     EUR_CR_BIF_MEM_REQ_STAT_READS_MASK,
+				     ui32PDUMPFlags);
 }
 
 void SGXReset(struct PVRSRV_SGXDEV_INFO *psDevInfo, u32 ui32PDUMPFlags)
@@ -128,35 +124,6 @@ void SGXReset(struct PVRSRV_SGXDEV_INFO *psDevInfo, u32 ui32PDUMPFlags)
 
 	PDUMPCOMMENTWITHFLAGS(ui32PDUMPFlags,
 			      "Start of SGX reset sequence\r\n");
-
-#if defined(FIX_HW_BRN_23944)
-
-	ui32RegVal = EUR_CR_BIF_CTRL_PAUSE_MASK;
-	OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_BIF_CTRL, ui32RegVal);
-	PDUMPREGWITHFLAGS(EUR_CR_BIF_CTRL, ui32RegVal, ui32PDUMPFlags);
-
-	SGXResetSleep(psDevInfo, ui32PDUMPFlags, IMG_TRUE);
-
-	ui32RegVal = OSReadHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_BIF_INT_STAT);
-	if (ui32RegVal & ui32BifFaultMask) {
-
-		ui32RegVal =
-		    EUR_CR_BIF_CTRL_PAUSE_MASK |
-		    EUR_CR_BIF_CTRL_CLEAR_FAULT_MASK;
-		OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_BIF_CTRL,
-			     ui32RegVal);
-		PDUMPREGWITHFLAGS(EUR_CR_BIF_CTRL, ui32RegVal, ui32PDUMPFlags);
-
-		SGXResetSleep(psDevInfo, ui32PDUMPFlags, IMG_TRUE);
-
-		ui32RegVal = EUR_CR_BIF_CTRL_PAUSE_MASK;
-		OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_BIF_CTRL,
-			     ui32RegVal);
-		PDUMPREGWITHFLAGS(EUR_CR_BIF_CTRL, ui32RegVal, ui32PDUMPFlags);
-
-		SGXResetSleep(psDevInfo, ui32PDUMPFlags, IMG_TRUE);
-	}
-#endif
 
 	SGXResetSoftReset(psDevInfo, IMG_TRUE, ui32PDUMPFlags, IMG_TRUE);
 
@@ -196,7 +163,8 @@ void SGXReset(struct PVRSRV_SGXDEV_INFO *psDevInfo, u32 ui32PDUMPFlags)
 				  IMG_FALSE);
 
 		psDevInfo->pui32BIFResetPD[ui32PDIndex] =
-		    psDevInfo->sBIFResetPTDevPAddr.uiAddr | SGX_MMU_PDE_VALID;
+		    psDevInfo->sBIFResetPTDevPAddr.uiAddr |
+				SGX_MMU_PDE_PAGE_SIZE_4K | SGX_MMU_PDE_VALID;
 		psDevInfo->pui32BIFResetPT[ui32PTIndex] =
 		    psDevInfo->sBIFResetPageDevPAddr.uiAddr | SGX_MMU_PTE_VALID;
 
@@ -221,17 +189,28 @@ void SGXReset(struct PVRSRV_SGXDEV_INFO *psDevInfo, u32 ui32PDUMPFlags)
 		psDevInfo->pui32BIFResetPT[ui32PTIndex] = 0;
 	}
 
+	{
+		u32 ui32EDMDirListReg;
 
-	OSWriteHWReg(psDevInfo->pvRegsBaseKM, SGX_BIF_DIR_LIST_REG_EDM,
-		     psDevInfo->sKernelPDDevPAddr.uiAddr);
-	PDUMPPDREGWITHFLAGS(SGX_BIF_DIR_LIST_REG_EDM,
-			    psDevInfo->sKernelPDDevPAddr.uiAddr, ui32PDUMPFlags,
-			    PDUMP_PD_UNIQUETAG);
+#if (SGX_BIF_DIR_LIST_INDEX_EDM == 0)
+		ui32EDMDirListReg = EUR_CR_BIF_DIR_LIST_BASE0;
+#else
 
+		ui32EDMDirListReg =
+		    EUR_CR_BIF_DIR_LIST_BASE1 +
+		    4 * (SGX_BIF_DIR_LIST_INDEX_EDM - 1);
+#endif
+
+		OSWriteHWReg(psDevInfo->pvRegsBaseKM, ui32EDMDirListReg,
+			     psDevInfo->sKernelPDDevPAddr.uiAddr);
+		PDUMPPDREGWITHFLAGS(ui32EDMDirListReg,
+				    psDevInfo->sKernelPDDevPAddr.uiAddr,
+				    ui32PDUMPFlags, PDUMP_PD_UNIQUETAG);
+	}
 
 	SGXResetInvalDC(psDevInfo, ui32PDUMPFlags, IMG_TRUE);
 
-	PVR_DPF(PVR_DBG_WARNING, "Soft Reset of SGX");
+	PVR_DPF(PVR_DBG_MESSAGE, "Soft Reset of SGX");
 	SGXResetSleep(psDevInfo, ui32PDUMPFlags, IMG_TRUE);
 
 	ui32RegVal = 0;

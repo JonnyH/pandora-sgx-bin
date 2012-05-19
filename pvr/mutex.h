@@ -33,17 +33,4 @@
 
 extern struct mutex gPVRSRVLock;
 
-extern void LinuxInitMutex(struct mutex *psPVRSRVMutex);
-
-extern void LinuxLockMutex(struct mutex *psPVRSRVMutex);
-
-extern enum PVRSRV_ERROR LinuxLockMutexInterruptible(
-					struct mutex *psPVRSRVMutex);
-
-extern s32 LinuxTryLockMutex(struct mutex *psPVRSRVMutex);
-
-extern void LinuxUnLockMutex(struct mutex *psPVRSRVMutex);
-
-extern IMG_BOOL LinuxIsLockedMutex(struct mutex *psPVRSRVMutex);
-
 #endif

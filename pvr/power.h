@@ -29,13 +29,13 @@
 
 struct PVRSRV_POWER_DEV {
 	enum PVRSRV_ERROR (*pfnPrePower)(void *, enum PVR_POWER_STATE,
-			      enum PVR_POWER_STATE);
+					 enum PVR_POWER_STATE);
 	enum PVRSRV_ERROR (*pfnPostPower)(void *, enum PVR_POWER_STATE,
-			       enum PVR_POWER_STATE);
-	enum PVRSRV_ERROR (*pfnPreClockSpeedChange)(void *, IMG_BOOL,
 					  enum PVR_POWER_STATE);
+	enum PVRSRV_ERROR (*pfnPreClockSpeedChange)(void *, IMG_BOOL,
+						    enum PVR_POWER_STATE);
 	enum PVRSRV_ERROR (*pfnPostClockSpeedChange)(void *, IMG_BOOL,
-					   enum PVR_POWER_STATE);
+						     enum PVR_POWER_STATE);
 	void *hDevCookie;
 	u32 ui32DeviceIndex;
 	enum PVR_POWER_STATE eDefaultPowerState;
@@ -78,16 +78,16 @@ enum PVRSRV_ERROR PVRSRVSystemPostPowerStateKM(
 enum PVRSRV_ERROR PVRSRVSetPowerStateKM(enum PVR_POWER_STATE ePVRState);
 
 enum PVRSRV_ERROR PVRSRVRegisterPowerDevice(u32 ui32DeviceIndex,
-		enum PVRSRV_ERROR (*pfnPrePower)(void *, enum PVR_POWER_STATE,
-					    enum PVR_POWER_STATE),
-		enum PVRSRV_ERROR (*pfnPostPower)(void *, enum PVR_POWER_STATE,
-					     enum PVR_POWER_STATE),
-		enum PVRSRV_ERROR (*pfnPreClockSpeedChange)(void *, IMG_BOOL,
-						       enum PVR_POWER_STATE),
-		enum PVRSRV_ERROR (*pfnPostClockSpeedChange)(void *, IMG_BOOL,
-							enum PVR_POWER_STATE),
-		void *hDevCookie, enum PVR_POWER_STATE eCurrentPowerState,
-		enum PVR_POWER_STATE eDefaultPowerState);
+	enum PVRSRV_ERROR (*pfnPrePower)(void *, enum PVR_POWER_STATE,
+					 enum PVR_POWER_STATE),
+	enum PVRSRV_ERROR (*pfnPostPower)(void *, enum PVR_POWER_STATE,
+					  enum PVR_POWER_STATE),
+	enum PVRSRV_ERROR (*pfnPreClockSpeedChange)(void *, IMG_BOOL,
+						    enum PVR_POWER_STATE),
+	enum PVRSRV_ERROR (*pfnPostClockSpeedChange)(void *, IMG_BOOL,
+						     enum PVR_POWER_STATE),
+	void *hDevCookie, enum PVR_POWER_STATE eCurrentPowerState,
+	enum PVR_POWER_STATE eDefaultPowerState);
 
 enum PVRSRV_ERROR PVRSRVRemovePowerDevice(u32 ui32DeviceIndex);
 

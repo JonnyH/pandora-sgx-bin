@@ -28,6 +28,7 @@
 #include "resman.h"
 #include "handle.h"
 #include "perproc.h"
+#include "osperproc.h"
 
 #define	HASH_TAB_INIT_SIZE 32
 
@@ -41,10 +42,16 @@ static enum PVRSRV_ERROR FreePerProcessData(
 
 	PVR_ASSERT(psPerProc != NULL);
 
+	if (psPerProc == NULL) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "FreePerProcessData: invalid parameter");
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+
 	uiPerProc = HASH_Remove(psHashTab, (u32)psPerProc->ui32PID);
 	if (uiPerProc == 0) {
 		PVR_DPF(PVR_DBG_ERROR, "FreePerProcessData: "
-		       "Couldn't find process in per-process data hash table");
+			"Couldn't find process in per-process data hash table");
 
 		PVR_ASSERT(psPerProc->ui32PID == 0);
 	} else {
@@ -78,8 +85,16 @@ static enum PVRSRV_ERROR FreePerProcessData(
 		}
 	}
 
-	OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP, sizeof(*psPerProc),
-			psPerProc, psPerProc->hBlockAlloc);
+	eError = OSPerProcessPrivateDataDeInit(psPerProc->hOsPrivateData);
+	if (eError != PVRSRV_OK) {
+		PVR_DPF(PVR_DBG_ERROR, "FreePerProcessData: "
+				"OSPerProcessPrivateDataDeInit failed (%d)",
+			 eError);
+		return eError;
+	}
+
+	OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP, sizeof(*psPerProc), psPerProc,
+		  psPerProc->hBlockAlloc);
 
 	return PVRSRV_OK;
 }
@@ -112,7 +127,7 @@ enum PVRSRV_ERROR PVRSRVPerProcessDataConnect(u32 ui32PID)
 				    &hBlockAlloc);
 		if (eError != PVRSRV_OK) {
 			PVR_DPF(PVR_DBG_ERROR, "PVRSRVPerProcessDataConnect: "
-				 "Couldn't allocate per-process data (%d)",
+				"Couldn't allocate per-process data (%d)",
 				 eError);
 			return eError;
 		}
@@ -129,6 +144,15 @@ enum PVRSRV_ERROR PVRSRVPerProcessDataConnect(u32 ui32PID)
 		psPerProc->ui32PID = ui32PID;
 		psPerProc->ui32RefCount = 0;
 
+		eError =
+		    OSPerProcessPrivateDataInit(&psPerProc->hOsPrivateData);
+		if (eError != PVRSRV_OK) {
+			PVR_DPF(PVR_DBG_ERROR, "PVRSRVPerProcessDataConnect: "
+				"OSPerProcessPrivateDataInit failed (%d)",
+				 eError);
+			goto failure;
+		}
+
 		eError = PVRSRVAllocHandle(KERNEL_HANDLE_BASE,
 					   &psPerProc->hPerProcData,
 					   psPerProc,
@@ -141,8 +165,7 @@ enum PVRSRV_ERROR PVRSRVPerProcessDataConnect(u32 ui32PID)
 			goto failure;
 		}
 
-		eError = PVRSRVAllocHandleBase(&psPerProc->psHandleBase,
-						ui32PID);
+		eError = PVRSRVAllocHandleBase(&psPerProc->psHandleBase);
 		if (eError != PVRSRV_OK) {
 			PVR_DPF(PVR_DBG_ERROR, "PVRSRVPerProcessDataConnect: "
 			       "Couldn't allocate handle base for process (%d)",
@@ -150,8 +173,16 @@ enum PVRSRV_ERROR PVRSRVPerProcessDataConnect(u32 ui32PID)
 			goto failure;
 		}
 
-		eError = PVRSRVResManConnect(psPerProc,
-					     &psPerProc->hResManContext);
+		eError = OSPerProcessSetHandleOptions(psPerProc->psHandleBase);
+		if (eError != PVRSRV_OK) {
+			PVR_DPF(PVR_DBG_ERROR, "PVRSRVPerProcessDataConnect: "
+					"Couldn't set handle options (%d)",
+				 eError);
+			goto failure;
+		}
+
+		eError =
+		    PVRSRVResManConnect(psPerProc, &psPerProc->hResManContext);
 		if (eError != PVRSRV_OK) {
 			PVR_DPF(PVR_DBG_ERROR, "PVRSRVPerProcessDataConnect: "
 				"Couldn't register with the resource manager");
@@ -182,7 +213,7 @@ void PVRSRVPerProcessDataDisconnect(u32 ui32PID)
 							      (u32)ui32PID);
 	if (psPerProc == NULL) {
 		PVR_DPF(PVR_DBG_ERROR, "PVRSRVPerProcessDataDealloc: "
-			 "Couldn't locate per-process data for PID %u",
+				"Couldn't locate per-process data for PID %u",
 			 ui32PID);
 	} else {
 		psPerProc->ui32RefCount--;
@@ -198,10 +229,16 @@ void PVRSRVPerProcessDataDisconnect(u32 ui32PID)
 			eError = FreePerProcessData(psPerProc);
 			if (eError != PVRSRV_OK)
 				PVR_DPF(PVR_DBG_ERROR,
-					 "PVRSRVPerProcessDataDisconnect: "
-					 "Error freeing per-process data");
+					"PVRSRVPerProcessDataDisconnect: "
+					"Error freeing per-process data");
 		}
 	}
+
+	eError = PVRSRVPurgeHandles(KERNEL_HANDLE_BASE);
+	if (eError != PVRSRV_OK)
+		PVR_DPF(PVR_DBG_ERROR, "PVRSRVPerProcessDataDisconnect: "
+				"Purge of global handle pool failed (%d)",
+			 eError);
 }
 
 enum PVRSRV_ERROR PVRSRVPerProcessDataInit(void)

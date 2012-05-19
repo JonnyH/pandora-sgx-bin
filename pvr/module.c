@@ -24,16 +24,13 @@
  *
  ******************************************************************************/
 
-#ifndef AUTOCONF_INCLUDED
-#include <linux/config.h>
-#endif
-
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/fs.h>
 #include <linux/proc_fs.h>
+#include <linux/miscdevice.h>
 
 #include <linux/platform_device.h>
 
@@ -43,6 +40,7 @@
 #include "kernelbuffer.h"
 #include "syscommon.h"
 #include "pvrmmap.h"
+#include "mutils.h"
 #include "mm.h"
 #include "mmap.h"
 #include "mutex.h"
@@ -51,256 +49,256 @@
 #include "perproc.h"
 #include "handle.h"
 #include "pvr_bridge_km.h"
+#include "sgx_bridge_km.h"
 #include "proc.h"
 #include "pvrmodule.h"
-#include "omaplfb.h"
-
-/* omaplfb.h defines these, but we use our own */
-#undef DRVNAME
-#undef DEVNAME
+#include "private_data.h"
+#include "lock.h"
 
 #define DRVNAME		"pvrsrvkm"
-#define DEVNAME		"pvrsrvkm"
 
-MODULE_SUPPORTED_DEVICE(DEVNAME);
 #ifdef DEBUG
 static int debug = DBGPRIV_WARNING;
 #include <linux/moduleparam.h>
 module_param(debug, int, 0);
 #endif
 
-static int AssignedMajorNumber;
-
-static int PVRSRVOpen(struct inode *pInode, struct file *pFile);
-static int PVRSRVRelease(struct inode *pInode, struct file *pFile);
-
 struct mutex gPVRSRVLock;
 
-const static struct file_operations pvrsrv_fops = {
+static int pvr_open(struct inode unref__ * inode, struct file *filp)
+{
+	struct PVRSRV_FILE_PRIVATE_DATA *priv;
+	void *block_alloc;
+	int ret = -ENOMEM;
+	enum PVRSRV_ERROR err;
+	u32 pid;
+
+	mutex_lock(&gPVRSRVLock);
+
+	pid = OSGetCurrentProcessIDKM();
+
+	if (PVRSRVProcessConnect(pid) != PVRSRV_OK)
+		goto err_unlock;
+
+	err = OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
+			    sizeof(*priv),
+			    (void **)&priv, &block_alloc);
+
+	if (err != PVRSRV_OK)
+		goto err_unlock;
+
+	priv->ui32OpenPID = pid;
+	priv->hBlockAlloc = block_alloc;
+	filp->private_data = priv;
+
+	ret = 0;
+err_unlock:
+	mutex_unlock(&gPVRSRVLock);
+	return ret;
+}
+
+static int pvr_release(struct inode unref__ * inode, struct file *filp)
+{
+	struct PVRSRV_FILE_PRIVATE_DATA *priv;
+
+	mutex_lock(&gPVRSRVLock);
+
+	priv = filp->private_data;
+
+	PVRSRVProcessDisconnect(priv->ui32OpenPID);
+
+	OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
+		  sizeof(*priv),
+		  priv, priv->hBlockAlloc);
+
+	mutex_unlock(&gPVRSRVLock);
+	return 0;
+}
+
+static const struct file_operations pvr_fops = {
 	.owner		= THIS_MODULE,
 	.unlocked_ioctl	= PVRSRV_BridgeDispatchKM,
-	.open		= PVRSRVOpen,
-	.release	= PVRSRVRelease,
+	.open		= pvr_open,
+	.release	= pvr_release,
 	.mmap		= PVRMMap,
 };
 
-#define	LDM_DEV	struct platform_device
-#define	LDM_DRV	struct platform_driver
-
-static int PVRSRVDriverRemove(LDM_DEV *device);
-static int PVRSRVDriverProbe(LDM_DEV *device);
-static int PVRSRVDriverSuspend(LDM_DEV *device, pm_message_t state);
-static void PVRSRVDriverShutdown(LDM_DEV *device);
-static int PVRSRVDriverResume(LDM_DEV *device);
-
-
-static LDM_DRV powervr_driver = {
-	.driver = {
-		   .name = DRVNAME,
-		   },
-	.probe		= PVRSRVDriverProbe,
-	.remove		= PVRSRVDriverRemove,
-	.suspend	= PVRSRVDriverSuspend,
-	.resume		= PVRSRVDriverResume,
-	.shutdown	= PVRSRVDriverShutdown,
-};
-
-static LDM_DEV *gpsPVRLDMDev;
-
-static void PVRSRVDeviceRelease(struct device *device);
-
-static struct platform_device powervr_device = {
-	.name = DEVNAME,
-	.id = -1,
-	.dev = {
-		.release = PVRSRVDeviceRelease}
-};
-
-static int PVRSRVDriverProbe(LDM_DEV *pDevice)
+static void pvr_shutdown(struct platform_device *pdev)
 {
-	struct SYS_DATA *psSysData;
-
-	PVR_TRACE("PVRSRVDriverProbe(pDevice=%p)", pDevice);
-
-	pDevice->dev.driver_data = NULL;
-
-
-	if (SysAcquireData(&psSysData) != PVRSRV_OK) {
-		gpsPVRLDMDev = pDevice;
-
-		if (SysInitialise() != PVRSRV_OK)
-			return -ENODEV;
-	}
-
-	return 0;
-}
-
-static int PVRSRVDriverRemove(LDM_DEV *pDevice)
-{
-	struct SYS_DATA *psSysData;
-
-	PVR_TRACE("PVRSRVDriverRemove(pDevice=%p)", pDevice);
-
-	if (SysAcquireData(&psSysData) == PVRSRV_OK) {
-		SysDeinitialise(psSysData);
-
-		gpsPVRLDMDev = NULL;
-	}
-
-	return 0;
-}
-
-static void PVRSRVDriverShutdown(LDM_DEV *pDevice)
-{
-	PVR_TRACE("PVRSRVDriverShutdown(pDevice=%p)", pDevice);
+	PVR_TRACE("pvr_shutdown(pdev=%p)", pdev);
 
 	(void)PVRSRVSetPowerStateKM(PVRSRV_POWER_STATE_D3);
 }
 
-static int PVRSRVDriverSuspend(LDM_DEV *pDevice, pm_message_t state)
+static int pvr_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	PVR_TRACE("PVRSRVDriverSuspend(pDevice=%p)", pDevice);
+	PVR_TRACE("pvr_suspend(pdev=%p)", pdev);
 
 	if (PVRSRVSetPowerStateKM(PVRSRV_POWER_STATE_D3) != PVRSRV_OK)
 		return -EINVAL;
 	return 0;
 }
 
-static int PVRSRVDriverResume(LDM_DEV *pDevice)
+static int pvr_resume(struct platform_device *pdev)
 {
-	PVR_TRACE("PVRSRVDriverResume(pDevice=%p)", pDevice);
+	PVR_TRACE("pvr_resume(pdev=%p)", pdev);
 
 	if (PVRSRVSetPowerStateKM(PVRSRV_POWER_STATE_D0) != PVRSRV_OK)
 		return -EINVAL;
 	return 0;
 }
 
-static void PVRSRVDeviceRelease(struct device *pDevice)
+static void pvr_dev_release(struct device *pdev)
 {
-	PVR_DPF(PVR_DBG_WARNING, "PVRSRVDeviceRelease(pDevice=%p)", pDevice);
+	PVR_DPF(PVR_DBG_WARNING, "pvr_dev_release(pdev=%p)", pdev);
 }
 
-static int PVRSRVOpen(struct inode unref__ * pInode,
-		      struct file unref__ * pFile)
+static struct platform_device pvr_device = {
+	.name = DRVNAME,
+	.id = -1,
+	.dev = {
+		.release = pvr_dev_release
+	}
+};
+
+static struct miscdevice pvr_miscdevice = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = DRVNAME,
+	.fops = &pvr_fops,
+};
+
+static int __devinit pvr_probe(struct platform_device *pdev)
 {
-	int Ret = 0;
+	struct SYS_DATA *sysdata;
+	int ret;
 
-	LinuxLockMutex(&gPVRSRVLock);
+	PVR_TRACE("pvr_probe(pdev=%p)", pdev);
 
-	if (PVRSRVProcessConnect(OSGetCurrentProcessIDKM()) != PVRSRV_OK)
-		Ret = -ENOMEM;
+	if (SysAcquireData(&sysdata) != PVRSRV_OK &&
+	    SysInitialise() != PVRSRV_OK) {
+		ret = -ENODEV;
+		goto err_exit;
+	}
 
-	LinuxUnLockMutex(&gPVRSRVLock);
+	ret = misc_register(&pvr_miscdevice);
+	if (ret < 0)
+		goto err_exit;
 
-	return Ret;
+	return 0;
+
+err_exit:
+	dev_err(&pdev->dev, "probe failed (%d)\n", ret);
+
+	return ret;
 }
 
-static int PVRSRVRelease(struct inode unref__ * pInode,
-			 struct file unref__ * pFile)
+static int __devexit pvr_remove(struct platform_device *pdev)
 {
-	int Ret = 0;
+	struct SYS_DATA *sysdata;
+	int ret;
 
-	LinuxLockMutex(&gPVRSRVLock);
+	PVR_TRACE("pvr_remove(pdev=%p)", pdev);
 
-	PVRSRVProcessDisconnect(OSGetCurrentProcessIDKM());
+	ret = misc_deregister(&pvr_miscdevice);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "remove failed (%d)\n", ret);
+		return ret;
+	}
 
-	LinuxUnLockMutex(&gPVRSRVLock);
+	if (SysAcquireData(&sysdata) == PVRSRV_OK)
+		SysDeinitialise(sysdata);
 
-	return Ret;
+	return 0;
 }
 
-static int __init PVRCore_Init(void)
+
+static struct platform_driver pvr_driver = {
+	.driver = {
+		   .name = DRVNAME,
+	},
+	.probe		= pvr_probe,
+	.remove		= __devexit_p(pvr_remove),
+	.suspend	= pvr_suspend,
+	.resume		= pvr_resume,
+	.shutdown	= pvr_shutdown,
+};
+
+static int __init pvr_init(void)
 {
 	int error;
 
-	PVR_TRACE("PVRCore_Init");
+	pvr_dbg_init();
 
-	AssignedMajorNumber = register_chrdev(0, DEVNAME, &pvrsrv_fops);
+	PVR_TRACE("pvr_init");
 
-	if (AssignedMajorNumber <= 0) {
-		PVR_DPF(PVR_DBG_ERROR,
-			 "PVRCore_Init: unable to get major number");
-
-		return -EBUSY;
-	}
-
-	PVR_TRACE("PVRCore_Init: major device %d", AssignedMajorNumber);
-
-	if (CreateProcEntries()) {
-		unregister_chrdev(AssignedMajorNumber, DRVNAME);
-
-		return -ENOMEM;
-	}
-
-	LinuxInitMutex(&gPVRSRVLock);
+	mutex_init(&gPVRSRVLock);
 
 #ifdef DEBUG
 	PVRDebugSetLevel(debug);
 #endif
 
-	if (LinuxMMInit() != PVRSRV_OK) {
-		error = -ENOMEM;
-		goto init_failed;
-	}
+	error = CreateProcEntries();
+	if (error < 0)
+		goto err1;
 
-	LinuxBridgeInit();
+	error = -ENOMEM;
+	if (LinuxMMInit() != PVRSRV_OK)
+		goto err2;
+
+	if (LinuxBridgeInit() != PVRSRV_OK)
+		goto err3;
 
 	PVRMMapInit();
 
-	error = platform_driver_register(&powervr_driver);
-	if (error != 0) {
-		PVR_DPF(PVR_DBG_ERROR, "PVRCore_Init: "
-			"unable to register platform driver (%d)", error);
+	error = platform_driver_register(&pvr_driver);
+	if (error < 0)
+		goto err4;
 
-		goto init_failed;
-	}
-
-	powervr_device.dev.devt = MKDEV(AssignedMajorNumber, 0);
-
-	error = platform_device_register(&powervr_device);
-	if (error != 0) {
-		platform_driver_unregister(&powervr_driver);
-
-		PVR_DPF(PVR_DBG_ERROR, "PVRCore_Init: "
-			"unable to register platform device (%d)", error);
-
-		goto init_failed;
-	}
-
+	error = platform_device_register(&pvr_device);
+	if (error)
+		goto err5;
 
 	return 0;
 
-init_failed:
-
+err5:
+	platform_driver_unregister(&pvr_driver);
+err4:
 	PVRMMapCleanup();
+	LinuxBridgeDeInit();
+err3:
 	LinuxMMCleanup();
+err2:
 	RemoveProcEntries();
-	unregister_chrdev(AssignedMajorNumber, DRVNAME);
+err1:
+	pr_err("%s: failed (%d)\n", __func__, error);
 
 	return error;
-
 }
 
-static void __exit PVRCore_Cleanup(void)
+static void __exit pvr_cleanup(void)
 {
-	struct SYS_DATA *psSysData;
+	struct SYS_DATA *sysdata;
 
-	PVR_TRACE("PVRCore_Cleanup");
+	PVR_TRACE("pvr_cleanup");
 
-	SysAcquireData(&psSysData);
+	SysAcquireData(&sysdata);
 
-	unregister_chrdev(AssignedMajorNumber, DRVNAME);
-
-	platform_device_unregister(&powervr_device);
-	platform_driver_unregister(&powervr_driver);
+	platform_device_unregister(&pvr_device);
+	platform_driver_unregister(&pvr_driver);
 
 	PVRMMapCleanup();
 	LinuxMMCleanup();
 	LinuxBridgeDeInit();
 	RemoveProcEntries();
 
-	PVR_TRACE("PVRCore_Cleanup: unloading");
+	PVR_TRACE("pvr_cleanup: unloading");
+
+	pvr_dbg_cleanup();
 }
 
-module_init(PVRCore_Init);
-module_exit(PVRCore_Cleanup);
+module_init(pvr_init);
+module_exit(pvr_cleanup);
+
+MODULE_SUPPORTED_DEVICE(DRVNAME);
+MODULE_ALIAS("platform:" DRVNAME);
+

@@ -24,14 +24,15 @@
  *
  ******************************************************************************/
 #include "services_headers.h"
+#include "pdump_km.h"
 #include <linux/kernel.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
 
-static IMG_BOOL gbInitServerRunning = IMG_FALSE;
-static IMG_BOOL gbInitServerRan = IMG_FALSE;
-static IMG_BOOL gbInitSuccessful = IMG_FALSE;
+static IMG_BOOL gbInitServerRunning;
+static IMG_BOOL gbInitServerRan;
+static IMG_BOOL gbInitSuccessful;
 static DEFINE_MUTEX(hPowerAndFreqLock);
 static DECLARE_WAIT_QUEUE_HEAD(hDvfsWq);
 static IMG_BOOL gbDvfsActive;
@@ -149,17 +150,16 @@ static enum PVRSRV_ERROR PVRSRVDevicePrePowerStateKM(IMG_BOOL bAllDevices,
 
 	psPowerDevice = psSysData->psPowerDeviceList;
 	while (psPowerDevice) {
-		if (bAllDevices
-		    || (ui32DeviceIndex == psPowerDevice->ui32DeviceIndex)) {
+		if (bAllDevices ||
+		    (ui32DeviceIndex == psPowerDevice->ui32DeviceIndex)) {
 			eNewDevicePowerState =
-			    (eNewPowerState ==
-			     PVRSRV_POWER_Unspecified) ? psPowerDevice->
-			    eDefaultPowerState : eNewPowerState;
+			    (eNewPowerState == PVRSRV_POWER_Unspecified) ?
+					psPowerDevice->eDefaultPowerState :
+					eNewPowerState;
 
 			if (psPowerDevice->eCurrentPowerState !=
 			    eNewDevicePowerState) {
 				if (psPowerDevice->pfnPrePower != NULL) {
-
 					eError =
 					    psPowerDevice->
 					    pfnPrePower(psPowerDevice->
@@ -168,18 +168,17 @@ static enum PVRSRV_ERROR PVRSRVDevicePrePowerStateKM(IMG_BOOL bAllDevices,
 							psPowerDevice->
 							eCurrentPowerState);
 					if (eError != PVRSRV_OK) {
-						pr_err("pfnPrePower failed "
-							"(%u)\n", eError);
+						pr_err
+						   ("pfnPrePower failed (%u)\n",
+						     eError);
 						return eError;
 					}
 				}
 
-				eError =
-				    SysDevicePrePowerState(psPowerDevice->
-							   ui32DeviceIndex,
-							   eNewDevicePowerState,
-							   psPowerDevice->
-							   eCurrentPowerState);
+				eError = SysDevicePrePowerState(
+					     psPowerDevice->ui32DeviceIndex,
+					     eNewDevicePowerState,
+					     psPowerDevice->eCurrentPowerState);
 				if (eError != PVRSRV_OK) {
 					pr_err("SysDevicePrePowerState failed "
 						"(%u)\n", eError);
@@ -217,14 +216,13 @@ static enum PVRSRV_ERROR PVRSRVDevicePostPowerStateKM(IMG_BOOL bAllDevices,
 
 			if (psPowerDevice->eCurrentPowerState !=
 			    eNewDevicePowerState) {
-
 				eError = SysDevicePostPowerState(
 					    psPowerDevice->ui32DeviceIndex,
 					    eNewDevicePowerState,
 					    psPowerDevice->eCurrentPowerState);
 				if (eError != PVRSRV_OK) {
-					pr_err("SysDevicePostPowerState failed "
-						"(%u)\n", eError);
+					pr_err("SysDevicePostPowerState "
+						"failed (%u)\n", eError);
 					return eError;
 				}
 
@@ -237,9 +235,9 @@ static enum PVRSRV_ERROR PVRSRVDevicePostPowerStateKM(IMG_BOOL bAllDevices,
 							 psPowerDevice->
 							 eCurrentPowerState);
 					if (eError != PVRSRV_OK) {
-						pr_err(
-						   "pfnPostPower failed (%u)\n",
-						    eError);
+						pr_err
+						    ("pfnPostPower failed "
+						     "(%u)\n", eError);
 						return eError;
 					}
 				}
@@ -269,23 +267,44 @@ enum PVRSRV_ERROR PVRSRVSetDevicePowerStateKM(u32 ui32DeviceIndex,
 	eError = PVRSRVPowerLock(ui32CallerID, IMG_FALSE);
 	if (eError != PVRSRV_OK)
 		return eError;
+#if defined(PDUMP)
+	if (eNewPowerState == PVRSRV_POWER_Unspecified) {
+		eError =
+		    PVRSRVDevicePrePowerStateKM(IMG_FALSE, ui32DeviceIndex,
+							PVRSRV_POWER_STATE_D0);
+		if (eError != PVRSRV_OK)
+			goto Exit;
+		eError =
+		    PVRSRVDevicePostPowerStateKM(IMG_FALSE, ui32DeviceIndex,
+							 PVRSRV_POWER_STATE_D0);
+		if (eError != PVRSRV_OK)
+			goto Exit;
 
-	eError =
-	    PVRSRVDevicePrePowerStateKM(IMG_FALSE, ui32DeviceIndex,
-					eNewPowerState);
-	if (eError != PVRSRV_OK)
+		PDUMPSUSPEND();
+	}
+#endif
+
+	eError = PVRSRVDevicePrePowerStateKM(IMG_FALSE, ui32DeviceIndex,
+						eNewPowerState);
+	if (eError != PVRSRV_OK) {
+		if (eNewPowerState == PVRSRV_POWER_Unspecified)
+			PDUMPRESUME();
 		goto Exit;
+	}
 
-	eError =
-	    PVRSRVDevicePostPowerStateKM(IMG_FALSE, ui32DeviceIndex,
+	eError = PVRSRVDevicePostPowerStateKM(IMG_FALSE, ui32DeviceIndex,
 					 eNewPowerState);
+
+	if (eNewPowerState == PVRSRV_POWER_Unspecified)
+		PDUMPRESUME();
 
 Exit:
 
-	if (eError != PVRSRV_OK)
+	if (eError != PVRSRV_OK) {
 		PVR_DPF(PVR_DBG_ERROR, "PVRSRVSetDevicePowerStateKM : "
-			 "Transition to %d FAILED 0x%x",
+					"Transition to %d FAILED 0x%x",
 			 eNewPowerState, eError);
+	}
 
 	if (!bRetainMutex || (eError != PVRSRV_OK))
 		PVRSRVPowerUnlock(ui32CallerID);
@@ -296,7 +315,7 @@ Exit:
 enum PVRSRV_ERROR PVRSRVSystemPrePowerStateKM(
 		enum PVR_POWER_STATE eNewPowerState)
 {
-	enum PVRSRV_ERROR eError = PVRSRV_OK;
+	enum PVRSRV_ERROR eError;
 	struct SYS_DATA *psSysData;
 	enum PVR_POWER_STATE eNewDevicePowerState;
 
@@ -311,20 +330,17 @@ enum PVRSRV_ERROR PVRSRVSystemPrePowerStateKM(
 	if (_IsSystemStatePowered(eNewPowerState) !=
 	    _IsSystemStatePowered(psSysData->eCurrentPowerState)) {
 		if (_IsSystemStatePowered(eNewPowerState))
-
 			eNewDevicePowerState = PVRSRV_POWER_Unspecified;
 		else
 			eNewDevicePowerState = PVRSRV_POWER_STATE_D3;
 
-		eError =
-		    PVRSRVDevicePrePowerStateKM(IMG_TRUE, 0,
+		eError = PVRSRVDevicePrePowerStateKM(IMG_TRUE, 0,
 						eNewDevicePowerState);
 		if (eError != PVRSRV_OK)
 			goto ErrorExit;
 	}
 
 	if (eNewPowerState != psSysData->eCurrentPowerState) {
-
 		eError = SysSystemPrePowerState(eNewPowerState);
 		if (eError != PVRSRV_OK)
 			goto ErrorExit;
@@ -335,7 +351,7 @@ enum PVRSRV_ERROR PVRSRVSystemPrePowerStateKM(
 ErrorExit:
 
 	PVR_DPF(PVR_DBG_ERROR, "PVRSRVSystemPrePowerStateKM: "
-		 "Transition from %d to %d FAILED 0x%x",
+				"Transition from %d to %d FAILED 0x%x",
 		 psSysData->eCurrentPowerState, eNewPowerState, eError);
 
 	psSysData->eFailedPowerState = eNewPowerState;
@@ -348,7 +364,7 @@ ErrorExit:
 enum PVRSRV_ERROR PVRSRVSystemPostPowerStateKM(
 		enum PVR_POWER_STATE eNewPowerState)
 {
-	enum PVRSRV_ERROR eError = PVRSRV_OK;
+	enum PVRSRV_ERROR eError;
 	struct SYS_DATA *psSysData;
 	enum PVR_POWER_STATE eNewDevicePowerState;
 
@@ -357,7 +373,6 @@ enum PVRSRV_ERROR PVRSRVSystemPostPowerStateKM(
 		goto Exit;
 
 	if (eNewPowerState != psSysData->eCurrentPowerState) {
-
 		eError = SysSystemPostPowerState(eNewPowerState);
 		if (eError != PVRSRV_OK)
 			goto Exit;
@@ -366,7 +381,6 @@ enum PVRSRV_ERROR PVRSRVSystemPostPowerStateKM(
 	if (_IsSystemStatePowered(eNewPowerState) !=
 	    _IsSystemStatePowered(psSysData->eCurrentPowerState)) {
 		if (_IsSystemStatePowered(eNewPowerState))
-
 			eNewDevicePowerState = PVRSRV_POWER_Unspecified;
 		else
 			eNewDevicePowerState = PVRSRV_POWER_STATE_D3;
@@ -379,7 +393,7 @@ enum PVRSRV_ERROR PVRSRVSystemPostPowerStateKM(
 	}
 
 	PVR_DPF(PVR_DBG_WARNING, "PVRSRVSystemPostPowerStateKM: "
-		 "System Power Transition from %d to %d OK",
+				  "System Power Transition from %d to %d OK",
 		 psSysData->eCurrentPowerState, eNewPowerState);
 
 	psSysData->eCurrentPowerState = eNewPowerState;
@@ -390,7 +404,6 @@ Exit:
 
 	if (_IsSystemStatePowered(eNewPowerState) &&
 	    PVRSRVGetInitServerState(PVRSRV_INIT_SERVER_SUCCESSFUL))
-
 		PVRSRVCommandCompleteCallbacks();
 
 	return eError;
@@ -419,8 +432,8 @@ enum PVRSRV_ERROR PVRSRVSetPowerStateKM(enum PVR_POWER_STATE eNewPowerState)
 
 ErrorExit:
 
-	PVR_DPF(PVR_DBG_ERROR,
-		 "PVRSRVSetPowerStateKM: Transition from %d to %d FAILED 0x%x",
+	PVR_DPF(PVR_DBG_ERROR, "PVRSRVSetPowerStateKM: "
+				"Transition from %d to %d FAILED 0x%x",
 		 psSysData->eCurrentPowerState, eNewPowerState, eError);
 
 	psSysData->eFailedPowerState = eNewPowerState;
@@ -429,16 +442,16 @@ ErrorExit:
 }
 
 enum PVRSRV_ERROR PVRSRVRegisterPowerDevice(u32 ui32DeviceIndex,
-       enum PVRSRV_ERROR (*pfnPrePower)(void *, enum PVR_POWER_STATE,
-				   enum PVR_POWER_STATE),
-       enum PVRSRV_ERROR (*pfnPostPower)(void *, enum PVR_POWER_STATE,
-				   enum PVR_POWER_STATE),
-       enum PVRSRV_ERROR (*pfnPreClockSpeedChange)(void *, IMG_BOOL,
-				   enum PVR_POWER_STATE),
-       enum PVRSRV_ERROR (*pfnPostClockSpeedChange)(void *, IMG_BOOL,
-				   enum PVR_POWER_STATE),
-       void *hDevCookie, enum PVR_POWER_STATE eCurrentPowerState,
-       enum PVR_POWER_STATE eDefaultPowerState)
+	enum PVRSRV_ERROR (*pfnPrePower)(void *, enum PVR_POWER_STATE,
+					 enum PVR_POWER_STATE),
+	enum PVRSRV_ERROR (*pfnPostPower)(void *, enum PVR_POWER_STATE,
+					  enum PVR_POWER_STATE),
+	enum PVRSRV_ERROR (*pfnPreClockSpeedChange)(void *, IMG_BOOL,
+						    enum PVR_POWER_STATE),
+	enum PVRSRV_ERROR (*pfnPostClockSpeedChange)(void *, IMG_BOOL,
+						     enum PVR_POWER_STATE),
+	void *hDevCookie, enum PVR_POWER_STATE eCurrentPowerState,
+	enum PVR_POWER_STATE eDefaultPowerState)
 {
 	enum PVRSRV_ERROR eError;
 	struct SYS_DATA *psSysData;
@@ -455,8 +468,8 @@ enum PVRSRV_ERROR PVRSRVRegisterPowerDevice(u32 ui32DeviceIndex,
 			    sizeof(struct PVRSRV_POWER_DEV),
 			    (void **) &psPowerDevice, NULL);
 	if (eError != PVRSRV_OK) {
-		PVR_DPF(PVR_DBG_ERROR,
-			 "PVRSRVRegisterPowerDevice: alloc failed");
+		PVR_DPF(PVR_DBG_ERROR, "PVRSRVRegisterPowerDevice: "
+				"Failed to alloc struct PVRSRV_POWER_DEV");
 		return eError;
 	}
 
@@ -490,24 +503,19 @@ enum PVRSRV_ERROR PVRSRVRemovePowerDevice(u32 ui32DeviceIndex)
 
 	while (psCurrent)
 		if (psCurrent->ui32DeviceIndex == ui32DeviceIndex) {
-
 			if (psPrevious)
 				psPrevious->psNext = psCurrent->psNext;
 			else
-
 				psSysData->psPowerDeviceList =
 				    psCurrent->psNext;
-
 			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
 				  sizeof(struct PVRSRV_POWER_DEV), psCurrent,
 				  NULL);
-
 			break;
 		} else {
 			psPrevious = psCurrent;
 			psCurrent = psCurrent->psNext;
 		}
-
 	return PVRSRV_OK;
 }
 
@@ -521,13 +529,16 @@ IMG_BOOL PVRSRVIsDevicePowered(u32 ui32DeviceIndex)
 	if (eError != PVRSRV_OK)
 		return IMG_FALSE;
 
+	if (OSIsResourceLocked(&psSysData->sPowerStateChangeResource,
+								KERNEL_ID) ||
+	    OSIsResourceLocked(&psSysData->sPowerStateChangeResource, ISR_ID))
+		return IMG_FALSE;
+
 	psPowerDevice = psSysData->psPowerDeviceList;
 	while (psPowerDevice) {
 		if (psPowerDevice->ui32DeviceIndex == ui32DeviceIndex)
-			return (IMG_BOOL)
-				(psPowerDevice->eCurrentPowerState ==
+			return (IMG_BOOL)(psPowerDevice->eCurrentPowerState ==
 						PVRSRV_POWER_STATE_D0);
-
 		psPowerDevice = psPowerDevice->psNext;
 	}
 
@@ -544,7 +555,9 @@ enum PVRSRV_ERROR PVRSRVDevicePreClockSpeedChange(u32 ui32DeviceIndex,
 
 	PVR_UNREFERENCED_PARAMETER(pvInfo);
 
-	SysAcquireData(&psSysData);
+	eError = SysAcquireData(&psSysData);
+	if (eError != PVRSRV_OK)
+		return eError;
 
 	psPowerDevice = psSysData->psPowerDeviceList;
 	while (psPowerDevice) {
@@ -564,25 +577,30 @@ enum PVRSRV_ERROR PVRSRVDevicePreClockSpeedChange(u32 ui32DeviceIndex,
 					    "PVRSRVDevicePreClockSpeedChange : "
 					    "Device %lu failed, error:0x%lx",
 						 ui32DeviceIndex, eError);
+					break;
 				}
 			}
-
 		psPowerDevice = psPowerDevice->psNext;
 	}
+
+	if (bIdleDevice && eError != PVRSRV_OK)
+		PVRSRVPowerUnlock(KERNEL_ID);
+
 	return eError;
 }
 
-void PVRSRVDevicePostClockSpeedChange(u32 ui32DeviceIndex,
-					  IMG_BOOL bIdleDevice,
-					  void *pvInfo)
+void PVRSRVDevicePostClockSpeedChange(u32 ui32DeviceIndex, IMG_BOOL bIdleDevice,
+				      void *pvInfo)
 {
-	enum PVRSRV_ERROR eError = PVRSRV_OK;
+	enum PVRSRV_ERROR eError;
 	struct SYS_DATA *psSysData;
 	struct PVRSRV_POWER_DEV *psPowerDevice;
 
 	PVR_UNREFERENCED_PARAMETER(pvInfo);
 
-	SysAcquireData(&psSysData);
+	eError = SysAcquireData(&psSysData);
+	if (eError != PVRSRV_OK)
+		return;
 
 	psPowerDevice = psSysData->psPowerDeviceList;
 	while (psPowerDevice) {
@@ -597,14 +615,14 @@ void PVRSRVDevicePostClockSpeedChange(u32 ui32DeviceIndex,
 							    eCurrentPowerState);
 				if (eError != PVRSRV_OK) {
 					pr_err
-					   ("pfnPostClockSpeedChange failed\n");
+					    ("pfnPostClockSpeedChange "
+					     "failed\n");
 					PVR_DPF(PVR_DBG_ERROR,
 					  "PVRSRVDevicePostClockSpeedChange : "
 					  "Device %lu failed, error:0x%lx",
 						 ui32DeviceIndex, eError);
 				}
 			}
-
 		psPowerDevice = psPowerDevice->psNext;
 	}
 }

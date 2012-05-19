@@ -41,7 +41,14 @@ int CreateProcReadEntry(const char *name,
 			off_t (handler)(char *, size_t, off_t));
 int CreateProcEntry(const char *name, read_proc_t rhandler,
 		    write_proc_t whandler, void *data);
+
+int CreatePerProcessProcEntry(const char *name, read_proc_t rhandler,
+			      write_proc_t whandler, void *data);
+
 void RemoveProcEntry(const char *name);
+
+void RemovePerProcessProcEntry(const char *name);
+
 void RemoveProcEntries(void);
 
 #endif

@@ -32,7 +32,7 @@
 
 #include <linux/dma-mapping.h>
 
-#include "pvr_bridge_km.h"
+#include "kernelbuffer.h"
 #include "bufferclass_example.h"
 #include "bufferclass_example_linux.h"
 #include "bufferclass_example_private.h"
@@ -59,9 +59,9 @@ void BCFreeKernelMem(void *pvMem)
 	kfree(pvMem);
 }
 
-enum PVRSRV_ERROR BCAllocContigMemory(u32 ui32Size, void **unref__ phMemHandle,
-				 void **pLinAddr,
-				 struct IMG_CPU_PHYADDR *pPhysAddr)
+enum PVRSRV_ERROR BCAllocContigMemory(u32 ui32Size, void *unref__ * phMemHandle,
+				      void __iomem **pLinAddr,
+				      struct IMG_CPU_PHYADDR *pPhysAddr)
 {
 	dma_addr_t dma;
 	void *pvLinAddr;
@@ -72,16 +72,16 @@ enum PVRSRV_ERROR BCAllocContigMemory(u32 ui32Size, void **unref__ phMemHandle,
 		return PVRSRV_ERROR_OUT_OF_MEMORY;
 
 	pPhysAddr->uiAddr = dma;
-	*pLinAddr = pvLinAddr;
+	*pLinAddr = (void __force __iomem *)pvLinAddr;
 
 	return PVRSRV_OK;
 }
 
 void BCFreeContigMemory(u32 ui32Size, void *unref__ hMemHandle,
-			void *LinAddr, struct IMG_CPU_PHYADDR PhysAddr)
+			void __iomem *LinAddr, struct IMG_CPU_PHYADDR PhysAddr)
 {
-	dma_free_coherent(NULL, ui32Size, LinAddr,
-			  (dma_addr_t) PhysAddr.uiAddr);
+	dma_free_coherent(NULL, ui32Size, (void __force *)LinAddr,
+			  (dma_addr_t)PhysAddr.uiAddr);
 }
 
 struct IMG_SYS_PHYADDR CpuPAddrToSysPAddrBC(struct IMG_CPU_PHYADDR cpu_paddr)
@@ -103,6 +103,7 @@ struct IMG_CPU_PHYADDR SysPAddrToCpuPAddrBC(struct IMG_SYS_PHYADDR sys_paddr)
 
 enum PVRSRV_ERROR BCOpenPVRServices(void **phPVRServices)
 {
+
 	*phPVRServices = NULL;
 	return PVRSRV_OK;
 }
@@ -124,13 +125,13 @@ enum PVRSRV_ERROR BCGetLibFuncAddr(void *unref__ hExtDrv, char *szFunctionName,
 	return PVRSRV_OK;
 }
 
-int BC_Example_Bridge(struct inode *inode, struct file *file, unsigned int cmd,
-		      unsigned long arg)
+static int BC_Example_Bridge(struct inode *inode, struct file *file,
+			     unsigned int cmd, unsigned long arg)
 {
 	int err = -EFAULT;
 	int command = _IOC_NR(cmd);
-	struct BC_Example_ioctl_package *psBridge =
-					(struct BC_Example_ioctl_package *)arg;
+	struct BC_Example_ioctl_package __user *psBridge =
+			(struct BC_Example_ioctl_package __user *)arg;
 
 	if (!access_ok
 	    (VERIFY_WRITE, psBridge, sizeof(struct BC_Example_ioctl_package)))
@@ -138,18 +139,13 @@ int BC_Example_Bridge(struct inode *inode, struct file *file, unsigned int cmd,
 
 	switch (command) {
 	case _IOC_NR(BC_Example_ioctl_fill_buffer):
-		{
-			if (FillBuffer(psBridge->inputparam) == -1)
-				return err;
-			break;
-		}
+		if (FillBuffer(psBridge->inputparam) == -1)
+			return err;
+		break;
 	case _IOC_NR(BC_Example_ioctl_get_buffer_count):
-		{
-			if (GetBufferCount(&psBridge->outputparam) == -1)
-				return err;
-
-			break;
-		}
+		if (GetBufferCount(&psBridge->outputparam) == -1)
+			return err;
+		break;
 	default:
 		return err;
 	}
@@ -157,14 +153,12 @@ int BC_Example_Bridge(struct inode *inode, struct file *file, unsigned int cmd,
 	return 0;
 }
 
-const static struct file_operations bufferclass_example_fops = {
-	.ioctl	= BC_Example_Bridge,
+static const struct file_operations bufferclass_example_fops = {
+	.ioctl = BC_Example_Bridge,
 };
 
 static int __init BC_Example_ModInit(void)
 {
-
-
 	AssignedMajorNumber =
 	    register_chrdev(0, DEVNAME, &bufferclass_example_fops);
 

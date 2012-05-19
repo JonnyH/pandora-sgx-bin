@@ -27,16 +27,15 @@
 #if !defined(__SYSINFO_H__)
 #define __SYSINFO_H__
 
-#define MAX_HW_TIME_US				(500000)
-#define WAIT_TRY_COUNT				(10000)
+#define MAX_HW_TIME_US				500000
+#define WAIT_TRY_COUNT				10000
 
 enum SYS_DEVICE_TYPE {
-	SYS_DEVICE_SGX = 0,
-
-	SYS_DEVICE_FORCE_I16 = 0x7fff
+	SYS_DEVICE_SGX				= 0,
+	SYS_DEVICE_FORCE_I16			= 0x7fff
 };
 
-#define SYS_DEVICE_COUNT 3
+#define SYS_DEVICE_COUNT			3
 
 #define PRM_REG32(offset)			(offset)
 #define CM_REG32(offset)			(offset)
@@ -71,7 +70,7 @@ enum SYS_DEVICE_TYPE {
 #define RM_RSTST_SGX_GLOBALWARM_RST		0x00000002
 #define RM_RSTST_SGX_GLOBALCOLD_RST		0x00000001
 
-#define PM_WKDEP_SGX				PRM_REG32(0xBC8)
+#define PM_WKDEP_SGXi				PRM_REG32(0xBC8)
 #define PM_WKDEP_SGX_EN_WAKEUP			0x00000010
 #define PM_WKDEP_SGX_EN_MPU			0x00000002
 #define PM_WKDEP_SGX_EN_CORE			0x00000001

@@ -24,14 +24,16 @@
  *
  ******************************************************************************/
 
-#if defined(SGX530)
-#define SGX_CORE_FRIENDLY_NAME		"SGX530"
-#define SGX_CORE_ID			SGX_CORE_ID_530
-#define SGX_FEATURE_ADDRESS_SPACE_SIZE	28
-#define SGX_FEATURE_AUTOCLOCKGATING
-#else
-#error Unsupported SGX core
+#ifndef SGX530
+#error unsupported SGX version
 #endif
+
+#define SGX_CORE_FRIENDLY_NAME			"SGX530"
+#define SGX_CORE_ID				SGX_CORE_ID_530
+#define SGX_FEATURE_ADDRESS_SPACE_SIZE		28
+#define SGX_FEATURE_AUTOCLOCKGATING
+#define SGX_FEATURE_MP_CORE_COUNT		1
+#define SUPPORT_SGX_PRIORITY_SCHEDULING
 
 #include "img_types.h"
 

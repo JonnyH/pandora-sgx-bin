@@ -33,7 +33,7 @@
 #include "pvr_bridge_km.h"
 #include "sgx_bridge_km.h"
 #include "pdump_km.h"
-
+#include "sgxutils.h"
 
 static struct RESMAN_ITEM *psResItemCreateSharedPB;
 static struct PVRSRV_PER_PROCESS_DATA *psPerProcCreateSharedPB;
@@ -56,39 +56,39 @@ enum PVRSRV_ERROR SGXFindSharedPBDescKM(
 	struct PVRSRV_STUB_PBDESC *psStubPBDesc;
 	struct PVRSRV_KERNEL_MEM_INFO **ppsSharedPBDescSubKernelMemInfos = NULL;
 	struct PVRSRV_SGXDEV_INFO *psSGXDevInfo;
-	enum PVRSRV_ERROR eError = PVRSRV_ERROR_GENERIC;
+	enum PVRSRV_ERROR eError;
 
 	psSGXDevInfo = ((struct PVRSRV_DEVICE_NODE *)hDevCookie)->pvDevice;
 
 	psStubPBDesc = psSGXDevInfo->psStubPBDescListKM;
 	if (psStubPBDesc != NULL) {
-		if (psStubPBDesc->ui32TotalPBSize != ui32TotalPBSize)
+		u32 i;
+		struct RESMAN_ITEM *psResItem;
+
+		if (psStubPBDesc->ui32TotalPBSize != ui32TotalPBSize) {
 			PVR_DPF(PVR_DBG_WARNING, "SGXFindSharedPBDescKM: "
 				"Shared PB requested with different size "
 				"(0x%x) from existing shared PB (0x%x) - "
 				"requested size ignored",
 				 ui32TotalPBSize,
 				 psStubPBDesc->ui32TotalPBSize);
-		{
-			u32 i;
-			struct RESMAN_ITEM *psResItem;
+		}
 
-			if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
-				       sizeof(struct PVRSRV_KERNEL_MEM_INFO *)*
-				       psStubPBDesc->ui32SubKernelMemInfosCount,
-				       (void **) &
-				       ppsSharedPBDescSubKernelMemInfos,
-				       NULL) != PVRSRV_OK) {
-				PVR_DPF(PVR_DBG_ERROR, "SGXFindSharedPBDescKM:"
-						" OSAllocMem failed");
+		if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
+			       sizeof(struct PVRSRV_KERNEL_MEM_INFO *) *
+				      psStubPBDesc->ui32SubKernelMemInfosCount,
+			       (void **) &ppsSharedPBDescSubKernelMemInfos,
+			       NULL) != PVRSRV_OK) {
+			PVR_DPF(PVR_DBG_ERROR,
+				 "SGXFindSharedPBDescKM: OSAllocMem failed");
+
 				eError = PVRSRV_ERROR_OUT_OF_MEMORY;
 				goto ExitNotFound;
 			}
 
 			psResItem = ResManRegisterRes(psPerProc->hResManContext,
 					      RESMAN_TYPE_SHARED_PB_DESC,
-					      psStubPBDesc,
-					      0,
+					      psStubPBDesc, 0,
 					      &SGXCleanupSharedPBDescCallback);
 
 			if (psResItem == NULL) {
@@ -97,9 +97,8 @@ enum PVRSRV_ERROR SGXFindSharedPBDescKM(
 				  psStubPBDesc->ui32SubKernelMemInfosCount,
 				  ppsSharedPBDescSubKernelMemInfos, NULL);
 
-				PVR_DPF(PVR_DBG_ERROR, "SGXFindSharedPBDescKM:"
-					" ResManRegisterRes failed");
-
+			PVR_DPF(PVR_DBG_ERROR, "SGXFindSharedPBDescKM: "
+						"ResManRegisterRes failed");
 				eError = PVRSRV_ERROR_GENERIC;
 				goto ExitNotFound;
 			}
@@ -119,28 +118,28 @@ enum PVRSRV_ERROR SGXFindSharedPBDescKM(
 
 			for (i = 0;
 			     i < psStubPBDesc->ui32SubKernelMemInfosCount;
-			     i++)
+			     i++) {
 				ppsSharedPBDescSubKernelMemInfos[i] =
 				    psStubPBDesc->ppsSubKernelMemInfos[i];
+			}
 
 			psStubPBDesc->ui32RefCount++;
 			*phSharedPBDesc = (void *) psResItem;
 			return PVRSRV_OK;
 		}
-	}
 
-	eError = PVRSRV_OK;
-	if (bLockOnFailure) {
-		if (psResItemCreateSharedPB == NULL) {
-			psResItemCreateSharedPB =
-			    ResManRegisterRes(psPerProc->hResManContext,
+		eError = PVRSRV_OK;
+		if (bLockOnFailure) {
+			if (psResItemCreateSharedPB == NULL) {
+				psResItemCreateSharedPB =
+				    ResManRegisterRes(psPerProc->hResManContext,
 				     RESMAN_TYPE_SHARED_PB_DESC_CREATE_LOCK,
 				     psPerProc, 0,
 				     &SGXCleanupSharedPBDescCreateLockCallback);
 
 			if (psResItemCreateSharedPB == NULL) {
-				PVR_DPF(PVR_DBG_ERROR, "SGXFindSharedPBDescKM:"
-					" ResManRegisterRes failed");
+				PVR_DPF(PVR_DBG_ERROR, "SGXFindSharedPBDescKM: "
+						"ResManRegisterRes failed");
 
 				eError = PVRSRV_ERROR_GENERIC;
 				goto ExitNotFound;
@@ -157,16 +156,16 @@ ExitNotFound:
 	return eError;
 }
 
-static enum PVRSRV_ERROR
-SGXCleanupSharedPBDescKM(struct PVRSRV_STUB_PBDESC *psStubPBDescIn)
+static enum PVRSRV_ERROR SGXCleanupSharedPBDescKM(
+				struct PVRSRV_STUB_PBDESC *psStubPBDescIn)
 {
 	struct PVRSRV_STUB_PBDESC **ppsStubPBDesc;
 	u32 i;
+	struct PVRSRV_DEVICE_NODE *psDeviceNode;
 	struct PVRSRV_SGXDEV_INFO *psSGXDevInfo;
 
-	psSGXDevInfo = (struct PVRSRV_SGXDEV_INFO *)
-		((struct PVRSRV_DEVICE_NODE *)psStubPBDescIn->hDevCookie)->
-								pvDevice;
+	psDeviceNode = (struct PVRSRV_DEVICE_NODE *)psStubPBDescIn->hDevCookie;
+	psSGXDevInfo = (struct PVRSRV_SGXDEV_INFO *)psDeviceNode->pvDevice;
 
 	for (ppsStubPBDesc = (struct PVRSRV_STUB_PBDESC **)
 			&psSGXDevInfo->psStubPBDescListKM;
@@ -179,31 +178,6 @@ SGXCleanupSharedPBDescKM(struct PVRSRV_STUB_PBDESC *psStubPBDescIn)
 			PVR_ASSERT((s32) psStubPBDesc->ui32RefCount >= 0);
 
 			if (psStubPBDesc->ui32RefCount == 0) {
-				struct PVRSRV_SGX_HOST_CTL *psSGXHostCtl =
-					(struct PVRSRV_SGX_HOST_CTL *)
-						psSGXDevInfo->psSGXHostCtl;
-#if defined(PDUMP)
-				void *hUniqueTag = MAKEUNIQUETAG(
-				       psSGXDevInfo->psKernelSGXHostCtlMemInfo);
-#endif
-				psSGXHostCtl->sTAHWPBDesc.uiAddr = 0;
-				psSGXHostCtl->s3DHWPBDesc.uiAddr = 0;
-
-				PDUMPCOMMENT("TA/3D CCB Control - "
-					     "Reset HW PBDesc records");
-				PDUMPMEM(NULL,
-					psSGXDevInfo->psKernelSGXHostCtlMemInfo,
-					offsetof(struct PVRSRV_SGX_HOST_CTL,
-							sTAHWPBDesc),
-					sizeof(struct IMG_DEV_VIRTADDR),
-					PDUMP_FLAGS_CONTINUOUS, hUniqueTag);
-				PDUMPMEM(NULL,
-					psSGXDevInfo->psKernelSGXHostCtlMemInfo,
-					offsetof(struct PVRSRV_SGX_HOST_CTL,
-							s3DHWPBDesc),
-					sizeof(struct IMG_DEV_VIRTADDR),
-					PDUMP_FLAGS_CONTINUOUS, hUniqueTag);
-
 				*ppsStubPBDesc = psStubPBDesc->psNext;
 
 				for (i = 0;
@@ -234,6 +208,8 @@ SGXCleanupSharedPBDescKM(struct PVRSRV_STUB_PBDESC *psStubPBDescIn)
 					     sizeof(struct PVRSRV_STUB_PBDESC),
 					     psStubPBDesc, NULL);
 
+				SGXCleanupRequest(psDeviceNode, NULL,
+				   PVRSRV_USSE_EDM_RESMAN_CLEANUP_SHAREDPBDESC);
 			}
 			return PVRSRV_OK;
 		}
@@ -259,13 +235,12 @@ static enum PVRSRV_ERROR SGXCleanupSharedPBDescCreateLockCallback(void *pvParam,
 #ifdef DEBUG
 	struct PVRSRV_PER_PROCESS_DATA *psPerProc =
 	    (struct PVRSRV_PER_PROCESS_DATA *)pvParam;
+	PVR_ASSERT(psPerProc == psPerProcCreateSharedPB);
 #else
 	PVR_UNREFERENCED_PARAMETER(pvParam);
 #endif
 
 	PVR_UNREFERENCED_PARAMETER(ui32Param);
-
-	PVR_ASSERT(psPerProc == psPerProcCreateSharedPB);
 
 	psPerProcCreateSharedPB = NULL;
 	psResItemCreateSharedPB = NULL;
@@ -278,6 +253,7 @@ enum PVRSRV_ERROR SGXUnrefSharedPBDescKM(void *hSharedPBDesc)
 	PVR_ASSERT(hSharedPBDesc != NULL);
 
 	ResManFreeResByPtr(hSharedPBDesc);
+
 	return PVRSRV_OK;
 }
 
@@ -313,7 +289,7 @@ enum PVRSRV_ERROR SGXAddSharedPBDescKM(
 
 	psStubPBDesc = psSGXDevInfo->psStubPBDescListKM;
 	if (psStubPBDesc != NULL) {
-		if (psStubPBDesc->ui32TotalPBSize != ui32TotalPBSize)
+		if (psStubPBDesc->ui32TotalPBSize != ui32TotalPBSize) {
 			PVR_DPF(PVR_DBG_WARNING, "SGXAddSharedPBDescKM: "
 				"Shared PB requested with different size "
 				"(0x%x) from existing shared PB (0x%x) - "
@@ -321,26 +297,25 @@ enum PVRSRV_ERROR SGXAddSharedPBDescKM(
 				 ui32TotalPBSize,
 				 psStubPBDesc->ui32TotalPBSize);
 
-		{
+		}
 
-			psResItem = ResManRegisterRes(psPerProc->hResManContext,
+		psResItem = ResManRegisterRes(psPerProc->hResManContext,
 					      RESMAN_TYPE_SHARED_PB_DESC,
 					      psStubPBDesc, 0,
 					      &SGXCleanupSharedPBDescCallback);
-			if (psResItem == NULL) {
-				PVR_DPF(PVR_DBG_ERROR,
+		if (psResItem == NULL) {
+			PVR_DPF(PVR_DBG_ERROR,
 					 "SGXAddSharedPBDescKM: "
 					 "Failed to register existing shared "
 					 "PBDesc with the resource manager");
-				goto NoAddKeepPB;
-			}
-
-			psStubPBDesc->ui32RefCount++;
-
-			*phSharedPBDesc = (void *) psResItem;
-			eRet = PVRSRV_OK;
 			goto NoAddKeepPB;
 		}
+
+		psStubPBDesc->ui32RefCount++;
+
+		*phSharedPBDesc = (void *) psResItem;
+		eRet = PVRSRV_OK;
+		goto NoAddKeepPB;
 	}
 
 	if (OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
@@ -390,8 +365,7 @@ enum PVRSRV_ERROR SGXAddSharedPBDescKM(
 		psStubPBDesc->ppsSubKernelMemInfos[i] =
 		    ppsSharedPBDescSubKernelMemInfos[i];
 		if (PVRSRVDissociateMemFromResmanKM
-		    (ppsSharedPBDescSubKernelMemInfos[i])
-		    != PVRSRV_OK) {
+		    (ppsSharedPBDescSubKernelMemInfos[i]) != PVRSRV_OK) {
 			PVR_DPF(PVR_DBG_ERROR, "SGXAddSharedPBDescKM: "
 				 "Failed to dissociate shared PBDesc "
 				 "from process");
@@ -420,11 +394,12 @@ enum PVRSRV_ERROR SGXAddSharedPBDescKM(
 
 NoAdd:
 	if (psStubPBDesc) {
-		if (psStubPBDesc->ppsSubKernelMemInfos)
+		if (psStubPBDesc->ppsSubKernelMemInfos) {
 			OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 				  sizeof(struct PVRSRV_KERNEL_MEM_INFO *) *
 					ui32SharedPBDescSubKernelMemInfosCount,
 				  psStubPBDesc->ppsSubKernelMemInfos, NULL);
+		}
 		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 			  sizeof(struct PVRSRV_STUB_PBDESC), psStubPBDesc,
 			  NULL);

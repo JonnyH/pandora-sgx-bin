@@ -28,32 +28,47 @@
 #define __MMAP_H__
 
 #include <linux/mm.h>
+#include <linux/list.h>
 
+#include "perproc.h"
 #include "mm.h"
 
 struct KV_OFFSET_STRUCT {
+	u32 ui32Mapped;
 	u32 ui32MMapOffset;
+	u32 ui32RealByteSize;
 	struct LinuxMemArea *psLinuxMemArea;
-	u32 ui32AllocFlags;
+	u32 ui32TID;
+	u32 ui32PID;
+	IMG_BOOL bOnMMapList;
+	u32 ui32RefCount;
+	u32 ui32UserVAddr;
 #if defined(DEBUG_LINUX_MMAP_AREAS)
-	pid_t pid;
 	const char *pszName;
-	u16 ui16Mapped;
-	u16 ui16Faults;
 #endif
-	struct KV_OFFSET_STRUCT *psNext;
+	struct list_head sMMapItem;
+	struct list_head sAreaItem;
 };
 
 void PVRMMapInit(void);
 void PVRMMapCleanup(void);
-enum PVRSRV_ERROR PVRMMapRegisterArea(const char *pszName,
-				struct LinuxMemArea *psLinuxMemArea,
-				u32 ui32AllocFlags);
+
+enum PVRSRV_ERROR PVRMMapRegisterArea(struct LinuxMemArea *psLinuxMemArea);
+
 enum PVRSRV_ERROR PVRMMapRemoveRegisteredArea(
-				struct LinuxMemArea *psLinuxMemArea);
-enum PVRSRV_ERROR PVRMMapKVIndexAddressToMMapData(void *pvKVIndexAddress,
-				u32 ui32Size, u32 *pui32MMapOffset,
-				u32 *pui32ByteOffset, u32 *pui32RealByteSize);
+			struct LinuxMemArea *psLinuxMemArea);
+
+enum PVRSRV_ERROR PVRMMapOSMemHandleToMMapData(
+			struct PVRSRV_PER_PROCESS_DATA *psPerProc,
+			void *hMHandle, u32 *pui32MMapOffset,
+			u32 *pui32ByteOffset, u32 *pui32RealByteSize,
+			u32 *pui32UserVAddr);
+
+enum PVRSRV_ERROR PVRMMapReleaseMMapData(
+			struct PVRSRV_PER_PROCESS_DATA *psPerProc,
+			void *hMHandle, IMG_BOOL *pbMUnmap,
+			u32 *pui32RealByteSize, u32 *pui32UserVAddr);
+
 int PVRMMap(struct file *pFile, struct vm_area_struct *ps_vma);
 
 #endif

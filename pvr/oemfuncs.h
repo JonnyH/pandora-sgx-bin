@@ -27,11 +27,10 @@
 #if !defined(__OEMFUNCS_H__)
 #define __OEMFUNCS_H__
 
-#include <linux/file.h>
+#include <linux/fs.h>
 
 struct PVRSRV_DC_OEM_JTABLE {
-	long (*pfnOEMBridgeDispatch)(struct file *file, unsigned int cmd,
-				     unsigned long arg);
+	long (*pfnOEMBridgeDispatch)(struct file *, unsigned, unsigned long);
 	void *pvDummy1;
 	void *pvDummy2;
 	void *pvDummy3;

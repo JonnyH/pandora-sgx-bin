@@ -24,10 +24,6 @@
  *
  ******************************************************************************/
 
-#ifndef AUTOCONF_INCLUDED
-#include <linux/config.h>
-#endif
-
 #include <linux/version.h>
 #include <linux/io.h>
 #include <asm/page.h>
@@ -55,6 +51,7 @@
 #include "env_data.h"
 #include "proc.h"
 #include "mutex.h"
+#include "lock.h"
 #include "event.h"
 
 struct PVRSRV_LINUX_EVENT_OBJECT_LIST {
@@ -66,8 +63,8 @@ struct PVRSRV_LINUX_EVENT_OBJECT_LIST {
 struct PVRSRV_LINUX_EVENT_OBJECT {
 	atomic_t sTimeStamp;
 	u32 ui32TimeStampPrevious;
-#ifdef DEBUG
-	unsigned int ui32Stats;
+#if defined(DEBUG)
+	unsigned ui32Stats;
 #endif
 	wait_queue_head_t sWait;
 	struct list_head sList;
@@ -84,7 +81,7 @@ enum PVRSRV_ERROR LinuxEventObjectListCreate(void **phEventObjectList)
 	     sizeof(struct PVRSRV_LINUX_EVENT_OBJECT_LIST),
 	     (void **) &psEvenObjectList, NULL) != PVRSRV_OK) {
 		PVR_DPF(PVR_DBG_ERROR, "LinuxEventObjectCreate: "
-			"failed to allocate memory for event list");
+				"failed to allocate memory for event list");
 		return PVRSRV_ERROR_OUT_OF_MEMORY;
 	}
 
@@ -99,14 +96,13 @@ enum PVRSRV_ERROR LinuxEventObjectListCreate(void **phEventObjectList)
 
 enum PVRSRV_ERROR LinuxEventObjectListDestroy(void *hEventObjectList)
 {
-
 	struct PVRSRV_LINUX_EVENT_OBJECT_LIST *psEvenObjectList =
 	    (struct PVRSRV_LINUX_EVENT_OBJECT_LIST *)hEventObjectList;
 
 	if (psEvenObjectList) {
 		if (!list_empty(&psEvenObjectList->sList)) {
-			PVR_DPF(PVR_DBG_ERROR, "LinuxEventObjectListDestroy: "
-				"Event List is not empty");
+			PVR_DPF(PVR_DBG_ERROR,
+			"LinuxEventObjectListDestroy: Event List is not empty");
 			return PVRSRV_ERROR_GENERIC;
 		}
 		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
@@ -123,12 +119,13 @@ enum PVRSRV_ERROR LinuxEventObjectDelete(void *hOSEventObjectList,
 		if (hOSEventObject) {
 			struct PVRSRV_LINUX_EVENT_OBJECT *psLinuxEventObject =
 			    (struct PVRSRV_LINUX_EVENT_OBJECT *)hOSEventObject;
-#ifdef DEBUG
-			PVR_DPF(PVR_DBG_MESSAGE, "LinuxEventObjectListDelete: "
-				 "Event object waits: %lu",
+#if defined(DEBUG)
+			PVR_DPF(PVR_DBG_MESSAGE,
+			"LinuxEventObjectListDelete: Event object waits: %lu",
 				 psLinuxEventObject->ui32Stats);
 #endif
 			ResManFreeResByPtr(psLinuxEventObject->hResItem);
+
 			return PVRSRV_OK;
 		}
 	return PVRSRV_ERROR_GENERIC;
@@ -142,11 +139,13 @@ static enum PVRSRV_ERROR LinuxEventObjectDeleteCallback(void *pvParam,
 	struct PVRSRV_LINUX_EVENT_OBJECT_LIST *psLinuxEventObjectList =
 	    psLinuxEventObject->psLinuxEventObjectList;
 
+	PVR_UNREFERENCED_PARAMETER(ui32Param);
+
 	write_lock_bh(&psLinuxEventObjectList->sLock);
 	list_del(&psLinuxEventObject->sList);
 	write_unlock_bh(&psLinuxEventObjectList->sLock);
 
-#ifdef DEBUG
+#if defined(DEBUG)
 	PVR_DPF(PVR_DBG_MESSAGE,
 		 "LinuxEventObjectDeleteCallback: Event object waits: %lu",
 		 psLinuxEventObject->ui32Stats);
@@ -170,8 +169,8 @@ enum PVRSRV_ERROR LinuxEventObjectAdd(void *hOSEventObjectList,
 
 	psPerProc = PVRSRVPerProcessData(ui32PID);
 	if (psPerProc == NULL) {
-		PVR_DPF(PVR_DBG_ERROR, "LinuxEventObjectAdd: "
-				"Couldn't find per-process data");
+		PVR_DPF(PVR_DBG_ERROR,
+			 "LinuxEventObjectAdd: Couldn't find per-process data");
 		return PVRSRV_ERROR_OUT_OF_MEMORY;
 	}
 
@@ -188,7 +187,7 @@ enum PVRSRV_ERROR LinuxEventObjectAdd(void *hOSEventObjectList,
 	atomic_set(&psLinuxEventObject->sTimeStamp, 0);
 	psLinuxEventObject->ui32TimeStampPrevious = 0;
 
-#ifdef DEBUG
+#if defined(DEBUG)
 	psLinuxEventObject->ui32Stats = 0;
 #endif
 	init_waitqueue_head(&psLinuxEventObject->sWait);
@@ -219,7 +218,8 @@ enum PVRSRV_ERROR LinuxEventObjectSignal(void *hOSEventObjectList)
 
 	list_for_each_safe(psListEntry, psListEntryTemp, psList) {
 
-		psLinuxEventObject = list_entry(psListEntry,
+		psLinuxEventObject =
+		    (struct PVRSRV_LINUX_EVENT_OBJECT *)list_entry(psListEntry,
 					struct PVRSRV_LINUX_EVENT_OBJECT,
 					sList);
 
@@ -233,6 +233,7 @@ enum PVRSRV_ERROR LinuxEventObjectSignal(void *hOSEventObjectList)
 
 enum PVRSRV_ERROR LinuxEventObjectWait(void *hOSEventObject, u32 ui32MSTimeout)
 {
+	u32 ui32TimeStamp;
 	DEFINE_WAIT(sWait);
 
 	struct PVRSRV_LINUX_EVENT_OBJECT *psLinuxEventObject =
@@ -243,23 +244,26 @@ enum PVRSRV_ERROR LinuxEventObjectWait(void *hOSEventObject, u32 ui32MSTimeout)
 	do {
 		prepare_to_wait(&psLinuxEventObject->sWait, &sWait,
 				TASK_INTERRUPTIBLE);
+		ui32TimeStamp = atomic_read(&psLinuxEventObject->sTimeStamp);
 
-		if (psLinuxEventObject->ui32TimeStampPrevious !=
-		    atomic_read(&psLinuxEventObject->sTimeStamp))
+		if (psLinuxEventObject->ui32TimeStampPrevious != ui32TimeStamp)
 			break;
 
-		LinuxUnLockMutex(&gPVRSRVLock);
-		ui32TimeOutJiffies = schedule_timeout(ui32TimeOutJiffies);
-#ifdef DEBUG
+		mutex_unlock(&gPVRSRVLock);
+
+		ui32TimeOutJiffies =
+		    (u32) schedule_timeout((s32) ui32TimeOutJiffies);
+
+		mutex_lock(&gPVRSRVLock);
+#if defined(DEBUG)
 		psLinuxEventObject->ui32Stats++;
 #endif
-		LinuxLockMutex(&gPVRSRVLock);
+
 	} while (ui32TimeOutJiffies);
 
 	finish_wait(&psLinuxEventObject->sWait, &sWait);
 
-	psLinuxEventObject->ui32TimeStampPrevious =
-	    atomic_read(&psLinuxEventObject->sTimeStamp);
+	psLinuxEventObject->ui32TimeStampPrevious = ui32TimeStamp;
 
 	return ui32TimeOutJiffies ? PVRSRV_OK : PVRSRV_ERROR_TIMEOUT;
 

@@ -26,63 +26,30 @@
 
 #include "perproc.h"
 
-#define GET_CCB_SPACE(WOff, ROff, CCBSize) \
-	(((ROff - WOff) + (CCBSize - 1)) & (CCBSize - 1))
-
-#define UPDATE_CCB_OFFSET(Off, PacketSize, CCBSize) \
-	Off = ((Off + PacketSize) & (CCBSize - 1))
-
-#define CCB_OFFSET_IS_VALID(type, psCCBMemInfo, psCCBKick, offset) \
-	((sizeof(type) <= (psCCBMemInfo)->ui32AllocSize) && \
+#define CCB_OFFSET_IS_VALID(type, psCCBMemInfo, psCCBKick, offset)	\
+	((sizeof(type) <= (psCCBMemInfo)->ui32AllocSize) &&		\
 	((psCCBKick)->offset <= (psCCBMemInfo)->ui32AllocSize - sizeof(type)))
 
-#define	CCB_DATA_FROM_OFFSET(type, psCCBMemInfo, psCCBKick, offset) \
-	((type *)(((char *)(psCCBMemInfo)->pvLinAddrKM) + \
+#define	CCB_DATA_FROM_OFFSET(type, psCCBMemInfo, psCCBKick, offset)	\
+	((type *)(((char *)(psCCBMemInfo)->pvLinAddrKM) +		\
 		(psCCBKick)->offset))
-
-static inline u32 SGXCalcContextCCBParamSize(u32 ui32ParamSize,
-						    u32 ui32AllocGran)
-{
-	return (ui32ParamSize + (ui32AllocGran - 1)) & ~(ui32AllocGran - 1);
-}
-
-static inline void *SGXAcquireCCB(struct PVRSRV_SGX_CCB *psCCB, u32 ui32CmdSize)
-{
-	IMG_BOOL bStart = IMG_FALSE;
-	u32 uiStart = 0;
-
-	do {
-		if (GET_CCB_SPACE(*psCCB->pui32WriteOffset,
-				  *psCCB->pui32ReadOffset,
-				  psCCB->ui32Size) > ui32CmdSize)
-			return (void *)((u32)psCCB->psCCBMemInfo->pvLinAddrKM +
-					*psCCB->pui32WriteOffset);
-
-		if (bStart == IMG_FALSE) {
-			bStart = IMG_TRUE;
-			uiStart = OSClockus();
-		}
-		OSWaitus(MAX_HW_TIME_US / WAIT_TRY_COUNT);
-	} while ((OSClockus() - uiStart) < MAX_HW_TIME_US);
-
-	return NULL;
-}
-
-#if defined(PDUMP)
-void DumpBufferArray(struct PVR3DIF4_KICKTA_DUMP_BUFFER *psBufferArray,
-			 u32 ui32BufferArrayLength, IMG_BOOL bDumpPolls);
-#endif
 
 void SGXTestActivePowerEvent(struct PVRSRV_DEVICE_NODE *psDeviceNode,
 				     u32 ui32CallerID);
 
+enum PVRSRV_ERROR SGXScheduleCCBCommand(
+				struct PVRSRV_SGXDEV_INFO *psDevInfo,
+				enum SGXMKIF_COMMAND_TYPE eCommandType,
+				struct SGXMKIF_COMMAND *psCommandData,
+				u32 ui32CallerID, u32 ui32PDumpFlags);
 enum PVRSRV_ERROR SGXScheduleCCBCommandKM(
 				struct PVRSRV_DEVICE_NODE *psDeviceNode,
-				     enum PVRSRV_SGX_COMMAND_TYPE eCommandType,
-				     struct PVRSRV_SGX_COMMAND *psCommandData,
-				     u32 ui32CallerID);
+				enum SGXMKIF_COMMAND_TYPE eCommandType,
+				struct SGXMKIF_COMMAND *psCommandData,
+				u32 ui32CallerID, u32 ui32PDumpFlags);
 
-void SGXScheduleProcessQueues(struct PVRSRV_DEVICE_NODE *psDeviceNode);
+enum PVRSRV_ERROR SGXScheduleProcessQueuesKM(
+				struct PVRSRV_DEVICE_NODE *psDeviceNode);
 
 IMG_BOOL SGXIsDevicePowered(struct PVRSRV_DEVICE_NODE *psDeviceNode);
 
@@ -100,4 +67,11 @@ void SGXFlushHWRenderTargetKM(void *psSGXDevInfo,
 enum PVRSRV_ERROR SGXUnregisterHWRenderContextKM(void *hHWRenderContext);
 
 enum PVRSRV_ERROR SGXUnregisterHWTransferContextKM(void *hHWTransferContext);
+
+u32 SGXConvertTimeStamp(struct PVRSRV_SGXDEV_INFO *psDevInfo,
+			u32 ui32TimeWraps, u32 ui32Time);
+
+void SGXCleanupRequest(struct PVRSRV_DEVICE_NODE *psDeviceNode,
+		       struct IMG_DEV_VIRTADDR *psHWDataDevVAddr,
+		       u32 ui32ResManRequestFlag);
 

@@ -57,7 +57,8 @@ union SGX_INIT_COMMAND {
 };
 
 struct SGX_INIT_SCRIPTS {
-	union SGX_INIT_COMMAND asInitCommands[SGX_MAX_INIT_COMMANDS];
+	union SGX_INIT_COMMAND asInitCommandsPart1[SGX_MAX_INIT_COMMANDS];
+	union SGX_INIT_COMMAND asInitCommandsPart2[SGX_MAX_INIT_COMMANDS];
 	union SGX_INIT_COMMAND asDeinitCommands[SGX_MAX_DEINIT_COMMANDS];
 };
 

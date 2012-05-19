@@ -27,9 +27,9 @@
 enum PVRSRV_ERROR LinuxEventObjectListCreate(void **phEventObjectList);
 enum PVRSRV_ERROR LinuxEventObjectListDestroy(void *hEventObjectList);
 enum PVRSRV_ERROR LinuxEventObjectAdd(void *hOSEventObjectList,
-				 void **phOSEventObject);
+					void **phOSEventObject);
 enum PVRSRV_ERROR LinuxEventObjectDelete(void *hOSEventObjectList,
-				    void *hOSEventObject);
+					void *hOSEventObject);
 enum PVRSRV_ERROR LinuxEventObjectSignal(void *hOSEventObjectList);
 enum PVRSRV_ERROR LinuxEventObjectWait(void *hOSEventObject, u32 ui32MSTimeout);
 

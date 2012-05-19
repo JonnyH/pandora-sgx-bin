@@ -31,9 +31,9 @@
 #include "services.h"
 #include "sysinfo.h"
 
-#define HWREC_DEFAULT_TIMEOUT	(500)
+#define HWREC_DEFAULT_TIMEOUT		500
 
-#define DRIVERNAME_MAXLENGTH	(100)
+#define DRIVERNAME_MAXLENGTH		100
 
 struct PVRSRV_KERNEL_MEM_INFO {
 
@@ -42,6 +42,11 @@ struct PVRSRV_KERNEL_MEM_INFO {
 	u32 ui32Flags;
 	u32 ui32AllocSize;
 	struct PVRSRV_MEMBLK sMemBlk;
+
+	void *pvSysBackupBuffer;
+
+	u32 ui32RefCount;
+
 	struct PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfo;
 };
 
@@ -53,9 +58,10 @@ struct PVRSRV_KERNEL_SYNC_INFO {
 };
 
 struct PVRSRV_DEVICE_SYNC_OBJECT {
-	u32 ui32ReadOpPendingVal;
+
+	u32 ui32ReadOpsPendingVal;
 	struct IMG_DEV_VIRTADDR sReadOpsCompleteDevVAddr;
-	u32 ui32WriteOpPendingVal;
+	u32 ui32WriteOpsPendingVal;
 	struct IMG_DEV_VIRTADDR sWriteOpsCompleteDevVAddr;
 };
 
@@ -94,7 +100,6 @@ struct PVRSRV_QUEUE_INFO {
 	struct PVRSRV_QUEUE_INFO *psNextKM;
 };
 
-
 struct PVRSRV_DEVICECLASS_BUFFER {
 	enum PVRSRV_ERROR (*pfnGetBufferAddr)(void *, void *,
 				    struct IMG_SYS_PHYADDR **, u32 *,
@@ -119,7 +124,6 @@ static inline u32 PVRSRVGetWriteOpsPending(
 		ui32WriteOpsPending =
 		    psSyncInfo->psSyncData->ui32WriteOpsPending;
 	else
-
 		ui32WriteOpsPending =
 		    psSyncInfo->psSyncData->ui32WriteOpsPending++;
 
@@ -135,8 +139,7 @@ static inline u32 PVRSRVGetReadOpsPending(
 		ui32ReadOpsPending =
 		    psSyncInfo->psSyncData->ui32ReadOpsPending++;
 	else
-		ui32ReadOpsPending =
-		    psSyncInfo->psSyncData->ui32ReadOpsPending;
+		ui32ReadOpsPending = psSyncInfo->psSyncData->ui32ReadOpsPending;
 
 	return ui32ReadOpsPending;
 }

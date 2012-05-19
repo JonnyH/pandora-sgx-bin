@@ -74,7 +74,7 @@ void ActivateHotKeys(struct DBG_STREAM *psStream)
 
 	ReadInHotKeys();
 
-	if (!g_PrivateHotKeyData.sHotKeyInfo.hHotKey)
+	if (!g_PrivateHotKeyData.sHotKeyInfo.hHotKey) {
 		if (g_PrivateHotKeyData.ui32ScanCode != 0) {
 			PVR_DPF(PVR_DBG_MESSAGE,
 				 "Activate HotKey for PDUMP.\n");
@@ -87,6 +87,7 @@ void ActivateHotKeys(struct DBG_STREAM *psStream)
 		} else {
 			g_PrivateHotKeyData.sHotKeyInfo.hHotKey = 0;
 		}
+	}
 }
 
 void DeactivateHotKeys(void)

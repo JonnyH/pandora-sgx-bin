@@ -38,13 +38,13 @@
 #include "sgxutils.h"
 
 enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
-			     struct PVR3DIF4_CCB_KICK *psCCBKick)
+				  struct SGX_CCB_KICK *psCCBKick)
 {
 	enum PVRSRV_ERROR eError;
 	struct PVRSRV_KERNEL_SYNC_INFO *psSyncInfo;
 	struct PVRSRV_KERNEL_MEM_INFO *psCCBMemInfo =
 	    (struct PVRSRV_KERNEL_MEM_INFO *)psCCBKick->hCCBKernelMemInfo;
-	struct PVR3DIF4_CMDTA_SHARED *psTACmd;
+	struct SGXMKIF_CMDTA_SHARED *psTACmd;
 	u32 i;
 	struct PVRSRV_DEVICE_NODE *psDeviceNode;
 	struct PVRSRV_SGXDEV_INFO *psDevInfo;
@@ -57,22 +57,22 @@ enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
 	++psDevInfo->ui32KickTACounter;
 
 	if (!CCB_OFFSET_IS_VALID
-	    (struct PVR3DIF4_CMDTA_SHARED, psCCBMemInfo, psCCBKick,
+	    (struct SGXMKIF_CMDTA_SHARED, psCCBMemInfo, psCCBKick,
 	     ui32CCBOffset)) {
 		PVR_DPF(PVR_DBG_ERROR, "SGXDoKickKM: Invalid CCB offset");
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 	psTACmd =
-	    CCB_DATA_FROM_OFFSET(struct PVR3DIF4_CMDTA_SHARED, psCCBMemInfo,
+	    CCB_DATA_FROM_OFFSET(struct SGXMKIF_CMDTA_SHARED, psCCBMemInfo,
 				 psCCBKick, ui32CCBOffset);
 
 	if (psCCBKick->hTA3DSyncInfo) {
 		psSyncInfo =
 		    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->hTA3DSyncInfo;
-		psTACmd->sTA3DDependancy.sWriteOpsCompleteDevVAddr =
+		psTACmd->sTA3DDependency.sWriteOpsCompleteDevVAddr =
 		    psSyncInfo->sWriteOpsCompleteDevVAddr;
 
-		psTACmd->sTA3DDependancy.ui32WriteOpPendingVal =
+		psTACmd->sTA3DDependency.ui32WriteOpsPendingVal =
 		    psSyncInfo->psSyncData->ui32WriteOpsPending;
 
 		if (psCCBKick->bTADependency)
@@ -83,14 +83,14 @@ enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
 		psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)
 						psCCBKick->hTASyncInfo;
 
-		psTACmd->sTQSyncReadOpsCompleteDevVAddr =
+		psTACmd->sTATQSyncReadOpsCompleteDevVAddr =
 		    psSyncInfo->sReadOpsCompleteDevVAddr;
-		psTACmd->sTQSyncWriteOpsCompleteDevVAddr =
+		psTACmd->sTATQSyncWriteOpsCompleteDevVAddr =
 		    psSyncInfo->sWriteOpsCompleteDevVAddr;
 
-		psTACmd->ui32TQSyncReadOpsPendingVal =
+		psTACmd->ui32TATQSyncReadOpsPendingVal =
 		    psSyncInfo->psSyncData->ui32ReadOpsPending++;
-		psTACmd->ui32TQSyncWriteOpsPendingVal =
+		psTACmd->ui32TATQSyncWriteOpsPendingVal =
 		    psSyncInfo->psSyncData->ui32WriteOpsPending;
 	}
 
@@ -110,8 +110,7 @@ enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
 	}
 
 	psTACmd->ui32NumTAStatusVals = psCCBKick->ui32NumTAStatusVals;
-	if (psCCBKick->ui32NumTAStatusVals != 0)
-
+	if (psCCBKick->ui32NumTAStatusVals != 0) {
 		for (i = 0; i < psCCBKick->ui32NumTAStatusVals; i++) {
 			psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)
 				psCCBKick->ahTAStatusSyncInfo[i];
@@ -122,10 +121,10 @@ enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
 			psTACmd->sCtlTAStatusInfo[i].ui32StatusValue =
 				psSyncInfo->psSyncData->ui32ReadOpsPending;
 		}
+	}
 
 	psTACmd->ui32Num3DStatusVals = psCCBKick->ui32Num3DStatusVals;
-	if (psCCBKick->ui32Num3DStatusVals != 0)
-
+	if (psCCBKick->ui32Num3DStatusVals != 0) {
 		for (i = 0; i < psCCBKick->ui32Num3DStatusVals; i++) {
 			psSyncInfo =
 			    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->
@@ -137,6 +136,7 @@ enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
 			psTACmd->sCtl3DStatusInfo[i].ui32StatusValue =
 			    psSyncInfo->psSyncData->ui32ReadOpsPending;
 		}
+	}
 
 	psTACmd->ui32NumSrcSyncs = psCCBKick->ui32NumSrcSyncs;
 	for (i = 0; i < psCCBKick->ui32NumSrcSyncs; i++) {
@@ -149,39 +149,180 @@ enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
 		psTACmd->asSrcSyncs[i].sReadOpsCompleteDevVAddr =
 			psSyncInfo->sReadOpsCompleteDevVAddr;
 
-		psTACmd->asSrcSyncs[i].ui32ReadOpPendingVal =
+		psTACmd->asSrcSyncs[i].ui32ReadOpsPendingVal =
 			psSyncInfo->psSyncData->ui32ReadOpsPending++;
 
-		psTACmd->asSrcSyncs[i].ui32WriteOpPendingVal =
+		psTACmd->asSrcSyncs[i].ui32WriteOpsPendingVal =
 			psSyncInfo->psSyncData->ui32WriteOpsPending;
 
 	}
 
 	if (psCCBKick->bFirstKickOrResume &&
-	    psCCBKick->hRenderSurfSyncInfo != NULL) {
-		psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)
-						psCCBKick->hRenderSurfSyncInfo;
-		psTACmd->sWriteOpsCompleteDevVAddr =
-			psSyncInfo->sWriteOpsCompleteDevVAddr;
-		psTACmd->sReadOpsCompleteDevVAddr =
-			psSyncInfo->sReadOpsCompleteDevVAddr;
+	    psCCBKick->ui32NumDstSyncObjects > 0) {
+		struct PVRSRV_KERNEL_MEM_INFO *psHWDstSyncListMemInfo =
+		    (struct PVRSRV_KERNEL_MEM_INFO *)psCCBKick->
+		    hKernelHWSyncListMemInfo;
+		struct SGXMKIF_HWDEVICE_SYNC_LIST *psHWDeviceSyncList =
+		    psHWDstSyncListMemInfo->pvLinAddrKM;
+		u32 ui32NumDstSyncs = psCCBKick->ui32NumDstSyncObjects;
 
-		psTACmd->ui32ReadOpsPendingVal =
-			psSyncInfo->psSyncData->ui32ReadOpsPending;
-		psTACmd->ui32WriteOpsPendingVal =
-			psSyncInfo->psSyncData->ui32WriteOpsPending++;
+		PVR_ASSERT(((struct PVRSRV_KERNEL_MEM_INFO *)psCCBKick->
+			    hKernelHWSyncListMemInfo)->ui32AllocSize >=
+			   (sizeof(struct SGXMKIF_HWDEVICE_SYNC_LIST) +
+			    (sizeof(struct PVRSRV_DEVICE_SYNC_OBJECT) *
+			     ui32NumDstSyncs)));
 
+		psHWDeviceSyncList->ui32NumSyncObjects = ui32NumDstSyncs;
 #if defined(PDUMP)
 		if (PDumpIsCaptureFrameKM()) {
-			if (psSyncInfo->psSyncData->ui32LastOpDumpVal == 0) {
+			PDUMPCOMMENT("HWDeviceSyncList for TACmd\r\n");
+			PDUMPMEM(NULL,
+				 psHWDstSyncListMemInfo, 0,
+				 sizeof(struct SGXMKIF_HWDEVICE_SYNC_LIST),
+				 0, MAKEUNIQUETAG(psHWDstSyncListMemInfo));
+		}
+#endif
+		psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->
+			    sDstSyncHandle;
+		i = 0;
+		if (psSyncInfo) {
+			psHWDeviceSyncList->asSyncData[i].
+			    sWriteOpsCompleteDevVAddr =
+					psSyncInfo->sWriteOpsCompleteDevVAddr;
 
-				PDUMPCOMMENT("Init render surface last op\r\n");
+			psHWDeviceSyncList->asSyncData[i].
+			    sReadOpsCompleteDevVAddr =
+					psSyncInfo->sReadOpsCompleteDevVAddr;
 
-				PDUMPMEM(NULL, psSyncInfo->psSyncDataMemInfoKM,
-					 0, sizeof(struct PVRSRV_SYNC_DATA),
+			psHWDeviceSyncList->asSyncData[i].
+			    ui32ReadOpsPendingVal =
+				psSyncInfo->psSyncData->ui32ReadOpsPending;
+
+			psHWDeviceSyncList->asSyncData[i].
+			    ui32WriteOpsPendingVal =
+				    psSyncInfo->psSyncData->
+							ui32WriteOpsPending++;
+
+#if defined(PDUMP)
+			if (PDumpIsCaptureFrameKM()) {
+				u32 ui32ModifiedValue;
+				u32 ui32SyncOffset = offsetof(
+					struct SGXMKIF_HWDEVICE_SYNC_LIST,
+					asSyncData) + (i *
+					sizeof(
+					struct PVRSRV_DEVICE_SYNC_OBJECT));
+				u32 ui32WOpsOffset = ui32SyncOffset +
+					offsetof(
+					struct PVRSRV_DEVICE_SYNC_OBJECT,
+					ui32WriteOpsPendingVal);
+				u32 ui32ROpsOffset = ui32SyncOffset +
+					offsetof(
+					struct PVRSRV_DEVICE_SYNC_OBJECT,
+					ui32ReadOpsPendingVal);
+
+				PDUMPCOMMENT("HWDeviceSyncObject for RT: "
+					     "%i\r\n", i);
+
+				PDUMPMEM(NULL, psHWDstSyncListMemInfo,
+					ui32SyncOffset, sizeof(
+					struct PVRSRV_DEVICE_SYNC_OBJECT),
+					0, MAKEUNIQUETAG(
+						psHWDstSyncListMemInfo));
+
+				if ((psSyncInfo->psSyncData->
+						ui32LastOpDumpVal == 0) &&
+				    (psSyncInfo->psSyncData->
+						ui32LastReadOpDumpVal == 0)) {
+
+					PDUMPCOMMENT("Init RT ROpsComplete\r\n",
+							 i);
+					PDUMPMEM(&psSyncInfo->psSyncData->
+							ui32LastReadOpDumpVal,
+						psSyncInfo->psSyncDataMemInfoKM,
+						offsetof(struct
+							PVRSRV_SYNC_DATA,
+							ui32ReadOpsComplete),
+						sizeof(psSyncInfo->psSyncData->
+							   ui32ReadOpsComplete),
+						0,
+						MAKEUNIQUETAG(psSyncInfo->
+							psSyncDataMemInfoKM));
+
+				PDUMPCOMMENT("Init RT WOpsComplete\r\n");
+				PDUMPMEM(&psSyncInfo->psSyncData->
+						ui32LastOpDumpVal,
+					 psSyncInfo->psSyncDataMemInfoKM,
+					 offsetof(struct PVRSRV_SYNC_DATA,
+							ui32WriteOpsComplete),
+					 sizeof(psSyncInfo->psSyncData->
+							ui32WriteOpsComplete),
 					 0, MAKEUNIQUETAG(psSyncInfo->
-						       psSyncDataMemInfoKM));
+							psSyncDataMemInfoKM));
+				}
 
+				psSyncInfo->psSyncData->ui32LastOpDumpVal++;
+
+				ui32ModifiedValue = psSyncInfo->psSyncData->
+					    ui32LastOpDumpVal - 1;
+
+				PDUMPCOMMENT("Modify RT %d WOpPendingVal "
+					     "in HWDevSyncList\r\n", i);
+
+				PDUMPMEM(&ui32ModifiedValue,
+					 psHWDstSyncListMemInfo, ui32WOpsOffset,
+					 sizeof(u32), 0,
+					 MAKEUNIQUETAG(psHWDstSyncListMemInfo));
+
+				PDUMPCOMMENT("Modify RT %d ROpsPendingVal "
+					     "in HWDevSyncList\r\n", i);
+
+				PDUMPMEM(&psSyncInfo->psSyncData->
+						 ui32LastReadOpDumpVal,
+					 psHWDstSyncListMemInfo,
+					 ui32ROpsOffset, sizeof(u32), 0,
+					 MAKEUNIQUETAG(psHWDstSyncListMemInfo));
+			}
+#endif
+		} else {
+			psHWDeviceSyncList->asSyncData[i].
+			    sWriteOpsCompleteDevVAddr.uiAddr = 0;
+			psHWDeviceSyncList->asSyncData[i].
+			    sReadOpsCompleteDevVAddr.uiAddr = 0;
+
+			psHWDeviceSyncList->asSyncData[i].
+			    ui32ReadOpsPendingVal = 0;
+			psHWDeviceSyncList->asSyncData[i].
+			    ui32WriteOpsPendingVal = 0;
+		}
+	}
+#if defined(PDUMP)
+	if (PDumpIsCaptureFrameKM()) {
+		PDUMPCOMMENT("Shared part of TA command\r\n");
+
+		PDUMPMEM(psTACmd, psCCBMemInfo, psCCBKick->ui32CCBDumpWOff,
+			 sizeof(struct SGXMKIF_CMDTA_SHARED), 0,
+			 MAKEUNIQUETAG(psCCBMemInfo));
+
+		for (i = 0; i < psCCBKick->ui32NumSrcSyncs; i++) {
+			u32 ui32ModifiedValue;
+			psSyncInfo =
+			    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->
+			    ahSrcKernelSyncInfo[i];
+
+			if ((psSyncInfo->psSyncData->ui32LastOpDumpVal == 0) &&
+			    (psSyncInfo->psSyncData->ui32LastReadOpDumpVal ==
+			     0)) {
+				PDUMPCOMMENT("Init RT ROpsComplete\r\n", i);
+				PDUMPMEM(&psSyncInfo->psSyncData->
+					 ui32LastReadOpDumpVal,
+					 psSyncInfo->psSyncDataMemInfoKM,
+					 offsetof(struct PVRSRV_SYNC_DATA,
+						  ui32ReadOpsComplete),
+					 sizeof(psSyncInfo->psSyncData->
+						ui32ReadOpsComplete), 0,
+					 MAKEUNIQUETAG(psSyncInfo->
+						       psSyncDataMemInfoKM));
+				PDUMPCOMMENT("Init RT WOpsComplete\r\n");
 				PDUMPMEM(&psSyncInfo->psSyncData->
 					 ui32LastOpDumpVal,
 					 psSyncInfo->psSyncDataMemInfoKM,
@@ -193,55 +334,48 @@ enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
 						       psSyncDataMemInfoKM));
 			}
 
-			psSyncInfo->psSyncData->ui32LastOpDumpVal++;
-		}
-#endif
-	}
-#if defined(PDUMP)
-	if (PDumpIsCaptureFrameKM()) {
-		PDUMPCOMMENT("Shared part of TA command\r\n");
+			psSyncInfo->psSyncData->ui32LastReadOpDumpVal++;
 
-		PDUMPMEM(psTACmd, psCCBMemInfo, psCCBKick->ui32CCBDumpWOff,
-			 sizeof(struct PVR3DIF4_CMDTA_SHARED), 0,
-			 MAKEUNIQUETAG(psCCBMemInfo));
+			ui32ModifiedValue =
+			    psSyncInfo->psSyncData->ui32LastReadOpDumpVal - 1;
 
-		if (psCCBKick->hRenderSurfSyncInfo != NULL) {
-			u32 ui32HackValue;
+			PDUMPCOMMENT("Modify SrcSync %d ROpsPendingVal\r\n", i);
 
-			psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)
-				psCCBKick->hRenderSurfSyncInfo;
-			ui32HackValue =
-				psSyncInfo->psSyncData->ui32LastOpDumpVal - 1;
-
-			PDUMPCOMMENT(
-				"Hack render surface last op in TA cmd\r\n");
-
-			PDUMPMEM(&ui32HackValue, psCCBMemInfo,
+			PDUMPMEM(&ui32ModifiedValue,
+				 psCCBMemInfo,
 				 psCCBKick->ui32CCBDumpWOff +
-				 offsetof(struct PVR3DIF4_CMDTA_SHARED,
-					  ui32WriteOpsPendingVal),
-				 sizeof(u32), 0, MAKEUNIQUETAG(psCCBMemInfo));
+				 offsetof(struct SGXMKIF_CMDTA_SHARED,
+					  asSrcSyncs) +
+				 (i *
+				  sizeof(struct PVRSRV_DEVICE_SYNC_OBJECT)) +
+				 offsetof(struct PVRSRV_DEVICE_SYNC_OBJECT,
+					  ui32ReadOpsPendingVal), sizeof(u32),
+				 0, MAKEUNIQUETAG(psCCBMemInfo));
 
-			ui32HackValue = 0;
-			PDUMPCOMMENT(
-				"Hack render surface read op in TA cmd\r\n");
+			PDUMPCOMMENT("Modify SrcSync %d WOpPendingVal\r\n", i);
 
-			PDUMPMEM(&ui32HackValue, psCCBMemInfo,
+			PDUMPMEM(&psSyncInfo->psSyncData->ui32LastOpDumpVal,
+				 psCCBMemInfo,
 				 psCCBKick->ui32CCBDumpWOff +
-				 offsetof(struct PVR3DIF4_CMDTA_SHARED,
-					  sReadOpsCompleteDevVAddr),
-				 sizeof(u32), 0, MAKEUNIQUETAG(psCCBMemInfo));
+				 offsetof(struct SGXMKIF_CMDTA_SHARED,
+					  asSrcSyncs) +
+				 (i *
+				  sizeof(struct PVRSRV_DEVICE_SYNC_OBJECT)) +
+				 offsetof(struct PVRSRV_DEVICE_SYNC_OBJECT,
+					  ui32WriteOpsPendingVal), sizeof(u32),
+				 0, MAKEUNIQUETAG(psCCBMemInfo));
+
 		}
 
 		for (i = 0; i < psCCBKick->ui32NumTAStatusVals; i++) {
-			psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)
-				psCCBKick->ahTAStatusSyncInfo[i];
-
-			PDUMPCOMMENT("Hack TA status value in TA cmd\r\n");
-
+			psSyncInfo =
+			    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->
+			    ahTAStatusSyncInfo[i];
+			PDUMPCOMMENT("Modify TA status value in TA cmd\r\n");
 			PDUMPMEM(&psSyncInfo->psSyncData->ui32LastOpDumpVal,
-				 psCCBMemInfo, psCCBKick->ui32CCBDumpWOff +
-				 offsetof(struct PVR3DIF4_CMDTA_SHARED,
+				 psCCBMemInfo,
+				 psCCBKick->ui32CCBDumpWOff +
+				 offsetof(struct SGXMKIF_CMDTA_SHARED,
 					  sCtlTAStatusInfo[i].ui32StatusValue),
 				 sizeof(u32), 0, MAKEUNIQUETAG(psCCBMemInfo));
 		}
@@ -250,43 +384,41 @@ enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
 			psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)
 				psCCBKick->ah3DStatusSyncInfo[i];
 
-			PDUMPCOMMENT("Hack 3D status value in TA cmd\r\n");
+			PDUMPCOMMENT("Modify 3D status value in TA cmd\r\n");
 
 			PDUMPMEM(&psSyncInfo->psSyncData->ui32LastOpDumpVal,
-				 psCCBMemInfo, psCCBKick->ui32CCBDumpWOff +
-				 offsetof(struct PVR3DIF4_CMDTA_SHARED,
+				 psCCBMemInfo,
+				 psCCBKick->ui32CCBDumpWOff +
+				 offsetof(struct SGXMKIF_CMDTA_SHARED,
 					  sCtl3DStatusInfo[i].ui32StatusValue),
 				 sizeof(u32), 0, MAKEUNIQUETAG(psCCBMemInfo));
 		}
 	}
 #endif
 
-	eError =
-	    SGXScheduleCCBCommandKM(hDevHandle, psCCBKick->eCommand,
-				    &psCCBKick->sCommand, KERNEL_ID);
+	eError = SGXScheduleCCBCommandKM(hDevHandle, psCCBKick->eCommand,
+				    &psCCBKick->sCommand, KERNEL_ID, 0);
 	if (eError == PVRSRV_ERROR_RETRY) {
 		if (psCCBKick->bFirstKickOrResume &&
-		    psCCBKick->hRenderSurfSyncInfo != NULL) {
+		    psCCBKick->ui32NumDstSyncObjects > 0) {
 			psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)
-				psCCBKick->hRenderSurfSyncInfo;
-			psSyncInfo->psSyncData->ui32WriteOpsPending--;
+				    psCCBKick->sDstSyncHandle;
+			if (psSyncInfo) {
+				psSyncInfo->psSyncData->ui32WriteOpsPending--;
+#if defined(PDUMP)
+				if (PDumpIsCaptureFrameKM())
+					psSyncInfo->psSyncData->
+							ui32LastOpDumpVal--;
+#endif
+			}
 		}
 
 		for (i = 0; i < psCCBKick->ui32NumSrcSyncs; i++) {
-			psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)
-				psCCBKick->ahSrcKernelSyncInfo[i];
+			psSyncInfo =
+			    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->
+			    ahSrcKernelSyncInfo[i];
 			psSyncInfo->psSyncData->ui32ReadOpsPending--;
 		}
-
-#if defined(PDUMP)
-		if (psCCBKick->bFirstKickOrResume &&
-		    psCCBKick->hRenderSurfSyncInfo != NULL)
-			if (PDumpIsCaptureFrameKM()) {
-				psSyncInfo = (struct PVRSRV_KERNEL_SYNC_INFO *)
-					psCCBKick->hRenderSurfSyncInfo;
-				psSyncInfo->psSyncData->ui32LastOpDumpVal--;
-			}
-#endif
 
 		return eError;
 	} else if (PVRSRV_OK != eError) {
@@ -294,6 +426,79 @@ enum PVRSRV_ERROR SGXDoKickKM(void *hDevHandle,
 			 "SGXDoKickKM: SGXScheduleCCBCommandKM failed.");
 		return eError;
 	}
+
+#if defined(NO_HARDWARE)
+
+	if (psCCBKick->hTA3DSyncInfo) {
+		psSyncInfo =
+		    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->hTA3DSyncInfo;
+
+		if (psCCBKick->bTADependency) {
+			psSyncInfo->psSyncData->ui32WriteOpsComplete =
+			    psSyncInfo->psSyncData->ui32WriteOpsPending;
+		}
+	}
+
+	if (psCCBKick->hTASyncInfo != NULL) {
+		psSyncInfo =
+		    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->hTASyncInfo;
+
+		psSyncInfo->psSyncData->ui32ReadOpsComplete =
+		    psSyncInfo->psSyncData->ui32ReadOpsPending;
+	}
+
+	if (psCCBKick->h3DSyncInfo != NULL) {
+		psSyncInfo =
+		    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->h3DSyncInfo;
+
+		psSyncInfo->psSyncData->ui32ReadOpsComplete =
+		    psSyncInfo->psSyncData->ui32ReadOpsPending;
+	}
+
+	for (i = 0; i < psCCBKick->ui32NumTAStatusVals; i++) {
+		psSyncInfo =
+		    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->
+		    ahTAStatusSyncInfo[i];
+		psSyncInfo->psSyncData->ui32ReadOpsComplete =
+		    psTACmd->sCtlTAStatusInfo[i].ui32StatusValue;
+	}
+
+	for (i = 0; i < psCCBKick->ui32NumSrcSyncs; i++) {
+		psSyncInfo =
+		    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->
+		    ahSrcKernelSyncInfo[i];
+
+		psSyncInfo->psSyncData->ui32ReadOpsComplete =
+		    psSyncInfo->psSyncData->ui32ReadOpsPending;
+
+	}
+
+	if (psCCBKick->bTerminateOrAbort) {
+		if (psCCBKick->ui32NumDstSyncObjects > 0) {
+			struct PVRSRV_KERNEL_MEM_INFO *psHWDstSyncListMemInfo =
+			    (struct PVRSRV_KERNEL_MEM_INFO *)psCCBKick->
+			    hKernelHWSyncListMemInfo;
+			struct SGXMKIF_HWDEVICE_SYNC_LIST *psHWDeviceSyncList =
+			    psHWDstSyncListMemInfo->pvLinAddrKM;
+
+			psSyncInfo =
+			    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->
+			    sDstSyncHandle;
+			if (psSyncInfo)
+				psSyncInfo->psSyncData->ui32WriteOpsComplete =
+				    psHWDeviceSyncList->asSyncData[0].
+				    ui32WriteOpsPendingVal + 1;
+		}
+
+		for (i = 0; i < psCCBKick->ui32Num3DStatusVals; i++) {
+			psSyncInfo =
+			    (struct PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->
+			    ah3DStatusSyncInfo[i];
+			psSyncInfo->psSyncData->ui32ReadOpsComplete =
+			    psTACmd->sCtl3DStatusInfo[i].ui32StatusValue;
+		}
+	}
+#endif
 
 	return eError;
 }

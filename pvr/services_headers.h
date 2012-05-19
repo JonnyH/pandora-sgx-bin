@@ -27,7 +27,6 @@
 #ifndef SERVICES_HEADERS_H
 #define SERVICES_HEADERS_H
 
-
 #include "img_defs.h"
 #include "services.h"
 #include "servicesint.h"

@@ -27,8 +27,10 @@
 #ifndef __PVRMMAP_H__
 #define __PVRMMAP_H__
 
-enum PVRSRV_ERROR PVRMMAPMapKernelPtr(void *hModule, void **ppvLinAddr,
-				 void *pvKVIndexAddress, u32 ui32Bytes);
-IMG_BOOL PVRMMAPRemoveMapping(void *pvUserAddress, u32 ui32Bytes);
+enum PVRSRV_ERROR PVRPMapKMem(void *hModule, void **ppvLinAddr,
+			      void *pvLinAddrKM, void **phMappingInfo,
+			      void *hMHandle);
+
+IMG_BOOL PVRUnMapKMem(void *hModule, void *hMappingInfo, void *hMHandle);
 
 #endif

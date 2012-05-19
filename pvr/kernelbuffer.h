@@ -38,7 +38,7 @@ struct PVRSRV_BC_SRV2BUFFER_KMJTABLE {
 				       struct PVRSRV_SYNC_DATA *, void **);
 	enum PVRSRV_ERROR (*pfnGetBufferAddr)(void *, void *,
 					 struct IMG_SYS_PHYADDR **, u32 *,
-					 void **, void **, IMG_BOOL *);
+					 void __iomem **, void **, IMG_BOOL *);
 };
 
 struct PVRSRV_BC_BUFFER2SRV_KMJTABLE {
@@ -47,5 +47,9 @@ struct PVRSRV_BC_BUFFER2SRV_KMJTABLE {
 			struct PVRSRV_BC_SRV2BUFFER_KMJTABLE *, u32 *);
 	enum PVRSRV_ERROR (*pfnPVRSRVRemoveBCDevice)(u32);
 };
+
+IMG_BOOL PVRGetBufferClassJTable(
+		struct PVRSRV_BC_BUFFER2SRV_KMJTABLE *psJTable);
+
 
 #endif

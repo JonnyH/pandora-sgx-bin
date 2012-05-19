@@ -34,7 +34,7 @@
 #include "proc.h"
 
 
-#define MINIMUM_HASH_SIZE (64)
+#define MINIMUM_HASH_SIZE	64
 
 struct BT {
 	enum bt_type {
@@ -54,16 +54,18 @@ struct BT {
 
 	struct BM_MAPPING *psMapping;
 };
+struct BT;
 
 struct RA_ARENA {
 	char *name;
 	u32 uQuantum;
 	IMG_BOOL(*pImportAlloc)(void *, size_t uSize, size_t *pActualSize,
-			struct BM_MAPPING **ppsMapping, u32 uFlags, u32 *pBase);
+				struct BM_MAPPING **ppsMapping, u32 uFlags,
+				u32 *pBase);
 	void (*pImportFree)(void *, u32, struct BM_MAPPING *psMapping);
 	void (*pBackingStoreFree)(void *, u32, u32, void *);
 	void *pImportHandle;
-#define FREE_TABLE_LIMIT 32
+#define FREE_TABLE_LIMIT	32
 	struct BT *aHeadFree[FREE_TABLE_LIMIT];
 	struct BT *pHeadSegment;
 	struct BT *pTailSegment;
@@ -75,6 +77,7 @@ struct RA_ARENA {
 #define PROC_NAME_SIZE		32
 	char szProcInfoName[PROC_NAME_SIZE];
 	char szProcSegsName[PROC_NAME_SIZE];
+	IMG_BOOL bInitProcEntry;
 #endif
 };
 
@@ -85,8 +88,22 @@ static int RA_DumpInfo(char *page, char **start, off_t off, int count, int *eof,
 		       void *data);
 #endif
 
+#if defined(CONFIG_PROC_FS) && defined(DEBUG)
+static char *ReplaceSpaces(char *const pS)
+{
+	char *pT;
+
+	for (pT = pS; *pT != 0; pT++)
+		if (*pT == ' ' || *pT == '\t')
+			*pT = '_';
+
+	return pS;
+}
+#endif
+
 static IMG_BOOL _RequestAllocFail(void *_h, size_t _uSize, size_t *_pActualSize,
-		  struct BM_MAPPING **_ppsMapping, u32 _uFlags, u32 *_pBase)
+				  struct BM_MAPPING **_ppsMapping,
+				  u32 _uFlags, u32 *_pBase)
 {
 	PVR_UNREFERENCED_PARAMETER(_h);
 	PVR_UNREFERENCED_PARAMETER(_uSize);
@@ -109,11 +126,18 @@ static u32 pvr_log2(size_t n)
 	return l;
 }
 
-static void _SegmentListInsertAfter(struct RA_ARENA *pArena,
-				    struct BT *pInsertionPoint, struct BT *pBT)
+static enum PVRSRV_ERROR _SegmentListInsertAfter(struct RA_ARENA *pArena,
+						 struct BT *pInsertionPoint,
+						 struct BT *pBT)
 {
 	PVR_ASSERT(pArena != NULL);
 	PVR_ASSERT(pInsertionPoint != NULL);
+
+	if ((pInsertionPoint == NULL) || (pArena == NULL)) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "_SegmentListInsertAfter: invalid parameters");
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
 
 	pBT->pNextSegment = pInsertionPoint->pNextSegment;
 	pBT->pPrevSegment = pInsertionPoint;
@@ -122,22 +146,38 @@ static void _SegmentListInsertAfter(struct RA_ARENA *pArena,
 	else
 		pInsertionPoint->pNextSegment->pPrevSegment = pBT;
 	pInsertionPoint->pNextSegment = pBT;
+
+	return PVRSRV_OK;
 }
 
-static void _SegmentListInsert(struct RA_ARENA *pArena, struct BT *pBT)
+static enum PVRSRV_ERROR _SegmentListInsert(struct RA_ARENA *pArena,
+					    struct BT *pBT)
 {
+	enum PVRSRV_ERROR eError = PVRSRV_OK;
 
 	if (pArena->pHeadSegment == NULL) {
 		pArena->pHeadSegment = pArena->pTailSegment = pBT;
 		pBT->pNextSegment = pBT->pPrevSegment = NULL;
 	} else {
 		struct BT *pBTScan;
-		pBTScan = pArena->pHeadSegment;
-		while (pBTScan->pNextSegment != NULL
-		       && pBT->base >= pBTScan->pNextSegment->base)
-			pBTScan = pBTScan->pNextSegment;
-		_SegmentListInsertAfter(pArena, pBTScan, pBT);
+		if (pBT->base < pArena->pHeadSegment->base) {
+			pBT->pNextSegment = pArena->pHeadSegment;
+			pArena->pHeadSegment->pPrevSegment = pBT;
+			pArena->pHeadSegment = pBT;
+			pBT->pPrevSegment = NULL;
+		} else {
+			pBTScan = pArena->pHeadSegment;
+
+			while ((pBTScan->pNextSegment != NULL) &&
+			       (pBT->base >= pBTScan->pNextSegment->base))
+				pBTScan = pBTScan->pNextSegment;
+
+			eError = _SegmentListInsertAfter(pArena, pBTScan, pBT);
+			if (eError != PVRSRV_OK)
+				return eError;
+		}
 	}
+	return eError;
 }
 
 static void _SegmentListRemove(struct RA_ARENA *pArena, struct BT *pBT)
@@ -159,6 +199,12 @@ static struct BT *_SegmentSplit(struct RA_ARENA *pArena, struct BT *pBT,
 	struct BT *pNeighbour;
 
 	PVR_ASSERT(pArena != NULL);
+
+	if (pArena == NULL) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "_SegmentSplit: invalid parameter - pArena");
+		return NULL;
+	}
 
 	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 		       sizeof(struct BT),
@@ -243,9 +289,19 @@ static struct BT *_InsertResource(struct RA_ARENA *pArena, u32 base,
 {
 	struct BT *pBT;
 	PVR_ASSERT(pArena != NULL);
+	if (pArena == NULL) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "_InsertResource: invalid parameter - pArena");
+		return NULL;
+	}
+
 	pBT = _BuildBT(base, uSize);
 	if (pBT != NULL) {
-		_SegmentListInsert(pArena, pBT);
+		if (_SegmentListInsert(pArena, pBT) != PVRSRV_OK) {
+			PVR_DPF(PVR_DBG_ERROR,
+			"_InsertResource: call to _SegmentListInsert failed");
+			return NULL;
+		}
 		_FreeListInsert(pArena, pBT);
 #ifdef RA_STATS
 		pArena->sStatistics.uTotalResourceCount += uSize;
@@ -259,11 +315,17 @@ static struct BT *_InsertResource(struct RA_ARENA *pArena, u32 base,
 static struct BT *_InsertResourceSpan(struct RA_ARENA *pArena, u32 base,
 			       size_t uSize)
 {
+	enum PVRSRV_ERROR eError;
 	struct BT *pSpanStart;
 	struct BT *pSpanEnd;
 	struct BT *pBT;
 
 	PVR_ASSERT(pArena != NULL);
+	if (pArena == NULL) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "_InsertResourceSpan: invalid parameter - pArena");
+		return NULL;
+	}
 
 	PVR_DPF(PVR_DBG_MESSAGE,
 		 "RA_InsertResourceSpan: arena='%s', base=0x%x, size=0x%x",
@@ -280,15 +342,27 @@ static struct BT *_InsertResourceSpan(struct RA_ARENA *pArena, u32 base,
 	if (pBT == NULL)
 		goto fail_bt;
 
-	_SegmentListInsert(pArena, pSpanStart);
-	_SegmentListInsertAfter(pArena, pSpanStart, pBT);
+	eError = _SegmentListInsert(pArena, pSpanStart);
+	if (eError != PVRSRV_OK)
+		goto fail_SegListInsert;
+
+	eError = _SegmentListInsertAfter(pArena, pSpanStart, pBT);
+	if (eError != PVRSRV_OK)
+		goto fail_SegListInsert;
+
 	_FreeListInsert(pArena, pBT);
-	_SegmentListInsertAfter(pArena, pBT, pSpanEnd);
+
+	eError = _SegmentListInsertAfter(pArena, pBT, pSpanEnd);
+	if (eError != PVRSRV_OK)
+		goto fail_SegListInsert;
+
 #ifdef RA_STATS
 	pArena->sStatistics.uTotalResourceCount += uSize;
 #endif
 	return pBT;
 
+fail_SegListInsert:
+	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(struct BT), pBT, NULL);
 fail_bt:
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(struct BT), pSpanEnd, NULL);
 fail_end:
@@ -307,6 +381,10 @@ static void _FreeBT(struct RA_ARENA *pArena, struct BT *pBT,
 	PVR_ASSERT(pArena != NULL);
 	PVR_ASSERT(pBT != NULL);
 
+	if ((pArena == NULL) || (pBT == NULL)) {
+		PVR_DPF(PVR_DBG_ERROR, "_FreeBT: invalid parameter");
+		return;
+	}
 #ifdef RA_STATS
 	pArena->sStatistics.uLiveSegmentCount--;
 	pArena->sStatistics.uFreeSegmentCount++;
@@ -317,9 +395,8 @@ static void _FreeBT(struct RA_ARENA *pArena, struct BT *pBT,
 	uOrigSize = pBT->uSize;
 
 	pNeighbour = pBT->pPrevSegment;
-	if (pNeighbour != NULL
-	    && pNeighbour->type == btt_free
-	    && pNeighbour->base + pNeighbour->uSize == pBT->base) {
+	if (pNeighbour != NULL && pNeighbour->type == btt_free &&
+	    pNeighbour->base + pNeighbour->uSize == pBT->base) {
 		_FreeListRemove(pArena, pNeighbour);
 		_SegmentListRemove(pArena, pNeighbour);
 		pBT->base = pNeighbour->base;
@@ -332,9 +409,8 @@ static void _FreeBT(struct RA_ARENA *pArena, struct BT *pBT,
 	}
 
 	pNeighbour = pBT->pNextSegment;
-	if (pNeighbour != NULL
-	    && pNeighbour->type == btt_free
-	    && pBT->base + pBT->uSize == pNeighbour->base) {
+	if (pNeighbour != NULL && pNeighbour->type == btt_free &&
+	    pBT->base + pBT->uSize == pNeighbour->base) {
 		_FreeListRemove(pArena, pNeighbour);
 		_SegmentListRemove(pArena, pNeighbour);
 		pBT->uSize += pNeighbour->uSize;
@@ -354,8 +430,7 @@ static void _FreeBT(struct RA_ARENA *pArena, struct BT *pBT,
 		if (uRoundedStart < pBT->base)
 			uRoundedStart += pArena->uQuantum;
 
-		uRoundedEnd =
-		    ((uOrigBase + uOrigSize + pArena->uQuantum -
+		uRoundedEnd = ((uOrigBase + uOrigSize + pArena->uQuantum -
 		      1) / pArena->uQuantum) * pArena->uQuantum;
 
 		if (uRoundedEnd > (pBT->base + pBT->uSize))
@@ -367,9 +442,8 @@ static void _FreeBT(struct RA_ARENA *pArena, struct BT *pBT,
 						  (void *) 0);
 	}
 
-	if (pBT->pNextSegment != NULL && pBT->pNextSegment->type == btt_span
-	    && pBT->pPrevSegment != NULL
-	    && pBT->pPrevSegment->type == btt_span) {
+	if (pBT->pNextSegment != NULL && pBT->pNextSegment->type == btt_span &&
+	    pBT->pPrevSegment != NULL && pBT->pPrevSegment->type == btt_span) {
 		struct BT *next = pBT->pNextSegment;
 		struct BT *prev = pBT->pPrevSegment;
 		_SegmentListRemove(pArena, next);
@@ -394,186 +468,149 @@ static void _FreeBT(struct RA_ARENA *pArena, struct BT *pBT,
 		_FreeListInsert(pArena, pBT);
 }
 
+static int alloc_from_bt(struct RA_ARENA *arena, struct BT *bt, u32 start,
+			 size_t size, u32 align,
+			 struct BM_MAPPING **new_mapping, u32 *new_base)
+{
+	_FreeListRemove(arena, bt);
+	PVR_ASSERT(bt->type == btt_free);
+#ifdef RA_STATS
+	arena->sStatistics.uLiveSegmentCount++;
+	arena->sStatistics.uFreeSegmentCount--;
+	arena->sStatistics.uFreeResourceCount -= bt->uSize;
+#endif
+	if (start > bt->base) {
+		struct BT *next_bt;
+
+		next_bt = _SegmentSplit(arena, bt, start - bt->base);
+
+		if (!next_bt) {
+			PVR_DPF(PVR_DBG_ERROR, "_AttemptAllocAligned: "
+					"Front split failed");
+
+			_FreeListInsert(arena, bt);
+			return -1;
+		}
+
+		_FreeListInsert(arena, bt);
+#ifdef RA_STATS
+		arena->sStatistics.uFreeSegmentCount++;
+		arena->sStatistics.uFreeResourceCount += bt->uSize;
+#endif
+		bt = next_bt;
+	}
+
+	if (bt->uSize > size) {
+		struct BT *next_bt;
+		next_bt = _SegmentSplit(arena, bt, size);
+
+		if (!next_bt) {
+			PVR_DPF(PVR_DBG_ERROR, "_AttemptAllocAligned: "
+					"Back split failed");
+
+			_FreeListInsert(arena, bt);
+			return -1;
+		}
+
+		_FreeListInsert(arena, next_bt);
+#ifdef RA_STATS
+		arena->sStatistics.uFreeSegmentCount++;
+		arena->sStatistics.uFreeResourceCount += next_bt->uSize;
+#endif
+	}
+
+	bt->type = btt_live;
+
+	if (!HASH_Insert(arena->pSegmentHash, bt->base, (u32)bt)) {
+		_FreeBT(arena, bt, IMG_FALSE);
+		return -1;
+	}
+
+	if (new_mapping)
+		*new_mapping = bt->psMapping;
+
+	*new_base = bt->base;
+
+	return 0;
+}
+
 static IMG_BOOL _AttemptAllocAligned(struct RA_ARENA *pArena, size_t uSize,
 		     struct BM_MAPPING **ppsMapping, u32 uFlags, u32 uAlignment,
-		     u32 uAlignmentOffset, u32 *base)
+		     u32 *base)
 {
 	u32 uIndex;
 	PVR_ASSERT(pArena != NULL);
-
-	PVR_UNREFERENCED_PARAMETER(uFlags);
-
-	if (uAlignment > 1)
-		uAlignmentOffset %= uAlignment;
+	if (pArena == NULL) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "_AttemptAllocAligned: invalid parameter - pArena");
+		return IMG_FALSE;
+	}
 
 	uIndex = pvr_log2(uSize);
 
 	while (uIndex < FREE_TABLE_LIMIT && pArena->aHeadFree[uIndex] == NULL)
 		uIndex++;
 
-	while (uIndex < FREE_TABLE_LIMIT) {
-		if (pArena->aHeadFree[uIndex] != NULL) {
-			struct BT *pBT;
+	for (; uIndex < FREE_TABLE_LIMIT; uIndex++) {
+		struct BT *pBT;
 
-			pBT = pArena->aHeadFree[uIndex];
-			while (pBT != NULL) {
-				u32 aligned_base;
+		pBT = pArena->aHeadFree[uIndex];
+		if (!pBT)
+			continue;
 
-				if (uAlignment > 1)
-					aligned_base =
-					  (pBT->base + uAlignmentOffset +
-					    uAlignment - 1) / uAlignment *
-					    uAlignment - uAlignmentOffset;
-				else
-					aligned_base = pBT->base;
+		for (; pBT != NULL; pBT = pBT->pNextFree) {
+			u32 aligned_base;
+
+			if (uAlignment > 1)
+				aligned_base = (pBT->base + uAlignment -
+					  1) / uAlignment * uAlignment;
+			else
+				aligned_base = pBT->base;
+			PVR_DPF(PVR_DBG_MESSAGE,
+			   "RA_AttemptAllocAligned: pBT-base=0x%x "
+			   "pBT-size=0x%x alignedbase=0x%x size=0x%x",
+			   pBT->base, pBT->uSize, aligned_base, uSize);
+
+			if (pBT->base + pBT->uSize < aligned_base + uSize)
+				continue;
+
+			if (pBT->psMapping && pBT->psMapping->ui32Flags !=
+			    uFlags) {
 				PVR_DPF(PVR_DBG_MESSAGE,
-				   "RA_AttemptAllocAligned: pBT-base=0x%x "
-				   "pBT-size=0x%x alignedbase=0x%x size=0x%x",
-				   pBT->base, pBT->uSize, aligned_base, uSize);
-
-				if (pBT->base + pBT->uSize >=
-						aligned_base + uSize) {
-					if (!pBT->psMapping ||
-					    pBT->psMapping->ui32Flags ==
-								    uFlags) {
-						_FreeListRemove(pArena, pBT);
-						PVR_ASSERT(pBT->type ==
-								btt_free);
-#ifdef RA_STATS
-						pArena->sStatistics.
-							uLiveSegmentCount++;
-						pArena->sStatistics.
-							uFreeSegmentCount--;
-						pArena->sStatistics.
-							uFreeResourceCount -=
-							pBT->uSize;
-#endif
-						if (aligned_base > pBT->base) {
-							struct BT *pNeighbour;
-
-							pNeighbour =
-								_SegmentSplit
-								(pArena, pBT,
-								 aligned_base -
-								 pBT->base);
-
-							if (pNeighbour ==
-									NULL) {
-								PVR_DPF(
-								PVR_DBG_ERROR,
-								"_AttemptAlloc"
-								"Aligned: "
-								"Front split "
-								"failed");
-
-								_FreeListInsert
-									(pArena,
-									 pBT);
-								return
-								     IMG_FALSE;
-							}
-
-							_FreeListInsert(pArena,
-									pBT);
-#ifdef RA_STATS
-							pArena->sStatistics.
-							    uFreeSegmentCount++;
-							pArena->sStatistics.
-							   uFreeResourceCount +=
-								    pBT->uSize;
-#endif
-							pBT = pNeighbour;
-						}
-
-						if (pBT->uSize > uSize) {
-							struct BT *pNeighbour;
-							pNeighbour =
-								_SegmentSplit
-								(pArena, pBT,
-								 uSize);
-
-							if (pNeighbour ==
-									NULL) {
-								PVR_DPF(
-								PVR_DBG_ERROR,
-								"_AttemptAlloc"
-								"Aligned:"
-								" Back split "
-								"failed");
-
-								_FreeListInsert
-									(pArena,
-									 pBT);
-								return
-								     IMG_FALSE;
-							}
-
-							_FreeListInsert(pArena,
-								pNeighbour);
-#ifdef RA_STATS
-							pArena->sStatistics.
-							    uFreeSegmentCount++;
-							pArena->sStatistics.
-							   uFreeResourceCount +=
-							      pNeighbour->uSize;
-#endif
-						}
-
-						pBT->type = btt_live;
-
-						if (!HASH_Insert(
-							 pArena->pSegmentHash,
-							 pBT->base, (u32)pBT)) {
-							_FreeBT(pArena, pBT,
-								IMG_FALSE);
-							return IMG_FALSE;
-						}
-
-						if (ppsMapping != NULL)
-							*ppsMapping =
-								pBT->psMapping;
-
-						*base = pBT->base;
-
-						return IMG_TRUE;
-					} else {
-						PVR_DPF(PVR_DBG_MESSAGE,
-						"AttemptAllocAligned: "
-						"mismatch in flags. "
-						"Import has %x, request "
-						"was %x",
-						pBT->psMapping->ui32Flags,
-						uFlags);
-
-					}
-				}
-				pBT = pBT->pNextFree;
+					"AttemptAllocAligned: mismatch in "
+					"flags. Import has %x, request was %x",
+					 pBT->psMapping->ui32Flags, uFlags);
+				continue;
 			}
 
+			if (alloc_from_bt(pArena, pBT, aligned_base, uSize,
+					  uFlags, ppsMapping, base) < 0)
+				return IMG_FALSE;
+
+			return IMG_TRUE;
 		}
-		uIndex++;
 	}
 
 	return IMG_FALSE;
 }
 
 struct RA_ARENA *RA_Create(char *name, u32 base, size_t uSize,
-		    struct BM_MAPPING *psMapping, size_t uQuantum,
-		    IMG_BOOL(*alloc) (void *, size_t uSize,
-				      size_t *pActualSize,
-				      struct BM_MAPPING **ppsMapping,
-				      u32 _flags, u32 *pBase),
-		    void(*free) (void *, u32, struct BM_MAPPING *psMapping),
-		    void(*backingstore_free) (void *, u32, u32, void *),
-		    void *pImportHandle)
+			   struct BM_MAPPING *psMapping, size_t uQuantum,
+			   IMG_BOOL(*imp_alloc) (void *, size_t uSize,
+						 size_t *pActualSize,
+						 struct BM_MAPPING **ppsMapping,
+						 u32 _flags, u32 *pBase),
+			   void (*imp_free) (void *, u32, struct BM_MAPPING *),
+			   void(*backingstore_free) (void *, u32, u32, void *),
+			   void *pImportHandle)
 {
 	struct RA_ARENA *pArena;
 	struct BT *pBT;
 	int i;
 
 	PVR_DPF(PVR_DBG_MESSAGE, "RA_Create: "
-		"name='%s', base=0x%x, uSize=0x%x, alloc=0x%x, free=0x%x",
-		name, base, uSize, alloc, free);
+		 "name='%s', base=0x%x, uSize=0x%x, alloc=0x%x, free=0x%x",
+		 name, base, uSize, imp_alloc, imp_free);
 
 	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 		       sizeof(*pArena),
@@ -581,8 +618,9 @@ struct RA_ARENA *RA_Create(char *name, u32 base, size_t uSize,
 		goto arena_fail;
 
 	pArena->name = name;
-	pArena->pImportAlloc = alloc != NULL ? alloc : _RequestAllocFail;
-	pArena->pImportFree = free;
+	pArena->pImportAlloc =
+	    (imp_alloc != NULL) ? imp_alloc : _RequestAllocFail;
+	pArena->pImportFree = imp_free;
 	pArena->pBackingStoreFree = backingstore_free;
 	pArena->pImportHandle = pImportHandle;
 	for (i = 0; i < FREE_TABLE_LIMIT; i++)
@@ -605,12 +643,43 @@ struct RA_ARENA *RA_Create(char *name, u32 base, size_t uSize,
 
 #if defined(CONFIG_PROC_FS) && defined(DEBUG)
 	if (strcmp(pArena->name, "") != 0) {
-		sprintf(pArena->szProcInfoName, "ra_info_%s", pArena->name);
-		CreateProcEntry(pArena->szProcInfoName, RA_DumpInfo, NULL,
-				pArena);
-		sprintf(pArena->szProcSegsName, "ra_segs_%s", pArena->name);
-		CreateProcEntry(pArena->szProcSegsName, RA_DumpSegs, NULL,
-				pArena);
+		int ret;
+		int (*pfnCreateProcEntry) (const char *, read_proc_t,
+					   write_proc_t, void *);
+
+		pArena->bInitProcEntry =
+		    !PVRSRVGetInitServerState(PVRSRV_INIT_SERVER_SUCCESSFUL);
+
+		pfnCreateProcEntry = pArena->bInitProcEntry ? CreateProcEntry :
+					    CreatePerProcessProcEntry;
+
+		ret = snprintf(pArena->szProcInfoName,
+			     sizeof(pArena->szProcInfoName), "ra_info_%s",
+			     pArena->name);
+		if (ret > 0 && ret < sizeof(pArena->szProcInfoName)) {
+			(void)pfnCreateProcEntry(ReplaceSpaces
+					       (pArena->szProcInfoName),
+					       RA_DumpInfo, NULL, pArena);
+		} else {
+			pArena->szProcInfoName[0] = 0;
+			PVR_DPF(PVR_DBG_ERROR, "RA_Create: "
+			      "couldn't create ra_info proc entry for arena %s",
+				 pArena->name);
+		}
+
+		ret = snprintf(pArena->szProcSegsName,
+			     sizeof(pArena->szProcSegsName), "ra_segs_%s",
+			     pArena->name);
+		if (ret > 0 && ret < sizeof(pArena->szProcInfoName)) {
+			(void)pfnCreateProcEntry(ReplaceSpaces
+					       (pArena->szProcSegsName),
+					       RA_DumpSegs, NULL, pArena);
+		} else {
+			pArena->szProcSegsName[0] = 0;
+			PVR_DPF(PVR_DBG_ERROR, "RA_Create: "
+			      "couldn't create ra_segs proc entry for arena %s",
+				 pArena->name);
+		}
 	}
 #endif
 
@@ -641,6 +710,13 @@ void RA_Delete(struct RA_ARENA *pArena)
 	u32 uIndex;
 
 	PVR_ASSERT(pArena != NULL);
+
+	if (pArena == NULL) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "RA_Delete: invalid parameter - pArena");
+		return;
+	}
+
 	PVR_DPF(PVR_DBG_MESSAGE, "RA_Delete: name='%s'", pArena->name);
 
 	for (uIndex = 0; uIndex < FREE_TABLE_LIMIT; uIndex++)
@@ -657,48 +733,79 @@ void RA_Delete(struct RA_ARENA *pArena)
 #endif
 	}
 #if defined(CONFIG_PROC_FS) && defined(DEBUG)
-	RemoveProcEntry(pArena->szProcInfoName);
-	RemoveProcEntry(pArena->szProcSegsName);
+	{
+		void (*pfnRemoveProcEntry) (const char *);
+
+		pfnRemoveProcEntry =
+		    pArena->
+		    bInitProcEntry ? RemoveProcEntry :
+		    RemovePerProcessProcEntry;
+
+		if (pArena->szProcInfoName[0] != 0)
+			pfnRemoveProcEntry(pArena->szProcInfoName);
+
+		if (pArena->szProcSegsName[0] != 0)
+			pfnRemoveProcEntry(pArena->szProcSegsName);
+	}
 #endif
 	HASH_Delete(pArena->pSegmentHash);
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(struct RA_ARENA), pArena,
 		  NULL);
 }
 
+IMG_BOOL RA_TestDelete(struct RA_ARENA *pArena)
+{
+	PVR_ASSERT(pArena != NULL);
+
+	if (pArena != NULL)
+		while (pArena->pHeadSegment != NULL) {
+			struct BT *pBT = pArena->pHeadSegment;
+			if (pBT->type != btt_free)
+				return IMG_FALSE;
+		}
+
+	return IMG_TRUE;
+}
+
 IMG_BOOL RA_Add(struct RA_ARENA *pArena, u32 base, size_t uSize)
 {
 	PVR_ASSERT(pArena != NULL);
+
+	if (pArena == NULL) {
+		PVR_DPF(PVR_DBG_ERROR, "RA_Add: invalid parameter - pArena");
+		return IMG_FALSE;
+	}
 
 	PVR_DPF(PVR_DBG_MESSAGE,
 		 "RA_Add: name='%s', base=0x%x, size=0x%x", pArena->name, base,
 		 uSize);
 
-	uSize =
-	    (uSize + pArena->uQuantum -
-	     1) / pArena->uQuantum * pArena->uQuantum;
+	uSize = (uSize + pArena->uQuantum - 1) /
+		pArena->uQuantum * pArena->uQuantum;
 	return (IMG_BOOL)(_InsertResource(pArena, base, uSize) != NULL);
 }
 
 IMG_BOOL RA_Alloc(struct RA_ARENA *pArena, size_t uRequestSize,
-		  size_t *pActualSize, struct BM_MAPPING **ppsMapping,
-		  u32 uFlags, u32 uAlignment, u32 uAlignmentOffset, u32 *base)
+		  struct BM_MAPPING **ppsMapping, u32 uFlags, u32 uAlignment,
+		  u32 *base)
 {
-	IMG_BOOL bResult = IMG_FALSE;
+	IMG_BOOL bResult;
 	size_t uSize = uRequestSize;
 
 	PVR_ASSERT(pArena != NULL);
 
-
-	if (pActualSize != NULL)
-		*pActualSize = uSize;
+	if (pArena == NULL) {
+		PVR_DPF(PVR_DBG_ERROR,
+			 "RA_Alloc: invalid parameter - pArena");
+		return IMG_FALSE;
+	}
 
 	PVR_DPF(PVR_DBG_MESSAGE, "RA_Alloc: "
-		 "arena='%s', size=0x%x(0x%x), alignment=0x%x, offset=0x%x",
-		 pArena->name, uSize, uRequestSize, uAlignment,
-		 uAlignmentOffset);
+		 "arena='%s', size=0x%x(0x%x), alignment=0x%x",
+		 pArena->name, uSize, uRequestSize, uAlignment);
 
 	bResult = _AttemptAllocAligned(pArena, uSize, ppsMapping, uFlags,
-				       uAlignment, uAlignmentOffset, base);
+				       uAlignment, base);
 	if (!bResult) {
 		struct BM_MAPPING *psImportMapping;
 		u32 import_base;
@@ -708,8 +815,8 @@ IMG_BOOL RA_Alloc(struct RA_ARENA *pArena, size_t uRequestSize,
 			uImportSize += (uAlignment - 1);
 
 		uImportSize =
-		    ((uImportSize + pArena->uQuantum -
-		      1) / pArena->uQuantum) * pArena->uQuantum;
+		    ((uImportSize + pArena->uQuantum - 1) /
+		     pArena->uQuantum) * pArena->uQuantum;
 
 		bResult =
 		    pArena->pImportAlloc(pArena->pImportHandle, uImportSize,
@@ -717,17 +824,15 @@ IMG_BOOL RA_Alloc(struct RA_ARENA *pArena, size_t uRequestSize,
 					 &import_base);
 		if (bResult) {
 			struct BT *pBT;
-			pBT =
-			    _InsertResourceSpan(pArena, import_base,
+			pBT = _InsertResourceSpan(pArena, import_base,
 						uImportSize);
 
 			if (pBT == NULL) {
-
 				pArena->pImportFree(pArena->pImportHandle,
 						    import_base,
 						    psImportMapping);
 				PVR_DPF(PVR_DBG_MESSAGE, "RA_Alloc: "
-					"name='%s', size=0x%x failed!",
+					 "name='%s', size=0x%x failed!",
 					 pArena->name, uSize);
 
 				return IMG_FALSE;
@@ -739,13 +844,12 @@ IMG_BOOL RA_Alloc(struct RA_ARENA *pArena, size_t uRequestSize,
 			pArena->sStatistics.uImportCount++;
 			pArena->sStatistics.uSpanCount++;
 #endif
-			bResult =
-			    _AttemptAllocAligned(pArena, uSize, ppsMapping,
-						 uFlags, uAlignment,
-						 uAlignmentOffset, base);
+			bResult = _AttemptAllocAligned(pArena, uSize,
+						 ppsMapping, uFlags, uAlignment,
+						 base);
 			if (!bResult)
 				PVR_DPF(PVR_DBG_MESSAGE, "RA_Alloc: "
-					"name='%s' uAlignment failed!",
+					 "name='%s' uAlignment failed!",
 					 pArena->name);
 		}
 	}
@@ -767,6 +871,10 @@ void RA_Free(struct RA_ARENA *pArena, u32 base, IMG_BOOL bFreeBackingStore)
 
 	PVR_ASSERT(pArena != NULL);
 
+	if (pArena == NULL) {
+		PVR_DPF(PVR_DBG_ERROR, "RA_Free: invalid parameter - pArena");
+		return;
+	}
 
 	PVR_DPF(PVR_DBG_MESSAGE,
 		 "RA_Free: name='%s', base=0x%x", pArena->name, base);
@@ -794,7 +902,6 @@ IMG_BOOL RA_GetNextLiveSegment(void *hArena,
 		pBT = (struct BT *)psSegDetails->hSegment;
 	} else {
 		struct RA_ARENA *pArena = (struct RA_ARENA *)hArena;
-
 		pBT = pArena->pHeadSegment;
 	}
 
@@ -832,6 +939,35 @@ static char *_BTType(int eType)
 }
 #endif
 
+#if defined(ENABLE_RA_DUMP)
+void RA_Dump(struct RA_ARENA *pArena)
+{
+	struct BT *pBT;
+	PVR_ASSERT(pArena != NULL);
+	PVR_DPF(PVR_DBG_MESSAGE, "Arena '%s':", pArena->name);
+	PVR_DPF(PVR_DBG_MESSAGE,
+		 "  alloc=%08X free=%08X handle=%08X quantum=%d",
+		 pArena->pImportAlloc, pArena->pImportFree,
+		 pArena->pImportHandle, pArena->uQuantum);
+	PVR_DPF(PVR_DBG_MESSAGE, "  segment Chain:");
+	if (pArena->pHeadSegment != NULL &&
+	    pArena->pHeadSegment->pPrevSegment != NULL)
+		PVR_DPF(PVR_DBG_MESSAGE,
+			 "  error: head boundary tag has invalid pPrevSegment");
+	if (pArena->pTailSegment != NULL &&
+	    pArena->pTailSegment->pNextSegment != NULL)
+		PVR_DPF(PVR_DBG_MESSAGE,
+			 "  error: tail boundary tag has invalid pNextSegment");
+
+	for (pBT = pArena->pHeadSegment; pBT != NULL; pBT = pBT->pNextSegment)
+		PVR_DPF(PVR_DBG_MESSAGE,
+			 "\tbase=0x%x size=0x%x type=%s ref=%08X",
+			 (u32) pBT->base, pBT->uSize, _BTType(pBT->type),
+			 pBT->pRef);
+
+}
+#endif
+
 #if defined(CONFIG_PROC_FS) && defined(DEBUG)
 static int RA_DumpSegs(char *page, char **start, off_t off, int count, int *eof,
 		       void *data)
@@ -855,9 +991,8 @@ static int RA_DumpSegs(char *page, char **start, off_t off, int count, int *eof,
 		;
 	if (pBT)
 		len = printAppend(page, count, 0, "%08x %8x %4s %08x\n",
-				  (unsigned int)pBT->base,
-				  (unsigned int)pBT->uSize, _BTType(pBT->type),
-				  (unsigned int)pBT->psMapping);
+				  (unsigned)pBT->base, (unsigned)pBT->uSize,
+				  _BTType(pBT->type), (unsigned)pBT->psMapping);
 	else
 		*eof = 1;
 	return len;
@@ -880,9 +1015,8 @@ static int RA_DumpInfo(char *page, char **start, off_t off, int count, int *eof,
 				  pArena->uQuantum);
 		break;
 	case 1:
-		len =
-		    printAppend(page, count, 0, "import_handle\t\t%08X\n",
-				(unsigned int)pArena->pImportHandle);
+		len = printAppend(page, count, 0, "import_handle\t\t%08X\n",
+				(unsigned)pArena->pImportHandle);
 		break;
 #ifdef RA_STATS
 	case 2:
@@ -901,7 +1035,7 @@ static int RA_DumpInfo(char *page, char **start, off_t off, int count, int *eof,
 		len = printAppend(page, count, 0,
 				"free resource count\t%u (0x%x)\n",
 				pArena->sStatistics.uFreeResourceCount,
-				(unsigned int)pArena->sStatistics.
+				(unsigned)pArena->sStatistics.
 				uFreeResourceCount);
 		break;
 	case 6:
@@ -931,8 +1065,8 @@ static int RA_DumpInfo(char *page, char **start, off_t off, int count, int *eof,
 #endif
 
 #ifdef RA_STATS
-enum PVRSRV_ERROR RA_GetStats(struct RA_ARENA *pArena,
-			 char **ppszStr, u32 *pui32StrLen)
+enum PVRSRV_ERROR RA_GetStats(struct RA_ARENA *pArena, char **ppszStr,
+			      u32 *pui32StrLen)
 {
 	char *pszStr = *ppszStr;
 	u32 ui32StrLen = *pui32StrLen;
@@ -944,59 +1078,50 @@ enum PVRSRV_ERROR RA_GetStats(struct RA_ARENA *pArena,
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
 	CHECK_SPACE(ui32StrLen);
-	i32Count =
-	    OSSNPrintf(pszStr, 100,
+	i32Count = OSSNPrintf(pszStr, 100,
 		       "  allocCB=%08X freeCB=%08X handle=%08X quantum=%d\n",
 		       pArena->pImportAlloc, pArena->pImportFree,
 		       pArena->pImportHandle, pArena->uQuantum);
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
 	CHECK_SPACE(ui32StrLen);
-	i32Count =
-	    OSSNPrintf(pszStr, 100, "span count\t\t%lu\n",
+	i32Count = OSSNPrintf(pszStr, 100, "span count\t\t%lu\n",
 		       pArena->sStatistics.uSpanCount);
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
 	CHECK_SPACE(ui32StrLen);
-	i32Count =
-	    OSSNPrintf(pszStr, 100, "live segment count\t%lu\n",
+	i32Count = OSSNPrintf(pszStr, 100, "live segment count\t%lu\n",
 		       pArena->sStatistics.uLiveSegmentCount);
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
 	CHECK_SPACE(ui32StrLen);
-	i32Count =
-	    OSSNPrintf(pszStr, 100, "free segment count\t%lu\n",
+	i32Count = OSSNPrintf(pszStr, 100, "free segment count\t%lu\n",
 		       pArena->sStatistics.uFreeSegmentCount);
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
 	CHECK_SPACE(ui32StrLen);
 	i32Count = OSSNPrintf(pszStr, 100, "free resource count\t%lu (0x%x)\n",
 			      pArena->sStatistics.uFreeResourceCount,
-			      (unsigned int)pArena->sStatistics.
-			      uFreeResourceCount);
+			      (unsigned)pArena->sStatistics.uFreeResourceCount);
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
 	CHECK_SPACE(ui32StrLen);
-	i32Count =
-	    OSSNPrintf(pszStr, 100, "total allocs\t\t%lu\n",
+	i32Count = OSSNPrintf(pszStr, 100, "total allocs\t\t%lu\n",
 		       pArena->sStatistics.uCumulativeAllocs);
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
 	CHECK_SPACE(ui32StrLen);
-	i32Count =
-	    OSSNPrintf(pszStr, 100, "total frees\t\t%lu\n",
+	i32Count = OSSNPrintf(pszStr, 100, "total frees\t\t%lu\n",
 		       pArena->sStatistics.uCumulativeFrees);
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
 	CHECK_SPACE(ui32StrLen);
-	i32Count =
-	    OSSNPrintf(pszStr, 100, "import count\t\t%lu\n",
+	i32Count = OSSNPrintf(pszStr, 100, "import count\t\t%lu\n",
 		       pArena->sStatistics.uImportCount);
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
 	CHECK_SPACE(ui32StrLen);
-	i32Count =
-	    OSSNPrintf(pszStr, 100, "export count\t\t%lu\n",
+	i32Count = OSSNPrintf(pszStr, 100, "export count\t\t%lu\n",
 		       pArena->sStatistics.uExportCount);
 	UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 
@@ -1007,8 +1132,7 @@ enum PVRSRV_ERROR RA_GetStats(struct RA_ARENA *pArena,
 	if (pArena->pHeadSegment != NULL &&
 	    pArena->pHeadSegment->pPrevSegment != NULL) {
 		CHECK_SPACE(ui32StrLen);
-		i32Count =
-		    OSSNPrintf(pszStr, 100,
+		i32Count = OSSNPrintf(pszStr, 100,
 		       "  error: head boundary tag has invalid pPrevSegment\n");
 		UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 	}
@@ -1016,8 +1140,7 @@ enum PVRSRV_ERROR RA_GetStats(struct RA_ARENA *pArena,
 	if (pArena->pTailSegment != NULL &&
 	    pArena->pTailSegment->pNextSegment != NULL) {
 		CHECK_SPACE(ui32StrLen);
-		i32Count =
-		    OSSNPrintf(pszStr, 100,
+		i32Count = OSSNPrintf(pszStr, 100,
 		       "  error: tail boundary tag has invalid pNextSegment\n");
 		UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 	}
@@ -1025,11 +1148,10 @@ enum PVRSRV_ERROR RA_GetStats(struct RA_ARENA *pArena,
 	for (pBT = pArena->pHeadSegment; pBT != NULL;
 	     pBT = pBT->pNextSegment) {
 		CHECK_SPACE(ui32StrLen);
-		i32Count =
-		    OSSNPrintf(pszStr, 100,
+		i32Count = OSSNPrintf(pszStr, 100,
 			       "\tbase=0x%x size=0x%x type=%s ref=%08X\n",
-			       (unsigned long)pBT->base, pBT->uSize,
-			       _BTType(pBT->type), pBT->psMapping);
+			       (u32) pBT->base, pBT->uSize, _BTType(pBT->type),
+			       pBT->psMapping);
 		UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 	}
 

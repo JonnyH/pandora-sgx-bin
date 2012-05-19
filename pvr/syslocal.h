@@ -29,8 +29,11 @@
 
 #include <linux/version.h>
 #include <linux/clk.h>
-#include <linux/semaphore.h>
+#include <linux/spinlock.h>
+#include <asm/atomic.h>
 
+#include <linux/semaphore.h>
+#include <linux/resource.h>
 
 char *SysCreateVersionString(struct IMG_CPU_PHYADDR sRegRegion);
 
@@ -54,6 +57,7 @@ enum PVRSRV_ERROR EnableSGXClocks(struct SYS_DATA *psSysData);
 
 #define	SYS_SPECIFIC_DATA_PM_UNINSTALL_LISR	0x00000200
 #define	SYS_SPECIFIC_DATA_PM_DISABLE_SYSCLOCKS	0x00000400
+#define	SYS_SPECIFIC_DATA_ENABLE_PERF		0x00000800
 
 #define	SYS_SPECIFIC_DATA_SET(psSysSpecData, flag) \
 		((void)((psSysSpecData)->ui32SysSpecificData |= (flag)))
@@ -68,7 +72,15 @@ struct SYS_SPECIFIC_DATA {
 	u32 ui32SysSpecificData;
 	struct PVRSRV_DEVICE_NODE *psSGXDevNode;
 	IMG_BOOL bSGXInitComplete;
-	IMG_BOOL bSGXClocksEnabled;
+	u32 ui32SrcClockDiv;
+	IMG_BOOL bConstraintNotificationsEnabled;
+	atomic_t sSGXClocksEnabled;
+	spinlock_t sPowerLock;
+	atomic_t sPowerLockCPU;
+	spinlock_t sNotifyLock;
+	atomic_t sNotifyLockCPU;
+	IMG_BOOL bCallVDD2PostFunc;
+
 	struct clk *psCORE_CK;
 	struct clk *psSGX_FCK;
 	struct clk *psSGX_ICK;
