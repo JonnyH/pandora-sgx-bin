@@ -33,7 +33,6 @@
 #include <linux/notifier.h>
 
 #include <asm/div64.h>
-#include <video/sgx-util.h>
 
 #include "img_defs.h"
 #include "servicesext.h"
@@ -47,6 +46,44 @@ static int fb_idx;
 #define OMAPLFB_COMMAND_COUNT		1
 
 static IMG_BOOL (*pfnGetPVRJTable)(struct PVRSRV_DC_DISP2SRV_KMJTABLE *);
+
+#define OMAPLFB_PAGE_SIZE 4096
+
+/* Greatest common divisor */
+static unsigned long gcd(unsigned long a, unsigned long b)
+{
+	unsigned long r;
+
+	if (a < b) {
+		r = a;
+		a = b;
+		b = r;
+	}
+
+	while ((r = a % b) != 0) {
+		a = b;
+		b = r;
+	}
+
+	return b;
+}
+
+/*
+ * Workout the smallest size that is aligned to both 4K (for the SGX)
+ * and line length (for the fbdev driver).
+ */
+static unsigned int sgx_buffer_align(unsigned stride, unsigned size)
+{
+	unsigned lcm;
+
+	if (!stride || !size)
+		return 0;
+
+	lcm = stride * OMAPLFB_PAGE_SIZE / gcd(stride,
+					       OMAPLFB_PAGE_SIZE);
+
+	return roundup(size, lcm);
+}
 
 static struct OMAPLFB_DEVINFO *GetAnchorPtr(void)
 {
