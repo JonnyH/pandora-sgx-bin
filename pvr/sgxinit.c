@@ -1300,7 +1300,8 @@ enum PVRSRV_ERROR SGXDevInitCompatCheck(struct PVRSRV_DEVICE_NODE *psDeviceNode)
 	if ((psSGXFeatures->ui32DDKVersion !=
 	     ((PVRVERSION_MAJ << 16) | (PVRVERSION_MIN << 8) |
 	      PVRVERSION_BRANCH)) ||
-	     (psSGXFeatures->ui32DDKBuild != PVRVERSION_BUILD)) {
+	     (psSGXFeatures->ui32DDKBuild != PVRVERSION_BUILD &&
+	      psSGXFeatures->ui32DDKBuild != 2616)) {
 		pr_err("pvr: incompatible driver DDK revision (%d)"
 			"/device DDK revision (%d).\n",
 			 PVRVERSION_BUILD, psSGXFeatures->ui32DDKBuild);
@@ -1314,8 +1315,10 @@ enum PVRSRV_ERROR SGXDevInitCompatCheck(struct PVRSRV_DEVICE_NODE *psDeviceNode)
 
 	opts = psSGXFeatures->ui32BuildOptions;
 	opt_mismatch = opts ^ SGX_BUILD_OPTIONS;
+#if 0
 	/* we support the ABIs both with and without EDM tracing option */
 	opt_mismatch &= ~PVRSRV_USSE_EDM_STATUS_DEBUG_SET_OFFSET;
+#endif
 	if (opt_mismatch) {
 		if (SGX_BUILD_OPTIONS & opt_mismatch)
 			pr_err("pvr: mismatch in driver and microkernel build "

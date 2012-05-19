@@ -1052,7 +1052,12 @@ int SGX2DQueryBlitsCompleteBW(struct file *filp, u32 ui32BridgeID,
 				       (long)ps2DQueryBltsCompleteIN->
 						       hKernSyncInfo,
 				       ps2DQueryBltsCompleteIN->type,
-				       ps2DQueryBltsCompleteIN->user_data))
+#if 0
+				       ps2DQueryBltsCompleteIN->user_data
+#else
+				       0
+#endif
+					   ))
 			psRetOUT->eError = PVRSRV_ERROR_OUT_OF_MEMORY;
 
 		return 0;
@@ -1072,7 +1077,12 @@ int SGX2DQueryBlitsCompleteBW(struct file *filp, u32 ui32BridgeID,
 	if (ps2DQueryBltsCompleteIN->type == _PVR_SYNC_WAIT_EVENT) {
 		if (pvr_sync_event_req(priv,
 				(struct PVRSRV_KERNEL_SYNC_INFO *)pvSyncInfo,
-				ps2DQueryBltsCompleteIN->user_data))
+#if 0
+				ps2DQueryBltsCompleteIN->user_data
+#else
+				0
+#endif
+				))
 			psRetOUT->eError = PVRSRV_ERROR_OUT_OF_MEMORY;
 		else
 			trace_query_cmd(psPerProc,

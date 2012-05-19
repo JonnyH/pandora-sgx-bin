@@ -228,8 +228,8 @@ struct PVRSRV_BRIDGE_IN_SGXDEVINITPART2 {
 };
 
 enum pvr_sync_wait_seq_type {
+	_PVR_SYNC_WAIT_NONBLOCK = 0,
 	_PVR_SYNC_WAIT_BLOCK,
-	_PVR_SYNC_WAIT_NONBLOCK,
 	_PVR_SYNC_WAIT_EVENT,
 	_PVR_SYNC_WAIT_FLIP,
 	_PVR_SYNC_WAIT_UPDATE,
@@ -239,7 +239,9 @@ struct PVRSRV_BRIDGE_IN_2DQUERYBLTSCOMPLETE {
 	u32 ui32BridgeFlags;
 	void *hDevCookie;
 	void *hKernSyncInfo;
+#if 0
 	u64 user_data;
+#endif
 	enum pvr_sync_wait_seq_type type;
 };
 

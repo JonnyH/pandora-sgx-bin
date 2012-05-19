@@ -681,6 +681,7 @@ static int PVRSRVUnmapDeviceMemoryBW(u32 ui32BridgeID,
 	return 0;
 }
 
+#if 0
 static int FlushCacheDRI(u32 ui32Type, u32 ui32Virt, u32 ui32Length)
 {
 	switch (ui32Type) {
@@ -740,6 +741,7 @@ static int PVRSRVCacheFlushDRIBW(u32 ui32BridgeID,
 
 	return 0;
 }
+#endif
 
 static int PVRSRVMapDeviceClassMemoryBW(u32 ui32BridgeID,
 	   struct PVRSRV_BRIDGE_IN_MAP_DEVICECLASS_MEMORY *psMapDevClassMemIN,
@@ -2717,10 +2719,11 @@ static int bridged_ioctl(struct file *filp, u32 cmd, void *in, void *out,
 	case PVRSRV_BRIDGE_RELEASE_MMAP_DATA:
 		err = PVRMMapReleaseMMapDataBW(cmd, in, out, per_proc);
 		break;
+#if 0
 	case PVRSRV_BRIDGE_CACHE_FLUSH_DRM:
 		err = PVRSRVCacheFlushDRIBW(cmd, in, out, per_proc);
 		break;
-
+#endif
 	case PVRSRV_BRIDGE_PROCESS_SIMISR_EVENT:
 	case PVRSRV_BRIDGE_REGISTER_SIM_PROCESS:
 	case PVRSRV_BRIDGE_UNREGISTER_SIM_PROCESS:
