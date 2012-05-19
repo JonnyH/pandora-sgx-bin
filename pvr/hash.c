@@ -166,7 +166,8 @@ static IMG_BOOL _Resize(HASH_TABLE * pHash, IMG_UINT32 uNewSize)
 			ppNewTable[uIndex] = IMG_NULL;
 		_Rehash(pHash, pHash->ppBucketTable, pHash->uSize, ppNewTable,
 			uNewSize);
-		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 0, pHash->ppBucketTable,
+		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+			  sizeof(BUCKET *) * pHash->uSize, pHash->ppBucketTable,
 			  IMG_NULL);
 		pHash->ppBucketTable = ppNewTable;
 		pHash->uSize = uNewSize;
@@ -224,7 +225,8 @@ IMG_VOID HASH_Delete(HASH_TABLE * pHash)
 		PVR_DPF((PVR_DBG_MESSAGE, "HASH_Delete"));
 
 		PVR_ASSERT(pHash->uCount == 0);
-		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 0, pHash->ppBucketTable,
+		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+			  sizeof(BUCKET *) * pHash->uSize, pHash->ppBucketTable,
 			  IMG_NULL);
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(HASH_TABLE), pHash,
 			  IMG_NULL);

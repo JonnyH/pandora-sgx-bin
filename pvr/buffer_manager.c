@@ -23,7 +23,6 @@
  * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
  ******************************************************************************/
-
 #include "services_headers.h"
 
 #include "sysconfig.h"
@@ -611,7 +610,8 @@ static PVRSRV_ERROR BM_DestroyContextCallBack(IMG_PVOID pvParam,
 
 		psBMHeap = psBMHeap->psNext;
 
-		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 0, psTmpBMHeap, IMG_NULL);
+		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_HEAP),
+			  psTmpBMHeap, IMG_NULL);
 	}
 
 	if (pBMContext->psMMUContext) {
@@ -638,7 +638,8 @@ static PVRSRV_ERROR BM_DestroyContextCallBack(IMG_PVOID pvParam,
 		}
 	}
 
-	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 0, pBMContext, IMG_NULL);
+	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_CONTEXT), pBMContext,
+		  IMG_NULL);
 
 	return PVRSRV_OK;
 }
@@ -855,7 +856,7 @@ ErrorExit:
 		psDeviceNode->pfnMMUFinalise(pBMContext->psMMUContext);
 	}
 
-	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 0, psBMHeap, IMG_NULL);
+	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_HEAP), psBMHeap, IMG_NULL);
 
 	return IMG_NULL;
 }
@@ -889,8 +890,8 @@ IMG_VOID BM_DestroyHeap(IMG_HANDLE hDevMemHeap)
 			if (*ppsBMHeap == psBMHeap) {
 
 				*ppsBMHeap = psBMHeap->psNext;
-				OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 0, psBMHeap,
-					  IMG_NULL);
+				OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+					  sizeof(BM_HEAP), psBMHeap, IMG_NULL);
 				break;
 			}
 			ppsBMHeap = &((*ppsBMHeap)->psNext);
@@ -971,11 +972,28 @@ BM_Alloc(IMG_HANDLE hDevMemHeap,
 }
 
 IMG_BOOL
+BM_IsWrapped(IMG_HANDLE hDevMemHeap,
+	     IMG_UINT32 ui32Offset, IMG_SYS_PHYADDR sSysAddr)
+{
+	BM_BUF *pBuf;
+	BM_CONTEXT *psBMContext;
+	BM_HEAP *psBMHeap;
+
+	psBMHeap = (BM_HEAP *) hDevMemHeap;
+	psBMContext = psBMHeap->pBMContext;
+	sSysAddr.uiAddr += ui32Offset;
+	pBuf = (BM_BUF *) HASH_Retrieve(psBMContext->pBufferHash,
+					(IMG_UINTPTR_T) sSysAddr.uiAddr);
+	return pBuf != IMG_NULL;
+}
+
+IMG_BOOL
 BM_Wrap(IMG_HANDLE hDevMemHeap,
 	IMG_UINT32 ui32Size,
 	IMG_UINT32 ui32Offset,
 	IMG_BOOL bPhysContig,
 	IMG_SYS_PHYADDR * psSysAddr,
+	IMG_BOOL bFreePageList,
 	IMG_VOID * pvCPUVAddr, IMG_UINT32 * pui32Flags, BM_HANDLE * phBuf)
 {
 	BM_BUF *pBuf;
@@ -1017,7 +1035,9 @@ BM_Wrap(IMG_HANDLE hDevMemHeap,
 		if (pBuf->pMapping->uSize == ui32MappingSize
 		    && (pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped
 			|| pBuf->pMapping->eCpuMemoryOrigin ==
-			hm_wrapped_virtaddr)) {
+			hm_wrapped_virtaddr
+			|| pBuf->pMapping->eCpuMemoryOrigin ==
+			hm_wrapped_scatter)) {
 			PVR_DPF((PVR_DBG_MESSAGE,
 				 "BM_Wrap (Matched previous Wrap! uSize=0x%x, uOffset=0x%x, SysAddr=%08X)",
 				 ui32Size, ui32Offset, sHashAddress.uiAddr));
@@ -1027,6 +1047,12 @@ BM_Wrap(IMG_HANDLE hDevMemHeap,
 			if (pui32Flags)
 				*pui32Flags = uFlags;
 
+			/* reusing previous mapping, free the page list */
+			if (bFreePageList && psSysAddr)
+				OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+					  ui32MappingSize / HOST_PAGESIZE() *
+					  sizeof(IMG_SYS_PHYADDR),
+					  (IMG_VOID *) psSysAddr, 0);
 			return IMG_TRUE;
 		}
 	}
@@ -1049,18 +1075,13 @@ BM_Wrap(IMG_HANDLE hDevMemHeap,
 	}
 
 	if (pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped
-	    || pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped_virtaddr) {
-
-		PVR_ASSERT(SysSysPAddrToCpuPAddr(sHashAddress).uiAddr ==
-			   pBuf->CpuPAddr.uiAddr);
-
+	    || pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped_virtaddr
+	    || pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped_scatter) {
+		pBuf->uHashKey = (IMG_UINTPTR_T) sHashAddress.uiAddr;
 		if (!HASH_Insert
-		    (psBMContext->pBufferHash,
-		     (IMG_UINTPTR_T) sHashAddress.uiAddr,
+		    (psBMContext->pBufferHash, pBuf->uHashKey,
 		     (IMG_UINTPTR_T) pBuf)) {
 			FreeBuf(pBuf, uFlags);
-			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_BUF), pBuf,
-				  IMG_NULL);
 			PVR_DPF((PVR_DBG_ERROR, "BM_Wrap: HASH_Insert FAILED"));
 			return IMG_FALSE;
 		}
@@ -1075,6 +1096,9 @@ BM_Wrap(IMG_HANDLE hDevMemHeap,
 	if (pui32Flags)
 		*pui32Flags = uFlags;
 
+	/* take ownership of the list if requested so */
+	if (bFreePageList && psSysAddr)
+		pBuf->pvPageList = (void *)psSysAddr;
 	return IMG_TRUE;
 }
 
@@ -1082,10 +1106,16 @@ void BM_Free(BM_HANDLE hBuf, IMG_UINT32 ui32Flags)
 {
 	BM_BUF *pBuf = (BM_BUF *) hBuf;
 	SYS_DATA *psSysData;
-	IMG_SYS_PHYADDR sHashAddr;
 
 	PVR_DPF((PVR_DBG_MESSAGE, "BM_Free (h=%08X)", hBuf));
+	/* Calling BM_Free with NULL hBuf is either a bug or out-of-memory condition.
+	 * Bail out if in debug mode, continue in release builds */
 	PVR_ASSERT(pBuf != IMG_NULL);
+#if !defined(DEBUG)
+	if (!pBuf) {
+		return;
+	}
+#endif
 
 	if (SysAcquireData(&psSysData) != PVRSRV_OK)
 		return;
@@ -1093,16 +1123,20 @@ void BM_Free(BM_HANDLE hBuf, IMG_UINT32 ui32Flags)
 	pBuf->ui32RefCount--;
 
 	if (pBuf->ui32RefCount == 0) {
+		void *pPageList = pBuf->pvPageList;
+		IMG_UINT32 ui32ListSize =
+		    pBuf->pMapping->uSize / HOST_PAGESIZE() *
+		    sizeof(IMG_SYS_PHYADDR);
 		if (pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped
-		    || pBuf->pMapping->eCpuMemoryOrigin ==
-		    hm_wrapped_virtaddr) {
-			sHashAddr = SysCpuPAddrToSysPAddr(pBuf->CpuPAddr);
-
+		    || pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped_virtaddr
+		    || pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped_scatter) {
 			HASH_Remove(pBuf->pMapping->pBMHeap->pBMContext->
-				    pBufferHash,
-				    (IMG_UINTPTR_T) sHashAddr.uiAddr);
+				    pBufferHash, pBuf->uHashKey);
 		}
 		FreeBuf(pBuf, ui32Flags);
+		if (pPageList)
+			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, ui32ListSize,
+				  pPageList, 0);
 	}
 }
 

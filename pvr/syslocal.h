@@ -30,13 +30,9 @@
 #if defined(__linux__)
 #include <linux/version.h>
 #include <linux/clk.h>
-#if defined (SUPPORT_TI_PM)
-#include <asm/semaphore.h>
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
-#include <asm/arch/resource.h>
-#endif
-#else
 #include <linux/semaphore.h>
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
+/*#include <asm/arch/resource.h>*/
 #endif
 #endif
 
@@ -46,10 +42,10 @@ extern "C" {
 
 	IMG_CHAR *SysCreateVersionString(IMG_CPU_PHYADDR sRegRegion);
 
+	PVRSRV_ERROR InitSystemClocks(SYS_DATA * psSysData);
+	IMG_VOID CleanupSystemClocks(SYS_DATA * psSysData);
 	IMG_VOID DisableSystemClocks(SYS_DATA * psSysData);
-	PVRSRV_ERROR EnableSystemClocks(SYS_DATA * psSysData,
-					SGX_TIMING_INFORMATION *
-					psSGXTimingInfo);
+	PVRSRV_ERROR EnableSystemClocks(SYS_DATA * psSysData);
 
 	IMG_VOID DisableSGXClocks(SYS_DATA * psSysData);
 	PVRSRV_ERROR EnableSGXClocks(SYS_DATA * psSysData);
@@ -75,11 +71,10 @@ extern "C" {
 
 	typedef struct _SYS_SPECIFIC_DATA_TAG_ {
 		IMG_UINT32 ui32SysSpecificData;
-		IMG_BOOL bSGXClocksEnabled;
 		PVRSRV_DEVICE_NODE *psSGXDevNode;
+		IMG_BOOL bSGXInitComplete;
+		IMG_BOOL bSGXClocksEnabled;
 #if defined(__linux__)
-		IMG_BOOL bSysClocksOneTimeInit;
-
 		struct clk *psCORE_CK;
 		struct clk *psSGX_FCK;
 		struct clk *psSGX_ICK;
@@ -87,18 +82,15 @@ extern "C" {
 #if defined(DEBUG) || defined(TIMING)
 		struct clk *psGPT11_FCK;
 		struct clk *psGPT11_ICK;
+		void __iomem *gpt_base;
 #endif
-#if defined (SUPPORT_TI_PM)
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
-		SGX_TIMING_INFORMATION *psSGXTimingInfo;
-
 		struct constraint_handle *pVdd2Handle;
 #endif
 #endif
-
-		struct semaphore sConstraintNotifierLock;
-#endif
 	} SYS_SPECIFIC_DATA;
+
+	extern SYS_SPECIFIC_DATA *gpsSysSpecificData;
 
 #if defined(__cplusplus)
 }

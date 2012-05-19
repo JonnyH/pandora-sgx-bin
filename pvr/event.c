@@ -69,7 +69,7 @@ typedef struct PVRSRV_LINUX_EVENT_OBJECT_LIST_TAG {
 typedef struct PVRSRV_LINUX_EVENT_OBJECT_TAG {
 	atomic_t sTimeStamp;
 	IMG_UINT32 ui32TimeStampPrevious;
-#if DEBUG
+#ifdef DEBUG
 	unsigned int ui32Stats;
 #endif
 	wait_queue_head_t sWait;
@@ -126,7 +126,7 @@ PVRSRV_ERROR LinuxEventObjectDelete(IMG_HANDLE hOSEventObjectList,
 		if (hOSEventObject) {
 			PVRSRV_LINUX_EVENT_OBJECT *psLinuxEventObject =
 			    (PVRSRV_LINUX_EVENT_OBJECT *) hOSEventObject;
-#if DEBUG
+#ifdef DEBUG
 			PVR_DPF((PVR_DBG_MESSAGE,
 				 "LinuxEventObjectListDelete: Event object waits: %lu",
 				 psLinuxEventObject->ui32Stats));
@@ -154,7 +154,7 @@ static PVRSRV_ERROR LinuxEventObjectDeleteCallback(IMG_PVOID pvParam,
 	list_del(&psLinuxEventObject->sList);
 	write_unlock_bh(&psLinuxEventObjectList->sLock);
 
-#if DEBUG
+#ifdef DEBUG
 	PVR_DPF((PVR_DBG_MESSAGE,
 		 "LinuxEventObjectDeleteCallback: Event object waits: %lu",
 		 psLinuxEventObject->ui32Stats));
@@ -196,7 +196,7 @@ PVRSRV_ERROR LinuxEventObjectAdd(IMG_HANDLE hOSEventObjectList,
 	atomic_set(&psLinuxEventObject->sTimeStamp, 0);
 	psLinuxEventObject->ui32TimeStampPrevious = 0;
 
-#if DEBUG
+#ifdef DEBUG
 	psLinuxEventObject->ui32Stats = 0;
 #endif
 	init_waitqueue_head(&psLinuxEventObject->sWait);
@@ -261,7 +261,7 @@ PVRSRV_ERROR LinuxEventObjectWait(IMG_HANDLE hOSEventObject,
 
 		ui32TimeOutJiffies = schedule_timeout(ui32TimeOutJiffies);
 
-#if DEBUG
+#ifdef DEBUG
 		psLinuxEventObject->ui32Stats++;
 #endif
 		LinuxLockMutex(&gPVRSRVLock);

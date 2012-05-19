@@ -260,7 +260,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVRegisterDevice(PSYS_DATA psSysData,
 	eError = pfnRegisterDevice(psDeviceNode);
 	if (eError != PVRSRV_OK) {
 		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
-			  0, psDeviceNode, IMG_NULL);
+			  sizeof(PVRSRV_DEVICE_NODE), psDeviceNode, IMG_NULL);
 		PVR_DPF((PVR_DBG_ERROR,
 			 "PVRSRVRegisterDevice : Failed to register device"));
 		return (PVRSRV_ERROR_DEVICE_REGISTER_FAILED);
@@ -495,7 +495,8 @@ FoundDevice:
 	*ppsDevNode = psDeviceNode->psNext;
 
 	FreeDeviceID(psSysData, ui32DevIndex);
-	OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP, 0, psDeviceNode, IMG_NULL);
+	OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP, sizeof(PVRSRV_DEVICE_NODE),
+		  psDeviceNode, IMG_NULL);
 
 	return (PVRSRV_OK);
 }

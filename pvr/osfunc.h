@@ -67,6 +67,8 @@ extern "C" {
 	PVRSRV_ERROR OSUninstallSystemLISR(IMG_VOID * pvSysData);
 	PVRSRV_ERROR OSInstallMISR(IMG_VOID * pvSysData);
 	PVRSRV_ERROR OSUninstallMISR(IMG_VOID * pvSysData);
+	PVRSRV_ERROR OSInitPerf(IMG_VOID * pvSysData);
+	PVRSRV_ERROR OSCleanupPerf(IMG_VOID * pvSysData);
 	IMG_CPU_PHYADDR OSMapLinToCPUPhys(IMG_VOID * pvLinAddr);
 	IMG_VOID OSMemCopy(IMG_VOID * pvDst, IMG_VOID * pvSrc,
 			   IMG_UINT32 ui32Size);

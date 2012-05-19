@@ -50,8 +50,6 @@ extern "C" {
 
 		PVRSRV_MEMBLK sMemBlk;
 
-		IMG_PVOID pvSysBackupBuffer;
-
 		struct _PVRSRV_KERNEL_SYNC_INFO_ *psKernelSyncInfo;
 
 	} PVRSRV_KERNEL_MEM_INFO;

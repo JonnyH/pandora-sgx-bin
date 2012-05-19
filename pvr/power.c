@@ -23,12 +23,18 @@
  * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
  ******************************************************************************/
-
 #include "services_headers.h"
+#include <linux/kernel.h>
+#include <linux/mutex.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
 
 static IMG_BOOL gbInitServerRunning = IMG_FALSE;
 static IMG_BOOL gbInitServerRan = IMG_FALSE;
 static IMG_BOOL gbInitSuccessful = IMG_FALSE;
+static DEFINE_MUTEX(hPowerAndFreqLock);
+static DECLARE_WAIT_QUEUE_HEAD(hDvfsWq);
+static IMG_BOOL gbDvfsActive;
 
 IMG_EXPORT
     PVRSRV_ERROR PVRSRVSetInitServerState(PVRSRV_INIT_SERVER_STATE
@@ -85,53 +91,43 @@ static IMG_BOOL _IsSystemStatePowered(PVR_POWER_STATE eSystemPowerState)
 	return (IMG_BOOL) (eSystemPowerState < PVRSRV_POWER_STATE_D2);
 }
 
+IMG_EXPORT IMG_VOID PVRSRVDvfsLock(IMG_VOID)
+{
+	mutex_lock(&hPowerAndFreqLock);
+	gbDvfsActive = 1;
+	mutex_unlock(&hPowerAndFreqLock);
+}
+
+IMG_EXPORT IMG_VOID PVRSRVDvfsUnlock(IMG_VOID)
+{
+	mutex_lock(&hPowerAndFreqLock);
+	gbDvfsActive = 0;
+	wake_up(&hDvfsWq);
+	mutex_unlock(&hPowerAndFreqLock);
+}
+
 IMG_EXPORT
     PVRSRV_ERROR PVRSRVPowerLock(IMG_UINT32 ui32CallerID,
 				 IMG_BOOL bSystemPowerEvent)
 {
-	PVRSRV_ERROR eError;
-	SYS_DATA *psSysData;
-	IMG_UINT32 ui32Timeout = 1000000;
-
-#if defined(SUPPORT_LMA)
-
-	ui32Timeout *= 60;
-#endif
-
-	eError = SysAcquireData(&psSysData);
-	if (eError != PVRSRV_OK) {
-		return eError;
+	if ((ui32CallerID == TIMER_ID) &&
+	    (mutex_is_locked(&hPowerAndFreqLock) || gbDvfsActive))
+		return PVRSRV_ERROR_RETRY;
+	mutex_lock(&hPowerAndFreqLock);
+	while (gbDvfsActive) {
+		DEFINE_WAIT(__wait);
+		prepare_to_wait(&hDvfsWq, &__wait, TASK_UNINTERRUPTIBLE);
+		mutex_unlock(&hPowerAndFreqLock);
+		schedule();
+		mutex_lock(&hPowerAndFreqLock);
+		finish_wait(&hDvfsWq, &__wait);
 	}
-
-	do {
-		eError = OSLockResource(&psSysData->sPowerStateChangeResource,
-					ui32CallerID);
-		if (eError == PVRSRV_OK) {
-			break;
-		} else if (ui32CallerID == ISR_ID) {
-
-			eError = PVRSRV_ERROR_RETRY;
-			break;
-		}
-
-		OSWaitus(1);
-		ui32Timeout--;
-	} while (ui32Timeout > 0);
-
-	if ((eError == PVRSRV_OK) &&
-	    !bSystemPowerEvent &&
-	    !_IsSystemStatePowered(psSysData->eCurrentPowerState)) {
-
-		PVRSRVPowerUnlock(ui32CallerID);
-		eError = PVRSRV_ERROR_RETRY;
-	}
-
-	return eError;
+	return PVRSRV_OK;
 }
 
 IMG_EXPORT IMG_VOID PVRSRVPowerUnlock(IMG_UINT32 ui32CallerID)
 {
-	OSUnlockResource(&gpsSysData->sPowerStateChangeResource, ui32CallerID);
+	mutex_unlock(&hPowerAndFreqLock);
 }
 
 static
@@ -170,6 +166,9 @@ PVRSRV_ERROR PVRSRVDevicePrePowerStateKM(IMG_BOOL bAllDevices,
 							psPowerDevice->
 							eCurrentPowerState);
 					if (eError != PVRSRV_OK) {
+						pr_err
+						    ("pfnPrePower failed (%u)\n",
+						     eError);
 						return eError;
 					}
 				}
@@ -181,6 +180,9 @@ PVRSRV_ERROR PVRSRVDevicePrePowerStateKM(IMG_BOOL bAllDevices,
 							   psPowerDevice->
 							   eCurrentPowerState);
 				if (eError != PVRSRV_OK) {
+					pr_err
+					    ("SysDevicePrePowerState failed (%u)\n",
+					     eError);
 					return eError;
 				}
 			}
@@ -226,6 +228,9 @@ PVRSRV_ERROR PVRSRVDevicePostPowerStateKM(IMG_BOOL bAllDevices,
 							    psPowerDevice->
 							    eCurrentPowerState);
 				if (eError != PVRSRV_OK) {
+					pr_err
+					    ("SysDevicePostPowerState failed (%u)\n",
+					     eError);
 					return eError;
 				}
 
@@ -239,6 +244,9 @@ PVRSRV_ERROR PVRSRVDevicePostPowerStateKM(IMG_BOOL bAllDevices,
 							 psPowerDevice->
 							 eCurrentPowerState);
 					if (eError != PVRSRV_OK) {
+						pr_err
+						    ("pfnPostPower failed (%u)\n",
+						     eError);
 						return eError;
 					}
 				}
@@ -252,23 +260,6 @@ PVRSRV_ERROR PVRSRVDevicePostPowerStateKM(IMG_BOOL bAllDevices,
 	}
 
 	return PVRSRV_OK;
-}
-
-PVRSRV_ERROR PVRSRVSetDevicePowerStateCoreKM(IMG_UINT32 ui32DeviceIndex,
-					     PVR_POWER_STATE eNewPowerState)
-{
-	PVRSRV_ERROR eError;
-	eError =
-	    PVRSRVDevicePrePowerStateKM(IMG_FALSE, ui32DeviceIndex,
-					eNewPowerState);
-	if (eError != PVRSRV_OK) {
-		return eError;
-	}
-
-	eError =
-	    PVRSRVDevicePostPowerStateKM(IMG_FALSE, ui32DeviceIndex,
-					 eNewPowerState);
-	return eError;
 }
 
 IMG_EXPORT
@@ -537,7 +528,8 @@ PVRSRV_ERROR PVRSRVRemovePowerDevice(IMG_UINT32 ui32DeviceIndex)
 				    psCurrent->psNext;
 			}
 
-			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 0, psCurrent,
+			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+				  sizeof(PVRSRV_POWER_DEV), psCurrent,
 				  IMG_NULL);
 
 			break;
@@ -580,11 +572,11 @@ IMG_EXPORT IMG_BOOL PVRSRVIsDevicePowered(IMG_UINT32 ui32DeviceIndex)
 	return IMG_FALSE;
 }
 
-IMG_VOID PVRSRVDevicePreClockSpeedChange(IMG_UINT32 ui32DeviceIndex,
-					 IMG_BOOL bIdleDevice,
-					 IMG_VOID * pvInfo)
+PVRSRV_ERROR PVRSRVDevicePreClockSpeedChange(IMG_UINT32 ui32DeviceIndex,
+					     IMG_BOOL bIdleDevice,
+					     IMG_VOID * pvInfo)
 {
-	PVRSRV_ERROR eError;
+	PVRSRV_ERROR eError = PVRSRV_OK;
 	SYS_DATA *psSysData;
 	PVRSRV_POWER_DEV *psPowerDevice;
 
@@ -600,8 +592,12 @@ IMG_VOID PVRSRVDevicePreClockSpeedChange(IMG_UINT32 ui32DeviceIndex,
 				    psPowerDevice->
 				    pfnPreClockSpeedChange(psPowerDevice->
 							   hDevCookie,
-							   bIdleDevice);
+							   bIdleDevice,
+							   psPowerDevice->
+							   eCurrentPowerState);
 				if (eError != PVRSRV_OK) {
+					pr_err
+					    ("pfnPreClockSpeedChange failed\n");
 					PVR_DPF((PVR_DBG_ERROR,
 						 "PVRSRVDevicePreClockSpeedChange : Device %lu failed, error:0x%lx",
 						 ui32DeviceIndex, eError));
@@ -611,13 +607,14 @@ IMG_VOID PVRSRVDevicePreClockSpeedChange(IMG_UINT32 ui32DeviceIndex,
 
 		psPowerDevice = psPowerDevice->psNext;
 	}
+	return eError;
 }
 
 IMG_VOID PVRSRVDevicePostClockSpeedChange(IMG_UINT32 ui32DeviceIndex,
 					  IMG_BOOL bIdleDevice,
 					  IMG_VOID * pvInfo)
 {
-	PVRSRV_ERROR eError;
+	PVRSRV_ERROR eError = PVRSRV_OK;
 	SYS_DATA *psSysData;
 	PVRSRV_POWER_DEV *psPowerDevice;
 
@@ -633,8 +630,12 @@ IMG_VOID PVRSRVDevicePostClockSpeedChange(IMG_UINT32 ui32DeviceIndex,
 				    psPowerDevice->
 				    pfnPostClockSpeedChange(psPowerDevice->
 							    hDevCookie,
-							    bIdleDevice);
+							    bIdleDevice,
+							    psPowerDevice->
+							    eCurrentPowerState);
 				if (eError != PVRSRV_OK) {
+					pr_err
+					    ("pfnPostClockSpeedChange failed\n");
 					PVR_DPF((PVR_DBG_ERROR,
 						 "PVRSRVDevicePostClockSpeedChange : Device %lu failed, error:0x%lx",
 						 ui32DeviceIndex, eError));

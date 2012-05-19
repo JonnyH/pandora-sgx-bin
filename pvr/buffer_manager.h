@@ -67,6 +67,10 @@ extern "C" {
 
 		BM_MAPPING *pMapping;
 		IMG_UINT32 ui32RefCount;
+		IMG_UINTPTR_T uHashKey;
+		void *pvKernelSyncInfo;
+		void *pvPageList;
+		IMG_HANDLE hOSWrapMem;
 	} BM_BUF;
 
 	struct _BM_HEAP_ {
@@ -133,11 +137,16 @@ extern "C" {
 		     IMG_UINT32 uDevVAddrAlignment, BM_HANDLE * phBuf);
 
 	 IMG_BOOL
+	    BM_IsWrapped(IMG_HANDLE hDevMemHeap,
+			 IMG_UINT32 ui32Offset, IMG_SYS_PHYADDR sSysAddr);
+
+	 IMG_BOOL
 	    BM_Wrap(IMG_HANDLE hDevMemHeap,
 		    IMG_UINT32 ui32Size,
 		    IMG_UINT32 ui32Offset,
 		    IMG_BOOL bPhysContig,
 		    IMG_SYS_PHYADDR * psSysAddr,
+		    IMG_BOOL bFreePageList,
 		    IMG_VOID * pvCPUVAddr,
 		    IMG_UINT32 * pui32Flags, BM_HANDLE * phBuf);
 

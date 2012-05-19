@@ -159,7 +159,7 @@ typedef struct OMAPLFB_DEVINFO_TAG {
 
 	IMG_BOOL bDeviceSuspended;
 
-	spinlock_t *psSwapChainLock;
+	spinlock_t SwapChainLock;
 } OMAPLFB_DEVINFO;
 
 #define	OMAPLFB_PAGE_SIZE 4096
@@ -196,13 +196,8 @@ PVRSRV_ERROR OMAPLFBUninstallVSyncISR(OMAPLFB_SWAPCHAIN * psSwapChain);
 IMG_BOOL OMAPLFBVSyncIHandler(OMAPLFB_SWAPCHAIN * psSwapChain);
 IMG_VOID OMAPLFBEnableVSyncInterrupt(OMAPLFB_SWAPCHAIN * psSwapChain);
 IMG_VOID OMAPLFBDisableVSyncInterrupt(OMAPLFB_SWAPCHAIN * psSwapChain);
-#if defined (SUPPORT_TI_DSS_FW)
 IMG_VOID OMAPLFBEnableDisplayRegisterAccess(IMG_VOID);
 IMG_VOID OMAPLFBDisableDisplayRegisterAccess(IMG_VOID);
-#endif
-#if defined (CONFIG_OMAP2_DSS)
-IMG_VOID OMAPLFBFlipDSS2(OMAPLFB_SWAPCHAIN * psSwapChain, IMG_UINT32 aPhyAddr);
-#endif
 IMG_VOID OMAPLFBFlip(OMAPLFB_SWAPCHAIN * psSwapChain, IMG_UINT32 aPhyAddr);
 
 #endif

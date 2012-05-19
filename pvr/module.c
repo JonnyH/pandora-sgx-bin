@@ -90,8 +90,8 @@ EXPORT_SYMBOL(PVRGetBufferClassJTable);
 
 static int AssignedMajorNumber;
 
-extern int PVRSRV_BridgeDispatchKM(struct inode *inode, struct file *file,
-				   unsigned int cmd, unsigned long arg);
+extern long PVRSRV_BridgeDispatchKM(struct file *file, unsigned int cmd,
+				    unsigned long arg);
 static int PVRSRVOpen(struct inode *pInode, struct file *pFile);
 static int PVRSRVRelease(struct inode *pInode, struct file *pFile);
 
@@ -99,7 +99,7 @@ PVRSRV_LINUX_MUTEX gPVRSRVLock;
 
 static struct file_operations pvrsrv_fops = {
 owner:	THIS_MODULE,
-ioctl:	PVRSRV_BridgeDispatchKM,
+unlocked_ioctl:PVRSRV_BridgeDispatchKM,
 open:	PVRSRVOpen,
 release:PVRSRVRelease,
 mmap:	PVRMMap,
@@ -191,6 +191,8 @@ static int __devinit PVRSRVDriverProbe(LDM_DEV * pDevice,
 	SYS_DATA *psSysData;
 
 	PVR_TRACE(("PVRSRVDriverProbe(pDevice=%p)", pDevice));
+
+	pDevice->dev.driver_data = NULL;
 
 #if 0
 
@@ -414,6 +416,8 @@ static int __init PVRCore_Init(void)
 
 		goto init_failed;
 	}
+
+	powervr_device.dev.devt = MKDEV(AssignedMajorNumber, 0);
 
 	if ((error = platform_device_register(&powervr_device)) != 0) {
 		platform_driver_unregister(&powervr_driver);

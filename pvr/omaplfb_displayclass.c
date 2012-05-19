@@ -140,11 +140,11 @@ static IMG_VOID SetFlushStateInternal(OMAPLFB_DEVINFO * psDevInfo,
 {
 	unsigned long ulLockFlags;
 
-	spin_lock_irqsave(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_lock_irqsave(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	SetFlushStateInternalNoLock(psDevInfo, bFlushState);
 
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 }
 
 static IMG_VOID SetFlushStateExternal(OMAPLFB_DEVINFO * psDevInfo,
@@ -152,14 +152,14 @@ static IMG_VOID SetFlushStateExternal(OMAPLFB_DEVINFO * psDevInfo,
 {
 	unsigned long ulLockFlags;
 
-	spin_lock_irqsave(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_lock_irqsave(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	if (psDevInfo->bFlushCommands != bFlushState) {
 		psDevInfo->bFlushCommands = bFlushState;
 		SetFlushStateInternalNoLock(psDevInfo, bFlushState);
 	}
 
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 }
 
 static IMG_VOID SetDCState(IMG_HANDLE hDevice, IMG_UINT32 ui32State)
@@ -219,39 +219,14 @@ static PVRSRV_ERROR UnblankDisplay(OMAPLFB_DEVINFO * psDevInfo)
 	acquire_console_sem();
 	res = fb_blank(psDevInfo->psLINFBInfo, 0);
 	release_console_sem();
-#if !defined (CONFIG_OMAP2_DSS)
-	/* DSS2 returns error if unblank from a non-suspend state
-	   ignore the error status for timebeing */
 	if (res != 0) {
 		printk(KERN_WARNING DRIVER_PREFIX
 		       ": fb_blank failed (%d)", res);
 		return PVRSRV_ERROR_GENERIC;
 	}
-#endif
 
 	return PVRSRV_OK;
 }
-
-#if defined (CONFIG_OMAP2_DSS)
-
-/*
-	 Flip implementation for DSS2 using fb_pan_display
-*/
-IMG_VOID OMAPLFBFlipDSS2(OMAPLFB_SWAPCHAIN * psSwapChain, IMG_UINT32 aPhyAddr)
-{
-	OMAPLFB_DEVINFO *psDevInfo = GetAnchorPtr();
-	struct fb_info *psLINFBInfo = psDevInfo->psLINFBInfo;
-	struct fb_var_screeninfo var;
-	memcpy(&var, &psLINFBInfo->var, sizeof(struct fb_var_screeninfo));
-	var.yoffset =
-	    (aPhyAddr -
-	     psLINFBInfo->fix.smem_start) / psLINFBInfo->fix.line_length;
-	if (psLINFBInfo->fbops->fb_pan_display != NULL) {
-		psLINFBInfo->fbops->fb_pan_display(&var, psLINFBInfo);
-
-	}
-}
-#endif
 
 static PVRSRV_ERROR EnableLFBEventNotification(OMAPLFB_DEVINFO * psDevInfo)
 {
@@ -555,7 +530,7 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	psSwapChain->ui32InsertIndex = 0;
 	psSwapChain->ui32RemoveIndex = 0;
 	psSwapChain->psPVRJTable = &psDevInfo->sPVRJTable;
-	psSwapChain->psSwapChainLock = psDevInfo->psSwapChainLock;
+	psSwapChain->psSwapChainLock = &psDevInfo->SwapChainLock;
 
 	for (i = 0; i < ui32BufferCount - 1; i++) {
 		psBuffer[i].psNext = &psBuffer[i + 1];
@@ -581,7 +556,7 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 		psVSyncFlips[i].bFlipped = IMG_FALSE;
 		psVSyncFlips[i].bCmdCompleted = IMG_FALSE;
 	}
-#if defined (SUPPORT_TI_DSS_FW)
+
 	OMAPLFBEnableDisplayRegisterAccess();
 
 	psSwapChain->pvRegs =
@@ -592,14 +567,14 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 		       ": Couldn't map registers needed for flipping\n");
 		goto ErrorDisableDisplayRegisters;
 	}
-#endif
+
 	if (OMAPLFBInstallVSyncISR(psSwapChain) != PVRSRV_OK) {
 		printk(KERN_WARNING DRIVER_PREFIX
 		       ": ISR handler failed to register\n");
 		goto ErrorUnmapRegisters;
 	}
 
-	spin_lock_irqsave(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_lock_irqsave(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	psDevInfo->psSwapChain = psSwapChain;
 
@@ -612,7 +587,7 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 		OMAPLFBEnableVSyncInterrupt(psSwapChain);
 	}
 
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	eError = EnableLFBEventNotification(psDevInfo);
 	if (eError != PVRSRV_OK) {
@@ -631,11 +606,9 @@ ErrorUninstallVSyncInterrupt:
 		       ": Couldn't uninstall VSync ISR\n");
 	}
 ErrorUnmapRegisters:
-#if defined (SUPPORT_TI_DSS_FW)
 	iounmap(psSwapChain->pvRegs);
 ErrorDisableDisplayRegisters:
 	OMAPLFBDisableDisplayRegisterAccess();
-#endif
 	OMAPLFBFreeKernelMem(psVSyncFlips);
 ErrorFreeBuffers:
 	OMAPLFBFreeKernelMem(psBuffer);
@@ -669,7 +642,7 @@ static PVRSRV_ERROR DestroyDCSwapChain(IMG_HANDLE hDevice,
 		       ": Couldn't disable framebuffer event notification\n");
 	}
 
-	spin_lock_irqsave(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_lock_irqsave(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	OMAPLFBDisableVSyncInterrupt(psSwapChain);
 
@@ -679,19 +652,17 @@ static PVRSRV_ERROR DestroyDCSwapChain(IMG_HANDLE hDevice,
 
 	psDevInfo->psSwapChain = IMG_NULL;
 
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	if (OMAPLFBUninstallVSyncISR(psSwapChain) != PVRSRV_OK) {
 		printk(KERN_WARNING DRIVER_PREFIX
 		       ": Couldn't uninstall VSync ISR\n");
 		return PVRSRV_ERROR_GENERIC;
 	}
-#if defined (SUPPORT_TI_DSS_FW)
 
 	iounmap(psSwapChain->pvRegs);
 
 	OMAPLFBDisableDisplayRegisterAccess();
-#endif
 
 	OMAPLFBFreeKernelMem(psSwapChain->psVSyncFlips);
 	OMAPLFBFreeKernelMem(psSwapChain->psBuffer);
@@ -810,13 +781,13 @@ static PVRSRV_ERROR SwapToDCSystem(IMG_HANDLE hDevice, IMG_HANDLE hSwapChain)
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-	spin_lock_irqsave(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_lock_irqsave(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	FlushInternalVSyncQueue(psSwapChain);
 
 	OMAPLFBFlip(psSwapChain, psDevInfo->sFBInfo.sSysAddr.uiAddr);
 
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	return PVRSRV_OK;
 }
@@ -885,6 +856,7 @@ IMG_BOOL OMAPLFBVSyncIHandler(OMAPLFB_SWAPCHAIN * psSwapChain)
 
 ExitUnlock:
 	spin_unlock_irqrestore(psSwapChain->psSwapChainLock, ulLockFlags);
+
 	return bStatus;
 }
 
@@ -916,7 +888,7 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE hCmdCookie,
 	psBuffer = (OMAPLFB_BUFFER *) psFlipCmd->hExtBuffer;
 	psSwapChain = (OMAPLFB_SWAPCHAIN *) psFlipCmd->hExtSwapChain;
 
-	spin_lock_irqsave(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_lock_irqsave(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	if (psDevInfo->bDeviceSuspended) {
 		psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete(hCmdCookie,
@@ -965,53 +937,20 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE hCmdCookie,
 		goto ExitTrueUnlock;
 	}
 
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 	return IMG_FALSE;
 #endif
 
 ExitTrueUnlock:
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 	return IMG_TRUE;
 }
 
-static PVRSRV_ERROR InitDev(OMAPLFB_DEVINFO * psDevInfo)
+static void SetDevinfo(OMAPLFB_DEVINFO * psDevInfo)
 {
-	struct fb_info *psLINFBInfo;
-	struct module *psLINFBOwner;
 	OMAPLFB_FBINFO *psPVRFBInfo = &psDevInfo->sFBInfo;
-	PVRSRV_ERROR eError = PVRSRV_ERROR_GENERIC;
+	struct fb_info *psLINFBInfo = psDevInfo->psLINFBInfo;
 	unsigned long FBSize;
-
-	acquire_console_sem();
-
-	if (fb_idx < 0 || fb_idx >= num_registered_fb) {
-		eError = PVRSRV_ERROR_INVALID_DEVICE;
-		goto errRelSem;
-	}
-
-	psLINFBInfo = registered_fb[fb_idx];
-
-	psLINFBOwner = psLINFBInfo->fbops->owner;
-	if (!try_module_get(psLINFBOwner)) {
-		printk(KERN_INFO DRIVER_PREFIX
-		       ": Couldn't get framebuffer module\n");
-
-		goto errRelSem;
-	}
-
-	if (psLINFBInfo->fbops->fb_open != NULL) {
-		int res;
-
-		res = psLINFBInfo->fbops->fb_open(psLINFBInfo, 0);
-		if (res != 0) {
-			printk(KERN_INFO DRIVER_PREFIX
-			       ": Couldn't open framebuffer: %d\n", res);
-
-			goto errModPut;
-		}
-	}
-
-	psDevInfo->psLINFBInfo = psLINFBInfo;
 
 	FBSize = (psLINFBInfo->screen_size) != 0 ?
 	    psLINFBInfo->screen_size : psLINFBInfo->fix.smem_len;
@@ -1045,7 +984,8 @@ static PVRSRV_ERROR InitDev(OMAPLFB_DEVINFO * psDevInfo)
 	psPVRFBInfo->ui32ByteStride = psLINFBInfo->fix.line_length;
 	psPVRFBInfo->ui32FBSize = FBSize;
 	psPVRFBInfo->ui32BufferSize =
-	    psPVRFBInfo->ui32Height * psPVRFBInfo->ui32ByteStride;
+	    max(psPVRFBInfo->ui32Height, psPVRFBInfo->ui32Width)
+	    * psPVRFBInfo->ui32ByteStride;
 
 	psPVRFBInfo->ui32RoundedBufferSize =
 	    OMAPLFB_PAGE_ROUNDUP(psPVRFBInfo->ui32BufferSize);
@@ -1058,48 +998,96 @@ static PVRSRV_ERROR InitDev(OMAPLFB_DEVINFO * psDevInfo)
 		    (psLINFBInfo->var.green.offset == 5) &&
 		    (psLINFBInfo->var.blue.offset == 0) &&
 		    (psLINFBInfo->var.red.msb_right == 0)) {
-			printk("PVRSRV_PIXEL_FORMAT_RGB565\n");
 			psPVRFBInfo->ePixelFormat = PVRSRV_PIXEL_FORMAT_RGB565;
 		} else {
 			printk("Unknown FB format\n");
 		}
-	} else {
-		if (psLINFBInfo->var.bits_per_pixel == 32) {
-			if ((psLINFBInfo->var.red.length == 8) &&
-			    (psLINFBInfo->var.green.length == 8) &&
-			    (psLINFBInfo->var.blue.length == 8) &&
-			    (psLINFBInfo->var.transp.length == 8) &&
-			    (psLINFBInfo->var.red.offset == 16) &&
-			    (psLINFBInfo->var.green.offset == 8) &&
-			    (psLINFBInfo->var.blue.offset == 0) &&
-			    (psLINFBInfo->var.transp.offset == 24) &&
-			    (psLINFBInfo->var.red.msb_right == 0)) {
-				printk("PVRSRV_PIXEL_FORMAT_ARGB8888\n");
-				psPVRFBInfo->ePixelFormat =
-				    PVRSRV_PIXEL_FORMAT_ARGB8888;
-			} else {
-				if ((psLINFBInfo->var.red.length == 8) &&
-				    (psLINFBInfo->var.green.length == 8) &&
-				    (psLINFBInfo->var.blue.length == 8) &&
-				    (psLINFBInfo->var.transp.length == 0) &&
-				    (psLINFBInfo->var.red.offset == 16) &&
-				    (psLINFBInfo->var.green.offset == 8) &&
-				    (psLINFBInfo->var.blue.offset == 0) &&
-				    (psLINFBInfo->var.transp.offset == 0) &&
-				    (psLINFBInfo->var.red.msb_right == 0)) {
-					printk("PVRSRV_PIXEL_FORMAT_RGB888\n");
-					printk
-					    ("EGL library does not support RGB888 !!!\n");
-					psPVRFBInfo->ePixelFormat =
-					    PVRSRV_PIXEL_FORMAT_RGB888;
-				} else {
-					printk("Unknown FB format\n");
-				}
-			}
+	} else if (psLINFBInfo->var.bits_per_pixel == 32) {
+		if ((psLINFBInfo->var.red.length == 8) &&
+		    (psLINFBInfo->var.green.length == 8) &&
+		    (psLINFBInfo->var.blue.length == 8) &&
+		    (psLINFBInfo->var.red.offset == 16) &&
+		    (psLINFBInfo->var.green.offset == 8) &&
+		    (psLINFBInfo->var.blue.offset == 0) &&
+		    (psLINFBInfo->var.red.msb_right == 0)) {
+			psPVRFBInfo->ePixelFormat =
+			    PVRSRV_PIXEL_FORMAT_ARGB8888;
 		} else {
 			printk("Unknown FB format\n");
 		}
+	} else {
+		printk("Unknown FB format\n");
 	}
+	psDevInfo->sDisplayFormat.pixelformat = psDevInfo->sFBInfo.ePixelFormat;
+	psDevInfo->sDisplayDim.ui32Width = psDevInfo->sFBInfo.ui32Width;
+	psDevInfo->sDisplayDim.ui32Height = psDevInfo->sFBInfo.ui32Height;
+	psDevInfo->sDisplayDim.ui32ByteStride =
+	    psDevInfo->sFBInfo.ui32ByteStride;
+	psDevInfo->sSystemBuffer.sSysAddr = psDevInfo->sFBInfo.sSysAddr;
+	psDevInfo->sSystemBuffer.sCPUVAddr = psDevInfo->sFBInfo.sCPUVAddr;
+	psDevInfo->sSystemBuffer.ui32BufferSize =
+	    psDevInfo->sFBInfo.ui32RoundedBufferSize;
+}
+
+static struct FB_EVENTS {
+	struct notifier_block notif;
+	OMAPLFB_DEVINFO *psDevInfo;
+} gFBEventsData;
+
+static int FBEvents(struct notifier_block *psNotif,
+		    unsigned long event, void *data)
+{
+	if (event == FB_EVENT_MODE_CHANGE) {
+		struct FB_EVENTS *psEvents =
+		    container_of(psNotif, struct FB_EVENTS, notif);
+		SetDevinfo(psEvents->psDevInfo);
+	}
+	return 0;
+}
+
+static PVRSRV_ERROR InitDev(OMAPLFB_DEVINFO * psDevInfo)
+{
+	struct fb_info *psLINFBInfo;
+	struct module *psLINFBOwner;
+	OMAPLFB_FBINFO *psPVRFBInfo = &psDevInfo->sFBInfo;
+	PVRSRV_ERROR eError = PVRSRV_ERROR_GENERIC;
+
+	acquire_console_sem();
+
+	if (fb_idx < 0 || fb_idx >= num_registered_fb) {
+		eError = PVRSRV_ERROR_INVALID_DEVICE;
+		goto errRelSem;
+	}
+
+	psLINFBInfo = registered_fb[fb_idx];
+
+	psLINFBOwner = psLINFBInfo->fbops->owner;
+	if (!try_module_get(psLINFBOwner)) {
+		printk(KERN_INFO DRIVER_PREFIX
+		       ": Couldn't get framebuffer module\n");
+
+		goto errRelSem;
+	}
+
+	if (psLINFBInfo->fbops->fb_open != NULL) {
+		int res;
+
+		res = psLINFBInfo->fbops->fb_open(psLINFBInfo, 0);
+		if (res != 0) {
+			printk(KERN_INFO DRIVER_PREFIX
+			       ": Couldn't open framebuffer: %d\n", res);
+
+			goto errModPut;
+		}
+	}
+
+	psDevInfo->psLINFBInfo = psLINFBInfo;
+
+	SetDevinfo(psDevInfo);
+
+	gFBEventsData.notif.notifier_call = FBEvents;
+	gFBEventsData.psDevInfo = psDevInfo;
+	fb_register_client(&gFBEventsData.notif);
 
 	psDevInfo->sFBInfo.sSysAddr.uiAddr = psPVRFBInfo->sSysAddr.uiAddr;
 	psDevInfo->sFBInfo.sCPUVAddr = psPVRFBInfo->sCPUVAddr;
@@ -1170,19 +1158,15 @@ PVRSRV_ERROR OMAPLFBInit(IMG_VOID)
 			return PVRSRV_ERROR_INIT_FAILURE;
 		}
 
-		spin_lock_init(psDevInfo->psSwapChainLock);
+		spin_lock_init(&psDevInfo->SwapChainLock);
 
 		psDevInfo->psSwapChain = IMG_NULL;
 		psDevInfo->bFlushCommands = IMG_FALSE;
 		psDevInfo->bDeviceSuspended = IMG_FALSE;
+
 		psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers =
 		    psDevInfo->sFBInfo.ui32FBSize /
 		    psDevInfo->sFBInfo.ui32RoundedBufferSize;
-#if !defined (SUPPORT_TI_DSS_FW)
-		/* DSS2 have trouble with ui32MaxSwapChainBuffers > 3 */
-		if (psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers > 3)
-			psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers = 3;
-#endif
 		if (psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers == 0) {
 			psDevInfo->sDisplayInfo.ui32MaxSwapChains = 0;
 			psDevInfo->sDisplayInfo.ui32MaxSwapInterval = 0;
@@ -1195,23 +1179,9 @@ PVRSRV_ERROR OMAPLFBInit(IMG_VOID)
 		strncpy(psDevInfo->sDisplayInfo.szDisplayName,
 			DISPLAY_DEVICE_NAME, MAX_DISPLAY_NAME_SIZE);
 
-		psDevInfo->sDisplayFormat.pixelformat =
-		    psDevInfo->sFBInfo.ePixelFormat;
-		psDevInfo->sDisplayDim.ui32Width = psDevInfo->sFBInfo.ui32Width;
-		psDevInfo->sDisplayDim.ui32Height =
-		    psDevInfo->sFBInfo.ui32Height;
-		psDevInfo->sDisplayDim.ui32ByteStride =
-		    psDevInfo->sFBInfo.ui32ByteStride;
-
 		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX
 			      ": Maximum number of swap chain buffers: %lu\n",
 			      psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers));
-
-		psDevInfo->sSystemBuffer.sSysAddr = psDevInfo->sFBInfo.sSysAddr;
-		psDevInfo->sSystemBuffer.sCPUVAddr =
-		    psDevInfo->sFBInfo.sCPUVAddr;
-		psDevInfo->sSystemBuffer.ui32BufferSize =
-		    (psDevInfo->sFBInfo.ui32RoundedBufferSize);
 
 		psDevInfo->sDCJTable.ui32TableSize =
 		    sizeof(PVRSRV_DC_SRV2DISP_KMJTABLE);
@@ -1310,7 +1280,7 @@ IMG_VOID OMAPLFBDriverSuspend(IMG_VOID)
 	OMAPLFB_DEVINFO *psDevInfo = GetAnchorPtr();
 	unsigned long ulLockFlags;
 
-	spin_lock_irqsave(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_lock_irqsave(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	if (psDevInfo->bDeviceSuspended) {
 		goto ExitUnlock;
@@ -1319,17 +1289,16 @@ IMG_VOID OMAPLFBDriverSuspend(IMG_VOID)
 
 	SetFlushStateInternalNoLock(psDevInfo, IMG_TRUE);
 
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 
-#if defined (SUPPORT_TI_DSS_FW)
 	if (psDevInfo->psSwapChain != IMG_NULL) {
 		OMAPLFBDisableDisplayRegisterAccess();
 	}
-#endif
+
 	return;
 
 ExitUnlock:
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 }
 
 IMG_VOID OMAPLFBDriverResume(IMG_VOID)
@@ -1340,17 +1309,17 @@ IMG_VOID OMAPLFBDriverResume(IMG_VOID)
 	if (!psDevInfo->bDeviceSuspended) {
 		return;
 	}
-#if defined (SUPPORT_TI_DSS_FW)
+
 	if (psDevInfo->psSwapChain != IMG_NULL) {
 		OMAPLFBEnableDisplayRegisterAccess();
 	}
-#endif
-	spin_lock_irqsave(psDevInfo->psSwapChainLock, ulLockFlags);
+
+	spin_lock_irqsave(&psDevInfo->SwapChainLock, ulLockFlags);
 
 	SetFlushStateInternalNoLock(psDevInfo, IMG_FALSE);
 
 	psDevInfo->bDeviceSuspended = IMG_FALSE;
 
-	spin_unlock_irqrestore(psDevInfo->psSwapChainLock, ulLockFlags);
+	spin_unlock_irqrestore(&psDevInfo->SwapChainLock, ulLockFlags);
 }
 #endif

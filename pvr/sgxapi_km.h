@@ -57,9 +57,11 @@ extern "C" {
 
 #if defined(SGX_FEATURE_2D_HARDWARE)
 #define SGX_2D_HEAP_ID					12
-#define SGX_MAX_HEAP_ID					13
+#define SGX_ALT_MAPPING_HEAP_ID				13
+#define SGX_MAX_HEAP_ID					14
 #else
-#define SGX_MAX_HEAP_ID					12
+#define SGX_ALT_MAPPING_HEAP_ID                         12
+#define SGX_MAX_HEAP_ID					13
 #endif
 
 #define SGX_MAX_TA_STATUS_VALS	32

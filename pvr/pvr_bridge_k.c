@@ -127,9 +127,8 @@ unlock_and_return:
 }
 #endif
 
-int
-PVRSRV_BridgeDispatchKM(struct inode *inode,
-			struct file *file, unsigned int cmd, unsigned long arg)
+long
+PVRSRV_BridgeDispatchKM(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	IMG_UINT32 ui32BridgeID = PVRSRV_GET_BRIDGE_ID(cmd);
 	PVRSRV_BRIDGE_PACKAGE *psBridgePackageUM =

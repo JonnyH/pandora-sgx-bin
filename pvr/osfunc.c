@@ -67,6 +67,8 @@ extern PVRSRV_LINUX_MUTEX gPVRSRVLock;
 #define HOST_ALLOC_MEM_USING_KMALLOC ((IMG_HANDLE)0)
 #define HOST_ALLOC_MEM_USING_VMALLOC ((IMG_HANDLE)1)
 
+#define LINUX_KMALLOC_LIMIT	PAGE_SIZE	/* 4k */
+
 #if !defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
 PVRSRV_ERROR OSAllocMem(IMG_UINT32 ui32Flags, IMG_UINT32 ui32Size,
 			IMG_PVOID * ppvCpuVAddr, IMG_HANDLE * phBlockAlloc)
@@ -76,35 +78,40 @@ PVRSRV_ERROR _OSAllocMem(IMG_UINT32 ui32Flags, IMG_UINT32 ui32Size,
 			 IMG_CHAR * pszFilename, IMG_UINT32 ui32Line)
 #endif
 {
+	IMG_UINT32 ui32Threshold;
+
 	PVR_UNREFERENCED_PARAMETER(ui32Flags);
 
-#if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-	*ppvCpuVAddr = _KMallocWrapper(ui32Size, pszFilename, ui32Line);
-#else
-	*ppvCpuVAddr = KMallocWrapper(ui32Size);
-#endif
-	if (*ppvCpuVAddr) {
-		if (phBlockAlloc) {
+	/* determine whether to go straight to vmalloc */
+	ui32Threshold = LINUX_KMALLOC_LIMIT;
 
-			*phBlockAlloc = HOST_ALLOC_MEM_USING_KMALLOC;
-		}
-	} else {
-		if (!phBlockAlloc) {
-			return PVRSRV_ERROR_OUT_OF_MEMORY;
-		}
-
+	if (ui32Size > ui32Threshold) {
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-		*ppvCpuVAddr =
-		    _VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED, pszFilename,
-				    ui32Line);
+		*ppvCpuVAddr = _VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED,
+					       pszFilename, ui32Line);
 #else
 		*ppvCpuVAddr = VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED);
 #endif
-		if (!*ppvCpuVAddr) {
+		if (!*ppvCpuVAddr)
 			return PVRSRV_ERROR_OUT_OF_MEMORY;
-		}
 
-		*phBlockAlloc = HOST_ALLOC_MEM_USING_VMALLOC;
+		if (phBlockAlloc)
+			*phBlockAlloc = HOST_ALLOC_MEM_USING_VMALLOC;
+	} else {
+		/* default - try kmalloc first */
+
+#if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
+		*ppvCpuVAddr = _KMallocWrapper(ui32Size, pszFilename, ui32Line);
+#else
+		*ppvCpuVAddr = KMallocWrapper(ui32Size);
+#endif
+
+		if (!*ppvCpuVAddr)
+			return PVRSRV_ERROR_OUT_OF_MEMORY;
+
+		if (phBlockAlloc)
+			*phBlockAlloc = HOST_ALLOC_MEM_USING_KMALLOC;
+
 	}
 
 	return PVRSRV_OK;
@@ -120,9 +127,8 @@ PVRSRV_ERROR _OSFreeMem(IMG_UINT32 ui32Flags, IMG_UINT32 ui32Size,
 #endif
 {
 	PVR_UNREFERENCED_PARAMETER(ui32Flags);
-	PVR_UNREFERENCED_PARAMETER(ui32Size);
 
-	if (hBlockAlloc == HOST_ALLOC_MEM_USING_VMALLOC) {
+	if (ui32Size > LINUX_KMALLOC_LIMIT) {
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
 		_VFreeWrapper(pvCpuVAddr, pszFilename, ui32Line);
 #else
@@ -415,6 +421,8 @@ PVRSRV_ERROR OSInitEnvData(IMG_PVOID * ppvEnvSpecificData)
 		return PVRSRV_ERROR_GENERIC;
 	}
 
+	memset(psEnvData, 0, sizeof(*psEnvData));
+
 	if (OSAllocMem
 	    (PVRSRV_OS_PAGEABLE_HEAP,
 	     PVRSRV_MAX_BRIDGE_IN_SIZE + PVRSRV_MAX_BRIDGE_OUT_SIZE,
@@ -439,8 +447,9 @@ PVRSRV_ERROR OSDeInitEnvData(IMG_PVOID pvEnvSpecificData)
 	PVR_ASSERT(!psEnvData->bMISRInstalled);
 	PVR_ASSERT(!psEnvData->bLISRInstalled);
 
-	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, 0x1000, psEnvData->pvBridgeData,
-		  IMG_NULL);
+	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+		  PVRSRV_MAX_BRIDGE_IN_SIZE + PVRSRV_MAX_BRIDGE_OUT_SIZE,
+		  psEnvData->pvBridgeData, IMG_NULL);
 
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(ENV_DATA), pvEnvSpecificData,
 		  IMG_NULL);
@@ -519,7 +528,7 @@ static irqreturn_t DeviceISRWrapper(int irq, void *dev_id
 		SYS_DATA *psSysData = psDeviceNode->psSysData;
 		ENV_DATA *psEnvData = (ENV_DATA *) psSysData->pvEnvSpecificData;
 
-		tasklet_schedule(&psEnvData->sMISRTasklet);
+		queue_work(psEnvData->psMISRWorkqueue, &psEnvData->sMISRWork);
 	}
 
 out:
@@ -551,7 +560,7 @@ static irqreturn_t SystemISRWrapper(int irq, void *dev_id
 	if (bStatus) {
 		ENV_DATA *psEnvData = (ENV_DATA *) psSysData->pvEnvSpecificData;
 
-		tasklet_schedule(&psEnvData->sMISRTasklet);
+		queue_work(psEnvData->psMISRWorkqueue, &psEnvData->sMISRWork);
 	}
 
 out:
@@ -676,12 +685,10 @@ PVRSRV_ERROR OSUninstallSystemLISR(IMG_VOID * pvSysData)
 	return PVRSRV_OK;
 }
 
-static void MISRWrapper(unsigned long data)
+static void MISRWrapper(struct work_struct *work)
 {
-	SYS_DATA *psSysData;
-
-	psSysData = (SYS_DATA *) data;
-
+	ENV_DATA *psEnvData = container_of(work, ENV_DATA, sMISRWork);
+	SYS_DATA *psSysData = (SYS_DATA *) psEnvData->pvSysData;
 	PVRSRVMISR(psSysData);
 }
 
@@ -698,8 +705,9 @@ PVRSRV_ERROR OSInstallMISR(IMG_VOID * pvSysData)
 
 	PVR_TRACE(("Installing MISR with cookie %x", pvSysData));
 
-	tasklet_init(&psEnvData->sMISRTasklet, MISRWrapper,
-		     (unsigned long)pvSysData);
+	psEnvData->pvSysData = pvSysData;
+	psEnvData->psMISRWorkqueue = create_singlethread_workqueue("sgx_misr");
+	INIT_WORK(&psEnvData->sMISRWork, MISRWrapper);
 
 	psEnvData->bMISRInstalled = IMG_TRUE;
 
@@ -719,7 +727,8 @@ PVRSRV_ERROR OSUninstallMISR(IMG_VOID * pvSysData)
 
 	PVR_TRACE(("Uninstalling MISR"));
 
-	tasklet_kill(&psEnvData->sMISRTasklet);
+	flush_workqueue(psEnvData->psMISRWorkqueue);
+	destroy_workqueue(psEnvData->psMISRWorkqueue);
 
 	psEnvData->bMISRInstalled = IMG_FALSE;
 
@@ -732,7 +741,7 @@ PVRSRV_ERROR OSScheduleMISR(IMG_VOID * pvSysData)
 	ENV_DATA *psEnvData = (ENV_DATA *) psSysData->pvEnvSpecificData;
 
 	if (psEnvData->bMISRInstalled) {
-		tasklet_schedule(&psEnvData->sMISRTasklet);
+		queue_work(psEnvData->psMISRWorkqueue, &psEnvData->sMISRWork);
 	}
 
 	return PVRSRV_OK;
