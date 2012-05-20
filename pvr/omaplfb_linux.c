@@ -32,6 +32,7 @@
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
+#include <linux/fb.h>
 
 #include <linux/platform_device.h>
 

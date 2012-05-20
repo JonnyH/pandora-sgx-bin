@@ -107,6 +107,7 @@ struct OMAPLFB_DEVINFO {
 	struct IMG_DEV_VIRTADDR sDisplayDevVAddr;
 	struct fb_info *psLINFBInfo;
 	struct notifier_block sLINNotifBlock;
+	struct fb_var_screeninfo local_var;
 };
 
 #define	OMAPLFB_PAGE_SIZE 4096

@@ -386,6 +386,25 @@ static enum PVRSRV_ERROR CreateDCSwapChain(void *hDevice, u32 ui32Flags,
 
 	*phSwapChain = (void *) psSwapChain;
 
+	i = psDevInfo->sFBInfo.ui32RoundedBufferSize * ui32BufferCount /
+		psDevInfo->sFBInfo.ui32ByteStride;
+	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX "%s: yres %u\n", __func__, i));
+
+	/* tell userspace that some amount of virtual res is used */
+	if (psDevInfo->psLINFBInfo->var.yres_virtual < i) {
+		int ret;
+
+		acquire_console_sem();
+		psDevInfo->psLINFBInfo->var.yres_virtual = i;
+		ret = fb_set_var(psDevInfo->psLINFBInfo,
+			&psDevInfo->psLINFBInfo->var);
+		release_console_sem();
+		if (ret)
+			printk(KERN_WARNING DRIVER_PREFIX
+			       ": fb_set_var failed (%d)", ret);
+	}
+	psDevInfo->local_var = psDevInfo->psLINFBInfo->var;
+
 	return PVRSRV_OK;
 
 ErrorFreeBuffer:
@@ -416,6 +435,12 @@ static enum PVRSRV_ERROR DestroyDCSwapChain(void *hDevice, void *hSwapChain)
 		       ": Couldn't disable framebuffer event notification\n");
 
 	psDevInfo->psSwapChain = NULL;
+
+	acquire_console_sem();
+	psDevInfo->local_var.yoffset = 0;
+	psDevInfo->psLINFBInfo->fbops->fb_pan_display(
+		&psDevInfo->local_var, psDevInfo->psLINFBInfo);
+	release_console_sem();
 
 	OMAPLFBFreeKernelMem(psSwapChain->psBuffer);
 	OMAPLFBFreeKernelMem(psSwapChain);
@@ -492,6 +517,7 @@ static IMG_BOOL ProcessFlip(void *hCmdCookie, u32 ui32DataSize, void *pvData)
 	struct OMAPLFB_DEVINFO *psDevInfo;
 	struct OMAPLFB_BUFFER *psBuffer;
 	struct OMAPLFB_SWAPCHAIN *psSwapChain;
+	struct fb_info *fbi;
 
 	if (!hCmdCookie || !pvData)
 		return IMG_FALSE;
@@ -503,9 +529,18 @@ static IMG_BOOL ProcessFlip(void *hCmdCookie, u32 ui32DataSize, void *pvData)
 		return IMG_FALSE;
 
 	psDevInfo = (struct OMAPLFB_DEVINFO *)psFlipCmd->hExtDevice;
+	fbi = psDevInfo->psLINFBInfo;
 
 	psBuffer = (struct OMAPLFB_BUFFER *)psFlipCmd->hExtBuffer;
 	psSwapChain = (struct OMAPLFB_SWAPCHAIN *)psFlipCmd->hExtSwapChain;
+
+	psDevInfo->local_var.yoffset =
+		(psBuffer->sCPUVAddr - psDevInfo->sFBInfo.sCPUVAddr)
+		 / psDevInfo->sFBInfo.ui32ByteStride;
+
+	acquire_console_sem();
+	fbi->fbops->fb_pan_display(&psDevInfo->local_var, fbi);
+	release_console_sem();
 
 	psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete(hCmdCookie, IMG_TRUE);
 
@@ -573,6 +608,7 @@ static void SetDevinfo(struct OMAPLFB_DEVINFO *psDevInfo)
 	psPVRFBInfo->ui32ByteStride = psLINFBInfo->fix.line_length;
 	psPVRFBInfo->ui32FBSize = FBSize;
 
+#if 0
 	/* Try double buffering */
 	psPVRFBInfo->ui32Height = psLINFBInfo->var.yres_virtual >> 1;
 	psPVRFBInfo->ui32BufferSize = psPVRFBInfo->ui32ByteStride *
@@ -590,6 +626,18 @@ static void SetDevinfo(struct OMAPLFB_DEVINFO *psDevInfo)
 			sgx_buffer_align(psPVRFBInfo->ui32ByteStride,
 					 psPVRFBInfo->ui32BufferSize);
 	}
+#else
+	psPVRFBInfo->ui32Height = psLINFBInfo->var.yres;
+	psPVRFBInfo->ui32BufferSize = psPVRFBInfo->ui32ByteStride *
+		psPVRFBInfo->ui32Height;
+	psPVRFBInfo->ui32RoundedBufferSize =
+		sgx_buffer_align(psPVRFBInfo->ui32ByteStride,
+				 psPVRFBInfo->ui32BufferSize);
+
+	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX
+		      ": buffer size: %u, rounded %u\n", psPVRFBInfo->ui32BufferSize,
+			  psPVRFBInfo->ui32RoundedBufferSize));
+#endif
 
 	CalcSwapChainSize(psDevInfo);
 
