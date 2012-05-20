@@ -134,8 +134,11 @@ static enum PVRSRV_ERROR InitDevInfo(struct PVRSRV_PER_PROCESS_DATA *psPerProc,
 
 	psDevInfo->psKernelHWPerfCBMemInfo =
 	    (struct PVRSRV_KERNEL_MEM_INFO *)psInitInfo->hKernelHWPerfCBMemInfo;
+#ifdef PVRSRV_USSE_EDM_STATUS_DEBUG
 	psDevInfo->psKernelEDMStatusBufferMemInfo =
-				    psInitInfo->hKernelEDMStatusBufferMemInfo;
+	    (struct PVRSRV_KERNEL_MEM_INFO *)psInitInfo->
+						  hKernelEDMStatusBufferMemInfo;
+#endif
 
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 			    sizeof(struct PVRSRV_SGX_CCB_INFO),
