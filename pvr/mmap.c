@@ -911,7 +911,9 @@ void PVRMMapCleanup(void)
 	}
 	PVR_ASSERT(list_empty((&g_sMMapAreaList)));
 
+#if defined(DEBUG_LINUX_MMAP_AREAS)
 	RemoveProcEntry("mmap");
+#endif
 
 	if (g_psMemmapCache) {
 		kmem_cache_destroy(g_psMemmapCache);
