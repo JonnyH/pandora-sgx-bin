@@ -51,6 +51,44 @@ static int fb_idx = 0;
 static PFN_DC_GET_PVRJTABLE pfnGetPVRJTable = 0;
 static void OMAPLFBVSyncIHandler(struct work_struct*);
 
+#define OMAPLFB_PAGE_SIZE 4096
+
+/* Greatest common divisor */
+static unsigned long gcd(unsigned long a, unsigned long b)
+{
+	unsigned long r;
+
+	if (a < b) {
+		r = a;
+		a = b;
+		b = r;
+	}
+
+	while ((r = a % b) != 0) {
+		a = b;
+		b = r;
+	}
+
+	return b;
+}
+
+/*
+ * Workout the smallest size that is aligned to both 4K (for the SGX)
+ * and line length (for the fbdev driver).
+ */
+static unsigned int sgx_buffer_align(unsigned stride, unsigned size)
+{
+	unsigned lcm;
+
+	if (!stride || !size)
+		return 0;
+
+	lcm = stride * OMAPLFB_PAGE_SIZE / gcd(stride,
+					       OMAPLFB_PAGE_SIZE);
+
+	return roundup(size, lcm);
+}
+
 OMAPLFB_DEVINFO * GetAnchorPtr(void)
 {
 	return (OMAPLFB_DEVINFO *)gpvAnchor;
@@ -248,6 +286,7 @@ static OMAP_ERROR UnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 }
 
 #if defined (CONFIG_OMAP2_DSS)
+#include <linux/omapfb.h>
 #include <linux/workqueue.h>
 struct wq_flip {
         struct fb_var_screeninfo var;
@@ -271,16 +310,32 @@ static void dss2_pan_display (struct work_struct *work)
 	 Flip implementation for DSS2 using fb_pan_display
 */
 IMG_VOID OMAPLFBFlipDSS2(OMAPLFB_SWAPCHAIN *psSwapChain,
-						  IMG_UINT32 aPhyAddr)
+						  IMG_UINT32 aPhyAddr, int now)
 {
 	OMAPLFB_DEVINFO *psDevInfo = GetAnchorPtr ();
 	struct fb_info *psLINFBInfo = psDevInfo->psLINFBInfo;
 	memcpy ( &wq_flipdss2.var, &psLINFBInfo->var, sizeof(struct fb_var_screeninfo)); 
     wq_flipdss2.var.yoffset = (aPhyAddr-psLINFBInfo->fix.smem_start)/psLINFBInfo->fix.line_length;
 	wq_flipdss2.psLINFBInfo = psLINFBInfo;
-	schedule_work (&wq_flipdss2.work);
+	if (now)
+		dss2_pan_display(&wq_flipdss2.work);
+	else
+		schedule_work (&wq_flipdss2.work);
 }
 #endif
+
+void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr)
+{
+	OMAPLFBFlipDSS2 (psSwapChain, aPhyAddr, 0);
+}
+
+void OMAPLFBWaitForVSync(void)
+{
+#if 0
+	if (lcd_mgr && lcd_mgr->device)	
+		lcd_mgr->device->wait_vsync(lcd_mgr->device);
+#endif
+}
 
 static OMAP_ERROR EnableLFBEventNotification(OMAPLFB_DEVINFO *psDevInfo)
 {
@@ -665,6 +720,8 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 		goto ErrorDisableDisplayRegisters;
 	}
 
+	/* this is often 2 but could be 3, why oh why? */
+	printk(KERN_INFO "CreateDCSwapChain ui32BufferCount: %u\n", (u32)ui32BufferCount);
 	
 	*phSwapChain = (IMG_HANDLE)psSwapChain;
 
@@ -998,13 +1055,16 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE  hCmdCookie,
 
 #if defined(SYS_USING_INTERRUPTS)
 	
-	if(psFlipCmd->ui32SwapInterval == 0 || psSwapChain->bFlushCommands == OMAP_TRUE)
+//	if(psFlipCmd->ui32SwapInterval == 0 || psSwapChain->bFlushCommands == OMAP_TRUE)
 	{
 #endif
 		
-		OMAPLFBFlip(psSwapChain, (unsigned long)psBuffer->sSysAddr.uiAddr);
+		OMAPLFBFlipDSS2(psSwapChain, psBuffer->sSysAddr.uiAddr, 1);
 
-		
+		if (psSwapChain->ulBufferCount == 2)
+			psDevInfo->psLINFBInfo->fbops->fb_ioctl(
+				psDevInfo->psLINFBInfo, OMAPFB_WAITFORGO, 0);
+
 		psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete(hCmdCookie, IMG_TRUE);
 
 #if defined(SYS_USING_INTERRUPTS)
@@ -1140,11 +1200,9 @@ static OMAP_ERROR InitDev(OMAPLFB_DEVINFO *psDevInfo)
 	psPVRFBInfo->ulFBSize = FBSize;
 	psPVRFBInfo->ulBufferSize = psPVRFBInfo->ulHeight * psPVRFBInfo->ulByteStride;
 
-#ifdef CONFIG_OMAP2_DSS        
-    psPVRFBInfo->ulRoundedBufferSize = psPVRFBInfo->ulBufferSize;
-#else
-	psPVRFBInfo->ulRoundedBufferSize = OMAPLFB_PAGE_ROUNDUP(psPVRFBInfo->ulBufferSize);
-#endif
+	psPVRFBInfo->ulRoundedBufferSize =
+		sgx_buffer_align(psPVRFBInfo->ulByteStride,
+				 psPVRFBInfo->ulBufferSize);
 
 	if(psLINFBInfo->var.bits_per_pixel == 16)
 	{

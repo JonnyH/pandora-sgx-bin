@@ -223,10 +223,6 @@ void *OMAPLFBAllocKernelMem(unsigned long ulSize);
 void OMAPLFBFreeKernelMem(void *pvMem);
 OMAP_ERROR OMAPLFBGetLibFuncAddr(char *szFunctionName, PFN_DC_GET_PVRJTABLE *ppfnFuncTable);
 void OMAPLFBWaitForVSync(void);
-#if defined (CONFIG_OMAP2_DSS)
-IMG_VOID OMAPLFBFlipDSS2(OMAPLFB_SWAPCHAIN *psSwapChain,
-						  IMG_UINT32 aPhyAddr);
-#endif
 void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr);
 OMAPLFB_DEVINFO * GetAnchorPtr(void);
 

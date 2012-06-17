@@ -103,20 +103,6 @@ static void GetLcdManager(void){
 }
 
 
-void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr)
-{
-	OMAPLFBFlipDSS2 (psSwapChain, aPhyAddr);
-}
-
-void OMAPLFBWaitForVSync(void)
-{
-#if 0
-	if (lcd_mgr && lcd_mgr->device)	
-		lcd_mgr->device->wait_vsync(lcd_mgr->device);
-#endif
-}
-
-
 #if defined(LDM_PLATFORM)
 
 static volatile OMAP_BOOL bDeviceSuspended;
