@@ -5,6 +5,8 @@ export KERNEL_SRC=$(KERNELDIR)
 export KDIR=$(KERNELDIR)
 
 export BUILD = release
+export TI_PLATFORM ?= omap3
+export OMAPES ?= 3.x
 
 export KBUILD_EXTRA_SYMBOLS = `pwd`/services4/srvkm/env/linux/kbuild/Module.symvers
 

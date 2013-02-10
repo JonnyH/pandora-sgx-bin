@@ -55,6 +55,10 @@ extern struct platform_device *gpsPVRLDMDev;
 #endif
 
 
+#undef SYS_SGX_CLOCK_SPEED
+#define SYS_SGX_CLOCK_SPEED sgx_clock_speed
+static int sgx_clock_speed;
+
 static PVRSRV_ERROR PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData, IMG_BOOL bTryLock)
 {
         if (!in_interrupt())
@@ -207,6 +211,16 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
                 IMG_UINT32 rate = clk_get_rate(psSysSpecData->psSGX_FCK);
                 PVR_DPF((PVR_DBG_MESSAGE, "EnableSGXClocks: SGX Functional Clock is %dMhz", HZ_TO_MHZ(rate)));
         }
+#endif
+#if 1
+	{
+		static int logged;
+		IMG_UINT32 rate = clk_get_rate(psSysSpecData->psSGX_FCK);
+		if (!logged) {
+			printk(KERN_INFO "SGX clock rate: %u\n", rate);
+			logged = 1;
+		}
+	}
 #endif
 
 
@@ -520,6 +534,8 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 		mutex_init(&psSysSpecData->sPowerLock);
 
 		atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
+
+		SYS_SGX_CLOCK_SPEED = cpu_is_omap3630() ? 200000000 : 110666666;
 
                 psCLK = clk_get(NULL, SGX_PARENT_CLOCK);
                 if (IS_ERR(psCLK))
