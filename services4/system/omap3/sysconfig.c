@@ -286,7 +286,7 @@ static IMG_CHAR *SysCreateVersionString(void)
 
 	SysAcquireData(&psSysData);
 
-	ui32SGXRevision = SGX_CORE_REV;
+	ui32SGXRevision = cpu_is_omap3630() ? 125 : 121;
 	ui32MaxStrLen = 99;
 
 	i32Count = OSSNPrintf(aszVersionString, ui32MaxStrLen + 1,
@@ -364,7 +364,7 @@ PVRSRV_ERROR SysInitialise(IMG_VOID)
 #if !defined(SGX_DYNAMIC_TIMING_INFO)
 	/* Set up timing information*/
 	psTimingInfo = &gsSGXDeviceMap.sTimingInfo;
-	psTimingInfo->ui32CoreClockSpeed = SYS_SGX_CLOCK_SPEED;
+	psTimingInfo->ui32CoreClockSpeed = cpu_is_omap3630() ? 200000000 : 110666666;
 	psTimingInfo->ui32HWRecoveryFreq = SYS_SGX_HWRECOVERY_TIMEOUT_FREQ; 
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 	psTimingInfo->bEnableActivePM = IMG_TRUE;
