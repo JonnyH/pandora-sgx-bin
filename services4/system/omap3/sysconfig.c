@@ -36,7 +36,7 @@
 
 #if !defined(NO_HARDWARE) && \
      defined(SYS_USING_INTERRUPTS) && \
-     defined(SGX530) && (SGX_CORE_REV == 125)
+     defined(SGX530) // && (SGX_CORE_REV == 125)
 #define SGX_OCP_REGS_ENABLED
 #endif
 
@@ -165,7 +165,7 @@ static PVRSRV_ERROR EnableSGXClocksWrap(SYS_DATA *psSysData)
 {
 	PVRSRV_ERROR eError = EnableSGXClocks(psSysData);
 
-	if(eError == PVRSRV_OK)
+	if(cpu_is_omap3630() && eError == PVRSRV_OK)
 	{
 		OSWriteHWReg(gpvOCPRegsLinAddr,
 					 EUR_CR_OCP_DEBUG_CONFIG - EUR_CR_OCP_REVISION,
@@ -376,7 +376,7 @@ PVRSRV_ERROR SysInitialise(IMG_VOID)
 #if !defined(SGX_DYNAMIC_TIMING_INFO)
 	
 	psTimingInfo = &gsSGXDeviceMap.sTimingInfo;
-	psTimingInfo->ui32CoreClockSpeed = SYS_SGX_CLOCK_SPEED;
+	psTimingInfo->ui32CoreClockSpeed = cpu_is_omap3630() ? 200000000 : 110666666;
 	psTimingInfo->ui32HWRecoveryFreq = SYS_SGX_HWRECOVERY_TIMEOUT_FREQ; 
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 	psTimingInfo->bEnableActivePM = IMG_TRUE;
@@ -406,6 +406,7 @@ PVRSRV_ERROR SysInitialise(IMG_VOID)
 	SYS_SPECIFIC_DATA_SET(&gsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_LOCATEDEV);
 
 #if defined(SGX_OCP_REGS_ENABLED)
+	if (cpu_is_omap3630())
 	{
 		IMG_SYS_PHYADDR sOCPRegsSysPBase;
 		IMG_CPU_PHYADDR sOCPRegsCpuPBase;
@@ -637,7 +638,8 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 	}
 	
 #if defined(SGX_OCP_REGS_ENABLED)
-	OSUnMapPhysToLin(gpvOCPRegsLinAddr,
+	if (cpu_is_omap3630())
+		OSUnMapPhysToLin(gpvOCPRegsLinAddr,
 					 SYS_OMAP3430_OCP_REGS_SIZE,
 					 PVRSRV_HAP_UNCACHED|PVRSRV_HAP_KERNEL_ONLY,
 					 IMG_NULL);
