@@ -66,6 +66,10 @@
 #define SGX_PARENT_CLOCK "core_ck"
 #endif
 
+#undef SYS_SGX_CLOCK_SPEED
+#define SYS_SGX_CLOCK_SPEED sgx_clock_speed
+static int sgx_clock_speed;
+
 #if !defined(PDUMP) && !defined(NO_HARDWARE)
 static IMG_BOOL PowerLockWrappedOnCPU(SYS_SPECIFIC_DATA *psSysSpecData)
 {
@@ -478,6 +482,16 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 		PVR_DPF((PVR_DBG_MESSAGE, "EnableSGXClocks: SGX Functional Clock is %dMhz", HZ_TO_MHZ(rate)));
 	}
 #endif
+#if 1
+	{
+		static int logged;
+		IMG_UINT32 rate = clk_get_rate(psSysSpecData->psSGX_FCK);
+		if (!logged) {
+			printk(KERN_INFO "SGX clock rate: %u\n", rate);
+			logged = 1;
+		}
+	}
+#endif
 
 	
 	atomic_set(&psSysSpecData->sSGXClocksEnabled, 1);
@@ -542,6 +556,8 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 	if (!psSysSpecData->bSysClocksOneTimeInit)
 	{
 		bPowerLock = IMG_FALSE;
+
+		sgx_clock_speed = cpu_is_omap3630() ? 200000000 : 110666666;
 
 		spin_lock_init(&psSysSpecData->sPowerLock);
 		atomic_set(&psSysSpecData->sPowerLockCPU, -1);
