@@ -99,7 +99,7 @@ endif
 # system suspend/resume events, and so won't take appropriate action.
 ifeq ($(LDM_PLATFORM),1)
 ifeq ($(TI_PLATFORM),ti335x)
-SUPPORT_ACTIVE_POWER_MANAGEMENT ?= 1
+SUPPORT_ACTIVE_POWER_MANAGEMENT ?= 0
 else
 ifeq ($(TI_PLATFORM),ti81xx)
 SUPPORT_ACTIVE_POWER_MANAGEMENT ?= 0
