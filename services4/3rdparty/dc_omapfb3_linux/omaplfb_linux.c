@@ -283,6 +283,7 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 
 OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 {
+#ifdef PVR_OMAPFB3_UPDATE_MODE
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
 	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
         if (psDSSDrv == NULL || psDSSDev == NULL)
@@ -314,10 +315,14 @@ OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 
 	return OMAPLFB_UPDATE_MODE_UNDEFINED;
 //return OMAPLFB_UPDATE_MODE_AUTO;
+#else
+	return OMAPLFB_UPDATE_MODE_AUTO;
+#endif
 }
 
 OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MODE eMode)
 {
+#ifdef PVR_OMAPFB3_UPDATE_MODE
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
 	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
 	enum omap_dss_update_mode eDSSMode;
@@ -353,6 +358,9 @@ OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MOD
 
 	return (res == 0);
 //return 1;
+#else
+	return OMAPLFB_TRUE;
+#endif
 }
 
 OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
