@@ -24,9 +24,14 @@
  *
  ******************************************************************************/
 
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
 #ifndef AUTOCONF_INCLUDED
  #include <linux/config.h>
 #endif
+#endif
+
 
 #if !defined(SUPPORT_DRI_DRM)
 	
@@ -44,7 +49,6 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/fs.h>
 #include <linux/proc_fs.h>
 

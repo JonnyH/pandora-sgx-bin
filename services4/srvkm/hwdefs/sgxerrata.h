@@ -61,6 +61,7 @@
 	#endif
         #if SGX_CORE_REV == 103
                #define FIX_HW_BRN_22934
+	       #define FIX_HW_BRN_28889
         #else
 
 	#if SGX_CORE_REV == 110

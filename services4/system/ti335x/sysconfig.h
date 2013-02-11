@@ -24,45 +24,31 @@
  *
  ******************************************************************************/
 
-#ifndef __PVR_UACCESS_H__
-#define __PVR_UACCESS_H__
+#if !defined(__SOCCONFIG_H__)
+#define __SOCCONFIG_H__
 
-#include <linux/version.h>
+#include "syscommon.h"
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
-#ifndef AUTOCONF_INCLUDED
- #include <linux/config.h>
+#define VS_PRODUCT_NAME	"TI335x"
+
+#define SYS_SGX_CLOCK_SPEED		200000000
+
+#define SYS_SGX_HWRECOVERY_TIMEOUT_FREQ		(100)	
+#define SYS_SGX_PDS_TIMER_FREQ				(1000)	
+
+#if !defined(SYS_SGX_ACTIVE_POWER_LATENCY_MS)
+#define SYS_SGX_ACTIVE_POWER_LATENCY_MS		(1)
 #endif
-#endif
 
-#include <asm/uaccess.h>
 
-static inline unsigned long pvr_copy_to_user(void __user *pvTo, const void *pvFrom, unsigned long ulBytes)
-{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33))
-    if (access_ok(VERIFY_WRITE, pvTo, ulBytes))
-    {
-	return __copy_to_user(pvTo, pvFrom, ulBytes);
-    }
-    return ulBytes;
-#else
-    return copy_to_user(pvTo, pvFrom, ulBytes);
-#endif
-}
+#define SYS_TI335x_SGX_REGS_SYS_PHYS_BASE  0x56000000
 
-static inline unsigned long pvr_copy_from_user(void *pvTo, const void __user *pvFrom, unsigned long ulBytes)
-{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33))
-    
-    if (access_ok(VERIFY_READ, pvFrom, ulBytes))
-    {
-	return __copy_from_user(pvTo, pvFrom, ulBytes);
-    }
-    return ulBytes;
-#else
-    return copy_from_user(pvTo, pvFrom, ulBytes);
-#endif
-}
+#define SYS_TI335x_SGX_REGS_SIZE           0x1000000
 
-#endif 
+#define SYS_TI335x_SGX_IRQ				 37
 
+#define SYS_TI335x_GP7TIMER_ENABLE_SYS_PHYS_BASE      0x4804A038
+#define SYS_TI335x_GP7TIMER_REGS_SYS_PHYS_BASE	      0x4804A03C
+#define SYS_TI335x_GP7TIMER_TSICR_SYS_PHYS_BASE	      0x4804A054
+ 
+#endif	

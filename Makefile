@@ -32,6 +32,9 @@ else
 SGXCORE = 530
 endif
 
+ifeq ($(TI_PLATFORM),ti335x)
+CORE = -DSGX530 -DSUPPORT_SGX530 -DSGX_CORE_REV=125
+else
 ifeq ($(TI_PLATFORM),omap4)
 CORE = -DSGX540 -DSUPPORT_SGX540 -DSGX_CORE_REV=120
 else
@@ -46,6 +49,7 @@ ifeq ($(OMAPES),3.x)
 CORE = -DSGX530 -DSUPPORT_SGX530 -DSGX_CORE_REV=121
 else
 CORE = -DSGX530 -DSUPPORT_SGX530 -DSGX_CORE_REV=103
+endif
 endif
 endif
 endif
@@ -94,10 +98,14 @@ endif
 # passive power management isn't enabled, the driver won't see the
 # system suspend/resume events, and so won't take appropriate action.
 ifeq ($(LDM_PLATFORM),1)
+ifeq ($(TI_PLATFORM),ti335x)
+SUPPORT_ACTIVE_POWER_MANAGEMENT ?= 1
+else
 ifeq ($(TI_PLATFORM),ti81xx)
 SUPPORT_ACTIVE_POWER_MANAGEMENT ?= 0
 else
 SUPPORT_ACTIVE_POWER_MANAGEMENT = 1
+endif
 endif
 else
 SUPPORT_ACTIVE_POWER_MANAGEMENT = 0

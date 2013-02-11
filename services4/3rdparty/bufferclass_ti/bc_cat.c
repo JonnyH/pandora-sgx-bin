@@ -126,7 +126,7 @@ static PVRSRV_ERROR BCClosePVRServices(IMG_HANDLE hPVRServices);
 static IMG_VOID *BCAllocKernelMem(unsigned long ulSize);
 static IMG_VOID BCFreeKernelMem(IMG_VOID *pvMem);
 
-static PVRSRV_ERROR BCAllocContigMemory(unsigned long ulSize,
+static BCE_ERROR BCAllocContigMemory(unsigned long ulSize,
                                IMG_HANDLE * phMemHandle,
                                IMG_CPU_VIRTADDR *pLinAddr,
                                IMG_CPU_PHYADDR *pPhysAddr);
@@ -745,7 +745,7 @@ void BCFreeDiscontigMemory(unsigned long ulSize,
 }
 #else
 
-PVRSRV_ERROR BCAllocContigMemory(unsigned long ulSize,
+BCE_ERROR BCAllocContigMemory(unsigned long ulSize,
                                  IMG_HANDLE unref__ *phMemHandle, 
                                  IMG_CPU_VIRTADDR *pLinAddr, 
                                  IMG_CPU_PHYADDR *pPhysAddr)

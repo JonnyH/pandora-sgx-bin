@@ -24,11 +24,13 @@
  *
  ******************************************************************************/
 
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
 #ifndef AUTOCONF_INCLUDED
 #include <linux/config.h>
 #endif
+#endif
 
-#include <linux/version.h>
 
 #include <asm/atomic.h>
 
@@ -38,6 +40,7 @@
 #include <linux/module.h>
 #endif
 
+//#include <linux/time.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/hardirq.h>
@@ -48,7 +51,8 @@
 #include <linux/omapfb.h>
 #include <linux/mutex.h>
 
-# include <plat/vrfb.h>
+#include <video/da8xx-fb.h>
+#include <plat/vrfb.h>
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
 #define PVR_OMAPFB3_NEEDS_PLAT_VRFB_H
 #endif
@@ -84,8 +88,10 @@
 #include "3rdparty_dc_drm_shared.h"
 #endif
 
+#if 0
 #if !defined(PVR_LINUX_USING_WORKQUEUES)
 #error "PVR_LINUX_USING_WORKQUEUES must be defined"
+#endif
 #endif
 
 MODULE_SUPPORTED_DEVICE(DEVNAME);
@@ -99,7 +105,6 @@ MODULE_SUPPORTED_DEVICE(DEVNAME);
 #define OMAP_DSS_MANAGER(man, dev) struct omap_dss_device *man = (dev)
 #define	WAIT_FOR_VSYNC(man)	((man)->wait_vsync)
 #endif
-
 
 void *OMAPLFBAllocKernelMem(unsigned long ulSize)
 {
@@ -237,7 +242,7 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 	int res;
 	unsigned long ulYResVirtual;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_lock();
+	console_lock();
 #else
 	acquire_console_sem();
 #endif
@@ -248,7 +253,6 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 	sFBVar.yoffset = psBuffer->ulYOffset;
 
 	ulYResVirtual = psBuffer->ulYOffset + sFBVar.yres;
-
 	
 	if (sFBVar.xres_virtual != sFBVar.xres || sFBVar.yres_virtual < ulYResVirtual)
 	{
@@ -268,11 +272,12 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 		res = fb_pan_display(psDevInfo->psLINFBInfo, &sFBVar);
 		if (res != 0)
 		{
+                        printk (" fb_pan api failed \n");
 			printk(KERN_INFO DRIVER_PREFIX ": %s: Device %u: fb_pan_display failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res);
 		}
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_unlock();
+	console_unlock();
 #else
 	release_console_sem();
 #endif
@@ -280,19 +285,16 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 
 OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 {
+#if 0
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
 	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
-        if (psDSSDrv == NULL || psDSSDev == NULL)
-        {
-		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": %s: Device %u: No DSS device\n", __FUNCTION__, psDevInfo->uiFBDevID));
-        }
+
 	enum omap_dss_update_mode eMode;
 
-	if (psDSSDrv->get_update_mode == NULL)
+	if (psDSSDrv == NULL || psDSSDrv->get_update_mode == NULL)
 	{
 		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": %s: Device %u: Can't get update mode\n", __FUNCTION__, psDevInfo->uiFBDevID));
-		return OMAPLFB_UPDATE_MODE_AUTO;
-//		return OMAPLFB_UPDATE_MODE_UNDEFINED;
+		return OMAPLFB_UPDATE_MODE_UNDEFINED;
 	}
 
 	eMode = psDSSDrv->get_update_mode(psDSSDev);
@@ -310,11 +312,13 @@ OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 	}
 
 	return OMAPLFB_UPDATE_MODE_UNDEFINED;
-//return OMAPLFB_UPDATE_MODE_AUTO;
+#endif
+        return OMAPLFB_UPDATE_MODE_AUTO;
 }
 
 OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MODE eMode)
 {
+#if 0
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
 	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
 	enum omap_dss_update_mode eDSSMode;
@@ -349,29 +353,78 @@ OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MOD
 	}
 
 	return (res == 0);
-//return 1;
+#endif
+        return 1;
 }
 
 OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
 {
-	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
-	OMAP_DSS_MANAGER(psDSSMan, psDSSDev);
-
-	if (psDSSMan != NULL && WAIT_FOR_VSYNC(psDSSMan) != NULL)
+//struct timeval tv;
+//static time_t curtime,curtime1;
+//	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
+//	OMAP_DSS_MANAGER(psDSSMan, psDSSDev);
+//        printk("Testing vsync\n");
+/*	if (psDSSMan != NULL && WAIT_FOR_VSYNC(psDSSMan) != NULL)
 	{
+		printk("Vsync call\n");
+		do_gettimeofday(&tv);
+		curtime=tv.tv_usec;
+		printk("The time is %ld\n",curtime);
 		int res = WAIT_FOR_VSYNC(psDSSMan)(psDSSMan);
+		do_gettimeofday(&tv);
+                curtime1=tv.tv_usec;
+		printk("The time is %ld\n",curtime1);
 		if (res != 0)
 		{
 			DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": %s: Device %u: Wait for vsync failed (%d)\n", __FUNCTION__, psDevInfo->uiFBDevID, res));
 			return OMAPLFB_FALSE;
 		}
-	}
+	}*/
+#if 0
+        struct vps_grpx_ctrl *gctrl;
+        int r;
+        gctrl = vps_grpx_get_ctrl(psDevInfo->uiFBDevID); 
+        printk (" BVSYNC \n");
+        r = gctrl->wait_for_vsync(gctrl);
+        printk (" AVSYNC: %d\n", vsync_num++);
+        return OMAPLFB_TRUE;
+#endif
+//    unsigned long timeout = msecs_to_jiffies(500);
 
-	return OMAPLFB_TRUE;
+#if FBDEV_PRESENT
+      int r;
+
+      void grpx_irq_wait_handler(void *data)
+      {
+          complete((struct completion *)data);
+//	do_gettimeofday(&tv);
+  //      curtime=tv.tv_usec;
+//printk("The time in handler is %ld\n",curtime);
+      }
+      DECLARE_COMPLETION_ONSTACK(completion);
+
+      if (register_vsync_cb((vsync_callback_t)grpx_irq_wait_handler, &completion, psDevInfo->uiFBDevID) != 0)
+      {
+          printk (KERN_WARNING DRIVER_PREFIX ": Failed to register for vsync call back\n");
+          return OMAPLFB_FALSE;
+      }
+//do_gettimeofday(&tv);
+//curtime=tv.tv_usec;
+//printk("The time is %ld\n",curtime);
+//    timeout = wait_for_completion_interruptible_timeout(&completion, timeout);
+      r = wait_for_completion_interruptible(&completion);
+      if (unregister_vsync_cb((vsync_callback_t)grpx_irq_wait_handler , &completion, psDevInfo->uiFBDevID) != 0)
+      {
+          printk (KERN_WARNING DRIVER_PREFIX ": Failed to un-register for vsync call back\n");
+          return OMAPLFB_FALSE;
+      }
+#endif
+      return OMAPLFB_TRUE;
 }
 
 OMAPLFB_BOOL OMAPLFBManualSync(OMAPLFB_DEVINFO *psDevInfo)
 {
+#if 0
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
 	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
 
@@ -384,6 +437,8 @@ OMAPLFB_BOOL OMAPLFBManualSync(OMAPLFB_DEVINFO *psDevInfo)
 			return OMAPLFB_FALSE;
 		}
 	}
+#endif
+
 	return OMAPLFB_TRUE;
 }
 
@@ -451,14 +506,15 @@ static int OMAPLFBFrameBufferEvents(struct notifier_block *psNotif,
 OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 {
 	int res;
+#ifdef FBDEV_PRESENT
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_lock();
+	console_lock();
 #else
 	acquire_console_sem();
 #endif
 	res = fb_blank(psDevInfo->psLINFBInfo, 0);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_unlock();
+	console_unlock();
 #else
 	release_console_sem();
 #endif
@@ -468,6 +524,7 @@ OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 			": %s: Device %u: fb_blank failed (%d)\n", __FUNCTION__, psDevInfo->uiFBDevID, res);
 		return (OMAPLFB_ERROR_GENERIC);
 	}
+#endif
 
 	return (OMAPLFB_OK);
 }
@@ -477,13 +534,13 @@ OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 static void OMAPLFBBlankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_lock();
+	console_lock();
 #else
 	acquire_console_sem();
 #endif
 	fb_blank(psDevInfo->psLINFBInfo, 1);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_unlock();
+	console_unlock();
 #else
 	release_console_sem();
 #endif
@@ -716,15 +773,15 @@ int PVR_DRM_MAKENAME(omaplfb, _Ioctl)(struct drm_device unref__ *dev, void *arg,
 			{
 				flush_workqueue(psDevInfo->psSwapChain->psWorkQueue);
 			}
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_lock();
+			console_lock();
 #else
 			acquire_console_sem();
 #endif
 			ret = fb_blank(psDevInfo->psLINFBInfo, iFBMode);
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_unlock();
+			console_unlock();
 #else
 			release_console_sem();
 #endif
@@ -750,6 +807,7 @@ int PVR_DRM_MAKENAME(omaplfb, _Init)(struct drm_device unref__ *dev)
 static int __init OMAPLFB_Init(void)
 #endif
 {
+
 	if(OMAPLFBInit() != OMAPLFB_OK)
 	{
 		printk(KERN_WARNING DRIVER_PREFIX ": %s: OMAPLFBInit failed\n", __FUNCTION__);

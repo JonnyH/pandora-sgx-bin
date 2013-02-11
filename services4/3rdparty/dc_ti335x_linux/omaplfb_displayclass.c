@@ -41,9 +41,7 @@
 
 #define	OMAPLFB_VSYNC_SETTLE_COUNT	5
 
-//#define	OMAPLFB_MAX_NUM_DEVICES		FB_MAX
-#define	OMAPLFB_MAX_NUM_DEVICES	1
-
+#define	OMAPLFB_MAX_NUM_DEVICES		1 // FB_MAX
 #if (OMAPLFB_MAX_NUM_DEVICES > FB_MAX)
 #error "OMAPLFB_MAX_NUM_DEVICES must not be greater than FB_MAX"
 #endif
@@ -359,6 +357,7 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	IMG_UINT32 ui32BuffersToSkip;
 
 	UNREFERENCED_PARAMETER(ui32OEMFlags);
+	
 	
 	if(!hDevice
 	|| !psDstSurfAttrib
@@ -721,13 +720,14 @@ void OMAPLFBSwapHandler(OMAPLFB_BUFFER *psBuffer)
 	OMAPLFB_DEVINFO *psDevInfo = psBuffer->psDevInfo;
 	OMAPLFB_SWAPCHAIN *psSwapChain = psDevInfo->psSwapChain;
 	OMAPLFB_BOOL bPreviouslyNotVSynced;
+#if 1
 #if defined(SUPPORT_DRI_DRM)
 	if (!OMAPLFBAtomicBoolRead(&psDevInfo->sLeaveVT))
 #endif
 	{
 		OMAPLFBFlip(psDevInfo, psBuffer);
 	}
-
+#endif
 	bPreviouslyNotVSynced = psSwapChain->bNotVSynced;
 	psSwapChain->bNotVSynced = OMAPLFB_TRUE;
 
@@ -763,6 +763,16 @@ void OMAPLFBSwapHandler(OMAPLFB_BUFFER *psBuffer)
 				break;
 		}
 	}
+
+#if 0
+#if defined(SUPPORT_DRI_DRM)
+        if (!OMAPLFBAtomicBoolRead(&psDevInfo->sLeaveVT))
+#endif
+        {
+                OMAPLFBFlip(psDevInfo, psBuffer);
+        }
+#endif
+
 	psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete((IMG_HANDLE)psBuffer->hCmdComplete, IMG_TRUE);
 }
 
@@ -827,7 +837,7 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 	unsigned long ulLCM;
 	unsigned uiFBDevID = psDevInfo->uiFBDevID;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_lock();
+	console_lock();
 #else
 	acquire_console_sem();
 #endif
@@ -925,7 +935,7 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 			(psLINFBInfo->var.red.offset == 11) &&
 			(psLINFBInfo->var.green.offset == 5) && 
 			(psLINFBInfo->var.blue.offset == 0) && 
-			(psLINFBInfo->var.red.msb_right == 0))
+			(psLINFBInfo->var.red.msb_right == 0)) 
 		{
 			psPVRFBInfo->ePixelFormat = PVRSRV_PIXEL_FORMAT_RGB565;
 		}
@@ -942,7 +952,7 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 			(psLINFBInfo->var.red.offset == 16) &&
 			(psLINFBInfo->var.green.offset == 8) && 
 			(psLINFBInfo->var.blue.offset == 0) && 
-			(psLINFBInfo->var.red.msb_right == 0))
+			(psLINFBInfo->var.red.msb_right == 0)) 
 		{
 			psPVRFBInfo->ePixelFormat = PVRSRV_PIXEL_FORMAT_ARGB8888;
 		}
@@ -973,7 +983,7 @@ ErrorModPut:
 	module_put(psLINFBOwner);
 ErrorRelSem:
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_unlock();
+	console_unlock();
 #else
 	release_console_sem();
 #endif
@@ -985,12 +995,12 @@ static void OMAPLFBDeInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 {
 	struct fb_info *psLINFBInfo = psDevInfo->psLINFBInfo;
 	struct module *psLINFBOwner;
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_lock();
+	console_lock();
 #else
 	acquire_console_sem();
 #endif
-
 	psLINFBOwner = psLINFBInfo->fbops->owner;
 
 	if (psLINFBInfo->fbops->fb_release != NULL) 
@@ -1033,7 +1043,7 @@ static OMAPLFB_DEVINFO *OMAPLFBInitDev(unsigned uiFBDevID)
 	{
 		goto ErrorFreeDevInfo;
 	}
-
+#ifdef FBDEV_PRESENT
 	
 	if(OMAPLFBInitFBDev(psDevInfo) != OMAPLFB_OK)
 	{
@@ -1062,14 +1072,25 @@ static OMAPLFB_DEVINFO *OMAPLFBInitDev(unsigned uiFBDevID)
 		": Device %u: Maximum number of swap chain buffers: %u\n",
 		psDevInfo->uiFBDevID, psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers));
 
+               
 	
 	psDevInfo->sSystemBuffer.sSysAddr = psDevInfo->sFBInfo.sSysAddr;
 	psDevInfo->sSystemBuffer.sCPUVAddr = psDevInfo->sFBInfo.sCPUVAddr;
 	psDevInfo->sSystemBuffer.psDevInfo = psDevInfo;
 
 	OMAPLFBInitBufferForSwap(&psDevInfo->sSystemBuffer);
+#else
+                psDevInfo->sSystemBuffer.sCPUVAddr = 0x100;
+//                psDevInfo->sSystemBuffer.ulBufferSize = 600*3200;
 
-	
+                psDevInfo->sDisplayFormat.pixelformat = 20;
+                psDevInfo->sFBInfo.ulWidth      =  800;
+                psDevInfo->sFBInfo.ulHeight     =  600;
+                psDevInfo->sFBInfo.ulByteStride =  3200;
+                psDevInfo->sFBInfo.ulFBSize     =  8388608;
+                psDevInfo->sFBInfo.ulBufferSize = 600*3200;
+#endif
+
 
 	psDevInfo->sDCJTable.ui32TableSize = sizeof(PVRSRV_DC_SRV2DISP_KMJTABLE);
 	psDevInfo->sDCJTable.pfnOpenDCDevice = OpenDCDevice;
@@ -1206,9 +1227,9 @@ static OMAPLFB_BOOL OMAPLFBDeInitDev(OMAPLFB_DEVINFO *psDevInfo)
 			": %s: Device %u: PVR Device %u: Couldn't remove device from PVR Services\n", __FUNCTION__, psDevInfo->uiFBDevID, psDevInfo->uiPVRDevID);
 		return OMAPLFB_FALSE;
 	}
-	
+#ifdef FBDEV_PRESENT	
 	OMAPLFBDeInitFBDev(psDevInfo);
-
+#endif
 	OMAPLFBSetDevInfoPtr(psDevInfo->uiFBDevID, NULL);
 
 	

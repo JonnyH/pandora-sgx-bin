@@ -24,8 +24,11 @@
  *
  ******************************************************************************/
 
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
 #ifndef AUTOCONF_INCLUDED
  #include <linux/config.h>
+#endif
 #endif
 
 #include <asm/io.h>
@@ -72,7 +75,8 @@ static IMG_CHAR gszBufferIRQ[PVR_MAX_MSG_LEN + 1];
 static PVRSRV_LINUX_MUTEX gsDebugMutexNonIRQ;
 
  
-static spinlock_t gsDebugLockIRQ = SPIN_LOCK_UNLOCKED;
+//static spinlock_t gsDebugLockIRQ = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(gsDebugLockIRQ);
 
 #if !defined (USE_SPIN_LOCK)  
 #define	USE_SPIN_LOCK (in_interrupt() || !preemptible())

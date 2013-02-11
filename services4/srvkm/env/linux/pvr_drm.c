@@ -26,14 +26,16 @@
 
 #if defined(SUPPORT_DRI_DRM)
 
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
 #ifndef AUTOCONF_INCLUDED
  #include <linux/config.h>
+#endif
 #endif
 
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/fs.h>
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
@@ -371,11 +373,23 @@ static struct drm_driver sPVRDrmDriver =
 		.poll = drm_poll,
 		.fasync = drm_fasync,
 	},
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38))
 	.pci_driver = 
 	{
 		.name = PVR_DRM_NAME,
 		.id_table = asPciIdList,
 	},
+#else
+	.kdriver = 
+	{
+	PVR_DRM_NAME,
+	asPciIdList,
+	},
+//	{
+//		.pci->name = PVR_DRM_NAME,
+//		.pci->id_table = asPciIdList,
+//	},
+#endif
 		
 	.name = PVR_DRM_NAME,
 	.desc = PVR_DRM_DESC,
@@ -384,6 +398,13 @@ static struct drm_driver sPVRDrmDriver =
 	.minor = PVRVERSION_MIN,
 	.patchlevel = PVRVERSION_BUILD,
 };
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39))
+static struct pci_driver pci_pvr_driver = {
+        .name = PVR_DRM_NAME,
+        .id_table = asPciIdList,
+};
+#endif
 
 static int __init PVRSRVDrmInit(void)
 {
@@ -401,7 +422,11 @@ static int __init PVRSRVDrmInit(void)
 	}
 #endif
 
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38))
 	iRes = drm_init(&sPVRDrmDriver);
+#else
+	iRes = drm_pci_init(&sPVRDrmDriver,&pci_pvr_driver);
+#endif
 #if defined(PVR_DRI_DRM_NOT_PCI)
 	if (iRes != 0)
 	{
@@ -413,7 +438,11 @@ static int __init PVRSRVDrmInit(void)
 	
 static void __exit PVRSRVDrmExit(void)
 {
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38))
 	drm_exit(&sPVRDrmDriver);
+#else
+	drm_pci_exit(&sPVRDrmDriver,&pci_pvr_driver);
+#endif
 
 #if defined(PVR_DRI_DRM_NOT_PCI)
 	drm_pvr_dev_remove();

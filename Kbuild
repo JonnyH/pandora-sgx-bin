@@ -46,10 +46,14 @@ EXTRA_CFLAGS += -DFBDEV_PRESENT
 endif
 
 
+ifeq ($(TI_PLATFORM),ti335x)
+DRIFILES = services4/srvkm/env/linux/pvr_drm.c services4/3rdparty/dc_ti335x_linux/omaplfb_linux.c services4/3rdparty/dc_ti335x_linux/omaplfb_displayclass.c 
+else
 ifeq ($(TI_PLATFORM),ti81xx)
 DRIFILES = services4/srvkm/env/linux/pvr_drm.c services4/3rdparty/dc_ti81xx_linux/omaplfb_linux.c services4/3rdparty/dc_ti81xx_linux/omaplfb_displayclass.c 
 else
 DRIFILES = services4/srvkm/env/linux/pvr_drm.c services4/3rdparty/dc_omapfb3_linux/omaplfb_linux.c services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.c
+endif
 endif
 
 EXTRA_CFLAGS += -I$(src)/include4
@@ -84,13 +88,18 @@ pvrsrvkm-y +=  $(DRIFILES:.c=.o)
 endif
 
 ifneq ($(SUPPORT_XORG),1)
+ifeq ($(TI_PLATFORM),ti335x)
+obj-y := services4/3rdparty/dc_ti335x_linux/
+else
 ifeq ($(TI_PLATFORM),ti81xx)
 obj-y := services4/3rdparty/dc_ti81xx_linux/
 else
 obj-y := services4/3rdparty/dc_omapfb3_linux/
 endif
 endif
+endif
 obj-y += services4/3rdparty/bufferclass_ti/
+#obj-y += services4/3rdparty/bufferclass_example/
 
 ifeq ($(SUPPORT_XORG),1)
 obj-y += services4/3rdparty/linux_drm/
