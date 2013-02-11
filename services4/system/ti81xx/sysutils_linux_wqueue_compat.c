@@ -272,7 +272,7 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
 	struct clk *psCLK;
 //	IMG_INT res;
-        IMG_BOOL bPowerLock;
+//      IMG_BOOL bPowerLock;
 	PVRSRV_ERROR eError;
 
 #if defined(DEBUG) || defined(TIMING)
