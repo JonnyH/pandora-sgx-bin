@@ -160,7 +160,7 @@ CBUILD.timing	= -DTIMING
 CBUILD.release	= -DRELEASE
 CFLAGS.debug	= -g -O0 -DDLL_METRIC=1
 CFLAGS.timing	= $(OPTIM) -g -DDLL_METRIC=1 -DTIMING
-CFLAGS.release	= $(OPTIM) -g
+CFLAGS.release	= $(OPTIM)
 CFLAGS          = $(CFLAGS.$(BUILD))
 
 ifeq ($(EXTRA_EXTRA_WARNINGS),1)
