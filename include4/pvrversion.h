@@ -1,6 +1,6 @@
 /**********************************************************************
  *
- * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
+ * Copyright (C) Imagination Technologies Ltd. All rights reserved.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,15 +24,38 @@
  *
  ******************************************************************************/
 
+ 
+
+
+
+
+
+
+
+ 
+
 #ifndef _PVRVERSION_H_
 #define _PVRVERSION_H_
 
-#define PVRVERSION_MAJ 1
-#define PVRVERSION_MIN 6
-#define PVRVERSION_BRANCH 16
-#define PVRVERSION_BUILD 4117
-#define PVRVERSION_STRING "1.6.16.4117"
-#define PVRVERSION_FILE "eurasiacon.pj"
+#define PVR_STR(X) #X
+#define PVR_STR2(X) PVR_STR(X)
+
+#define PVRVERSION_MAJ               1
+#define PVRVERSION_MIN               7
+#define PVRVERSION_BRANCH            17
+
+#define PVRVERSION_FAMILY           "sgxddk"
+#define PVRVERSION_BRANCHNAME       "1.7"
+#define PVRVERSION_BUILD             783851
+#define PVRVERSION_BSCONTROL        "CustomerTI_OMAP4430_Linux_GPL"
+
+#define PVRVERSION_STRING           "sgxddk 17 1.7@" PVR_STR2(PVRVERSION_BUILD)
+#define PVRVERSION_STRING_SHORT     "1.7@" PVR_STR2(PVRVERSION_BUILD)
+
+#define COPYRIGHT_TXT               "Copyright (c) Imagination Technologies Ltd. All Rights Reserved."
+
+#define PVRVERSION_BUILD_HI          78
+#define PVRVERSION_BUILD_LO          3851
+#define PVRVERSION_STRING_NUMERIC    PVR_STR2(PVRVERSION_MAJ) "." PVR_STR2(PVRVERSION_MIN) "." PVR_STR2(PVRVERSION_BUILD_HI) "." PVR_STR2(PVRVERSION_BUILD_LO)
 
 #endif 
-

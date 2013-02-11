@@ -1,6 +1,6 @@
 /**********************************************************************
  *
- * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
+ * Copyright (C) Imagination Technologies Ltd. All rights reserved.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -77,8 +77,6 @@ IMG_UINT32 PVRSRVTimeNow(IMG_VOID)
 
 static IMG_UINT32 PVRSRVGetCPUFreq(IMG_VOID)
 {
-
-
 	IMG_UINT32 ui32Time1, ui32Time2;
 
 	ui32Time1 = PVRSRVTimeNow();
@@ -95,7 +93,6 @@ static IMG_UINT32 PVRSRVGetCPUFreq(IMG_VOID)
 
 IMG_VOID PVRSRVSetupMetricTimers(IMG_VOID *pvDevInfo)
 {
-
 	IMG_UINT32 ui32Loop;
 
 	PVR_UNREFERENCED_PARAMETER(pvDevInfo);

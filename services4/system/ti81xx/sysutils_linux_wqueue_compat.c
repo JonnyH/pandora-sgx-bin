@@ -51,38 +51,53 @@
 #define SGX_PARENT_CLOCK "core_ck"
 #endif
 
-static IMG_VOID PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData)
+static PVRSRV_ERROR PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData, IMG_BOOL bTryLock)
 {
-	if (!in_interrupt())
-	{
-		mutex_lock(&psSysSpecData->sPowerLock);
+        if (!in_interrupt())
+        {
+                if (bTryLock)
+                {
+                        int locked = mutex_trylock(&psSysSpecData->sPowerLock);
+                        if (locked == 0)
+                        {
+                                return PVRSRV_ERROR_RETRY;
+                        }
+                }
+                else
+                {
+                        mutex_lock(&psSysSpecData->sPowerLock);
+                }
+        }
 
-	}
+        return PVRSRV_OK;
 }
 
 static IMG_VOID PowerLockUnwrap(SYS_SPECIFIC_DATA *psSysSpecData)
 {
-	if (!in_interrupt())
-	{
-		mutex_unlock(&psSysSpecData->sPowerLock);
-	}
+        if (!in_interrupt())
+        {
+                mutex_unlock(&psSysSpecData->sPowerLock);
+        }
 }
 
-PVRSRV_ERROR SysPowerLockWrap(SYS_DATA *psSysData)
+PVRSRV_ERROR SysPowerLockWrap(IMG_BOOL bTryLock)
 {
-	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
+        SYS_DATA        *psSysData;
 
-	PowerLockWrap(psSysSpecData);
+        SysAcquireData(&psSysData);
 
-	return PVRSRV_OK;
+        return PowerLockWrap(psSysData->pvSysSpecificData, bTryLock);
 }
 
-IMG_VOID SysPowerLockUnwrap(SYS_DATA *psSysData)
+IMG_VOID SysPowerLockUnwrap(IMG_VOID)
 {
-	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
+        SYS_DATA        *psSysData;
 
-	PowerLockUnwrap(psSysSpecData);
+        SysAcquireData(&psSysData);
+
+        PowerLockUnwrap(psSysData->pvSysSpecificData);
 }
+
 
 IMG_BOOL WrapSystemPowerChange(SYS_SPECIFIC_DATA *psSysSpecData)
 {
@@ -185,12 +200,41 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 	}
 #endif
 
+                res = clk_enable(psSysSpecData->psSGX_FCK);
+                if(res != 0)
+		{
+                        PVR_DPF((PVR_DBG_ERROR, "EnableSsystemClocks: Couldn't enable SGX Clock"));
+                        return PVRSRV_ERROR_UNABLE_TO_ENABLE_CLOCK;;
+		}
+//		else
+//		PVR_TRACE(("EnableSystemClocks: SGX clk_enable successful"));
+                
+//		res = clk_get_rate(psSysSpecData->psSGX_FCK);
+//              PVR_TRACE(("Default SGX clock rate is %dMHz", HZ_TO_MHZ(res)));
+
+                if(cpu_is_ti816x())
+           	    res = clk_set_rate(psSysSpecData->psSGX_FCK,SYS_389x_SGX_CLOCK_SPEED);
+		else
+                    res = clk_set_rate(psSysSpecData->psSGX_FCK,SYS_387x_SGX_CLOCK_SPEED);
+                
+                if(res != 0)
+                {
+                        PVR_DPF((PVR_DBG_ERROR, "EnableSsystemClocks: Couldn't set SGX Functional Clock rate"));
+                        return PVRSRV_ERROR_UNABLE_TO_SET_CLOCK_RATE;
+                }
+                else
+                {
+                        res = clk_get_rate(psSysSpecData->psSGX_FCK);
+//                      PVR_TRACE(("SGX clock rate after set_clk_rate() is %dMHz", HZ_TO_MHZ(res)));
+                }
+/*
 	res = clk_enable(psSysSpecData->psSGX_FCK);
 	if (res < 0)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Couldn't enable SGX functional clock (%d)", res));
 		return PVRSRV_ERROR_UNABLE_TO_ENABLE_CLOCK;
 	}
+*/
 /*
 	res = clk_enable(psSysSpecData->psSGX_ICK);
 	if (res < 0)

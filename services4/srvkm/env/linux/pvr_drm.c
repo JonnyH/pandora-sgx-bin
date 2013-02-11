@@ -1,6 +1,6 @@
 /**********************************************************************
  *
- * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
+ * Copyright (C) Imagination Technologies Ltd. All rights reserved.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,9 +27,10 @@
 #if defined(SUPPORT_DRI_DRM)
 
 #include <linux/version.h>
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38))
 #ifndef AUTOCONF_INCLUDED
- #include <linux/config.h>
+#include <linux/config.h>
 #endif
 #endif
 
@@ -78,7 +79,11 @@ IMG_BOOL bInitComplete;
 IMG_BOOL bInitFailed;
 
 #if !defined(PVR_DRI_DRM_NOT_PCI)
+#if defined(PVR_DRI_DRM_PLATFORM_DEV)
+struct platform_device *gpsPVRLDMDev;
+#else
 struct pci_dev *gpsPVRLDMDev;
+#endif
 #endif
 
 struct drm_device *gpsPVRDRMDev;
@@ -90,6 +95,14 @@ struct drm_device *gpsPVRDRMDev;
 #define PVR_DRM_FILE struct drm_file *
 
 #if !defined(SUPPORT_DRI_DRM_EXT)
+#if defined(PVR_DRI_DRM_PLATFORM_DEV)
+#if defined(PVR_LDM_PLATFORM_PRE_REGISTERED)
+static struct platform_device_id asPlatIdList[] = {
+	{SYS_SGX_DEV_NAME, 0},
+	{}
+};
+#endif
+#else	
 static struct pci_device_id asPciIdList[] = {
 #if defined(PVR_DRI_DRM_NOT_PCI)
 	{1, 1, 1, 1, 0, 0, 0},
@@ -102,17 +115,22 @@ static struct pci_device_id asPciIdList[] = {
 	{0}
 };
 #endif	
+#endif	
 
 DRI_DRM_STATIC int
 PVRSRVDrmLoad(struct drm_device *dev, unsigned long flags)
 {
-	int iRes=0;
+	int iRes = 0;
 
 	PVR_TRACE(("PVRSRVDrmLoad"));
 
 	gpsPVRDRMDev = dev;
 #if !defined(PVR_DRI_DRM_NOT_PCI)
+#if defined(PVR_DRI_DRM_PLATFORM_DEV)
+	gpsPVRLDMDev = dev->platformdev;
+#else
 	gpsPVRLDMDev = dev->pdev;
+#endif
 #endif
 
 #if defined(PDUMP)
@@ -136,8 +154,8 @@ PVRSRVDrmLoad(struct drm_device *dev, unsigned long flags)
 		goto exit_pvrcore_cleanup;
 	}
 #endif
-//	return 0;
-        goto exit;
+	goto exit;
+
 #if defined(DISPLAY_CONTROLLER)
 exit_pvrcore_cleanup:
 	PVRCore_Cleanup();
@@ -154,7 +172,6 @@ exit:
 	bInitComplete = IMG_TRUE;
 
 	wake_up_interruptible(&sWaitForInit);
-
 
 	return iRes;
 }
@@ -180,7 +197,7 @@ PVRSRVDrmUnload(struct drm_device *dev)
 DRI_DRM_STATIC int
 PVRSRVDrmOpen(struct drm_device *dev, struct drm_file *file)
 {
-while (!bInitComplete)
+	while (!bInitComplete)
 	{
 		DEFINE_WAIT(sWait);
 
@@ -206,7 +223,6 @@ while (!bInitComplete)
 		PVR_DPF((PVR_DBG_ERROR, "%s: Module initialisation failed", __FUNCTION__));
 		return -EINVAL;
 	}
-
 
 	return PVRSRVOpen(dev, file);
 }
@@ -309,56 +325,54 @@ PVRDRM_Display_ioctl(struct drm_device *dev, void *arg, struct drm_file *pFile)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33))
 #define	PVR_DRM_FOPS_IOCTL	.unlocked_ioctl
 #define	PVR_DRM_UNLOCKED	DRM_UNLOCKED
-#define DRM_IOCTL_PVR_DRM_SRVKM_IOCTL PVR_DRM_SRVKM_IOCTL
-#define DRM_PVR_DRM_SRVKM_IOCTL PVR_DRM_SRVKM_IOCTL
-#define DRM_PVR_DRM_IS_MASTER_IOCTL PVR_DRM_IS_MASTER_IOCTL
-#define DRM_IOCTL_PVR_DRM_IS_MASTER_IOCTL PVR_DRM_IS_MASTER_IOCTL
-#define DRM_PVR_DRM_UNPRIV_IOCTL PVR_DRM_UNPRIV_IOCTL
-#define DRM_IOCTL_PVR_DRM_UNPRIV_IOCTL PVR_DRM_UNPRIV_IOCTL
 #else
 #define	PVR_DRM_FOPS_IOCTL	.ioctl
 #define	PVR_DRM_UNLOCKED	0
 #endif
 
 #if !defined(SUPPORT_DRI_DRM_EXT)
+
+#if defined(DRM_IOCTL_DEF)
+#define	PVR_DRM_IOCTL_DEF(ioctl, _func, _flags) DRM_IOCTL_DEF(DRM_##ioctl, _func, _flags)
+#else
+#define	PVR_DRM_IOCTL_DEF(ioctl, _func, _flags) DRM_IOCTL_DEF_DRV(ioctl, _func, _flags)
+#endif
+
 struct drm_ioctl_desc sPVRDrmIoctls[] = {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
-	DRM_IOCTL_DEF_DRV(PVR_DRM_SRVKM_IOCTL, PVRSRV_BridgeDispatchKM, PVR_DRM_UNLOCKED),
-	DRM_IOCTL_DEF_DRV(PVR_DRM_IS_MASTER_IOCTL, PVRDRMIsMaster, DRM_MASTER | PVR_DRM_UNLOCKED),
-	DRM_IOCTL_DEF_DRV(PVR_DRM_UNPRIV_IOCTL, PVRDRMUnprivCmd, PVR_DRM_UNLOCKED),
-#else
-	DRM_IOCTL_DEF(PVR_DRM_SRVKM_IOCTL, PVRSRV_BridgeDispatchKM, PVR_DRM_UNLOCKED),
-	DRM_IOCTL_DEF(PVR_DRM_IS_MASTER_IOCTL, PVRDRMIsMaster, DRM_MASTER | PVR_DRM_UNLOCKED),
-	DRM_IOCTL_DEF(PVR_DRM_UNPRIV_IOCTL, PVRDRMUnprivCmd, PVR_DRM_UNLOCKED),
-#endif
+	PVR_DRM_IOCTL_DEF(PVR_SRVKM, PVRSRV_BridgeDispatchKM, PVR_DRM_UNLOCKED),
+	PVR_DRM_IOCTL_DEF(PVR_IS_MASTER, PVRDRMIsMaster, DRM_MASTER | PVR_DRM_UNLOCKED),
+	PVR_DRM_IOCTL_DEF(PVR_UNPRIV, PVRDRMUnprivCmd, PVR_DRM_UNLOCKED),
 #if defined(PDUMP)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
-	DRM_IOCTL_DEF_DRV(PVR_DRM_DBGDRV_IOCTL, dbgdrv_ioctl, PVR_DRM_UNLOCKED),
-#else
-	DRM_IOCTL_DEF(PVR_DRM_DBGDRV_IOCTL, dbgdrv_ioctl, PVR_DRM_UNLOCKED),
-#endif
+	PVR_DRM_IOCTL_DEF(PVR_DBGDRV, dbgdrv_ioctl, PVR_DRM_UNLOCKED),
 #endif
 #if defined(DISPLAY_CONTROLLER) && defined(PVR_DISPLAY_CONTROLLER_DRM_IOCTL)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
-	DRM_IOCTL_DEF_DRV(PVR_DRM_DISP_IOCTL, PVRDRM_Display_ioctl, DRM_MASTER | PVR_DRM_UNLOCKED)
-#else
-	DRM_IOCTL_DEF(PVR_DRM_DISP_IOCTL, PVRDRM_Display_ioctl, DRM_MASTER | PVR_DRM_UNLOCKED)
-#endif
+	PVR_DRM_IOCTL_DEF(PVR_DISP, PVRDRM_Display_ioctl, DRM_MASTER | PVR_DRM_UNLOCKED)
 #endif
 };
 
 static int pvr_max_ioctl = DRM_ARRAY_SIZE(sPVRDrmIoctls);
 
+#if defined(PVR_DRI_DRM_PLATFORM_DEV) && !defined(SUPPORT_DRI_DRM_EXT)
+static int PVRSRVDrmProbe(struct platform_device *pDevice);
+static int PVRSRVDrmRemove(struct platform_device *pDevice);
+#endif	
+
 static struct drm_driver sPVRDrmDriver = 
 {
+#if defined(PVR_DRI_DRM_PLATFORM_DEV)
+	.driver_features = DRIVER_USE_PLATFORM_DEVICE,
+#else
 	.driver_features = 0,
+#endif
 	.dev_priv_size = 0,
 	.load = PVRSRVDrmLoad,
 	.unload = PVRSRVDrmUnload,
 	.open = PVRSRVDrmOpen,
+#if !defined(PVR_DRI_DRM_PLATFORM_DEV)
 	.suspend = PVRSRVDriverSuspend,
 	.resume = PVRSRVDriverResume,
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,32))
+#endif
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37))
 	.get_map_ofs = drm_core_get_map_ofs,
 	.get_reg_ofs = drm_core_get_reg_ofs,
 #endif
@@ -373,6 +387,21 @@ static struct drm_driver sPVRDrmDriver =
 		.poll = drm_poll,
 		.fasync = drm_fasync,
 	},
+#if defined(PVR_DRI_DRM_PLATFORM_DEV)
+	.platform_driver =
+	{
+		.id_table = asPlatIdList,
+		.driver =
+		{
+			.name = PVR_DRM_NAME,
+		},
+		.probe = PVRSRVDrmProbe,
+		.remove = PVRSRVDrmRemove,
+		.suspend = PVRSRVDriverSuspend,
+		.resume = PVRSRVDriverResume,
+		.shutdown = PVRSRVDriverShutdown,
+	},
+#else
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38))
 	.pci_driver = 
 	{
@@ -380,17 +409,13 @@ static struct drm_driver sPVRDrmDriver =
 		.id_table = asPciIdList,
 	},
 #else
-	.kdriver = 
-	{
-	PVR_DRM_NAME,
-	asPciIdList,
-	},
-//	{
-//		.pci->name = PVR_DRM_NAME,
-//		.pci->id_table = asPciIdList,
-//	},
+        .kdriver =
+        {
+        PVR_DRM_NAME,
+        asPciIdList,
+        },
 #endif
-		
+#endif
 	.name = PVR_DRM_NAME,
 	.desc = PVR_DRM_DESC,
 	.date = PVR_BUILD_DATE,
@@ -406,6 +431,27 @@ static struct pci_driver pci_pvr_driver = {
 };
 #endif
 
+
+#if defined(PVR_DRI_DRM_PLATFORM_DEV) && !defined(SUPPORT_DRI_DRM_EXT)
+static int
+PVRSRVDrmProbe(struct platform_device *pDevice)
+{
+	PVR_TRACE(("PVRSRVDrmProbe"));
+
+	return drm_get_platform_dev(pDevice, &sPVRDrmDriver);
+}
+
+static int
+PVRSRVDrmRemove(struct platform_device *pDevice)
+{
+	PVR_TRACE(("PVRSRVDrmRemove"));
+
+	drm_put_dev(gpsPVRDRMDev);
+
+	return 0;
+}
+
+#endif	
 static int __init PVRSRVDrmInit(void)
 {
 	int iRes;
@@ -421,11 +467,10 @@ static int __init PVRSRVDrmInit(void)
 		return iRes;
 	}
 #endif
-
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38))
-	iRes = drm_init(&sPVRDrmDriver);
+        iRes = drm_init(&sPVRDrmDriver);
 #else
-	iRes = drm_pci_init(&sPVRDrmDriver,&pci_pvr_driver);
+        iRes = drm_pci_init(&sPVRDrmDriver,&pci_pvr_driver);
 #endif
 #if defined(PVR_DRI_DRM_NOT_PCI)
 	if (iRes != 0)
@@ -439,9 +484,9 @@ static int __init PVRSRVDrmInit(void)
 static void __exit PVRSRVDrmExit(void)
 {
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38))
-	drm_exit(&sPVRDrmDriver);
+        drm_exit(&sPVRDrmDriver);
 #else
-	drm_pci_exit(&sPVRDrmDriver,&pci_pvr_driver);
+        drm_pci_exit(&sPVRDrmDriver,&pci_pvr_driver);
 #endif
 
 #if defined(PVR_DRI_DRM_NOT_PCI)

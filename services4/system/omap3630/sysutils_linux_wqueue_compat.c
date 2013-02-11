@@ -51,38 +51,55 @@
 #define SGX_PARENT_CLOCK "core_ck"
 #endif
 
-static IMG_VOID PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData)
-{
-	if (!in_interrupt())
-	{
-		mutex_lock(&psSysSpecData->sPowerLock);
 
-	}
+static PVRSRV_ERROR PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData, IMG_BOOL bTryLock)
+{
+        if (!in_interrupt())
+        {
+                if (bTryLock)
+                {
+                        int locked = mutex_trylock(&psSysSpecData->sPowerLock);
+                        if (locked == 0)
+                        {
+                                return PVRSRV_ERROR_RETRY;
+                        }
+                }
+                else
+                {
+                        mutex_lock(&psSysSpecData->sPowerLock);
+                }
+        }
+
+        return PVRSRV_OK;
 }
 
 static IMG_VOID PowerLockUnwrap(SYS_SPECIFIC_DATA *psSysSpecData)
 {
-	if (!in_interrupt())
-	{
-		mutex_unlock(&psSysSpecData->sPowerLock);
-	}
+        if (!in_interrupt())
+        {
+                mutex_unlock(&psSysSpecData->sPowerLock);
+        }
 }
 
-PVRSRV_ERROR SysPowerLockWrap(SYS_DATA *psSysData)
+PVRSRV_ERROR SysPowerLockWrap(IMG_BOOL bTryLock)
 {
-	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
+        SYS_DATA        *psSysData;
 
-	PowerLockWrap(psSysSpecData);
+        SysAcquireData(&psSysData);
 
-	return PVRSRV_OK;
+        return PowerLockWrap(psSysData->pvSysSpecificData, bTryLock);
 }
 
-IMG_VOID SysPowerLockUnwrap(SYS_DATA *psSysData)
+IMG_VOID SysPowerLockUnwrap(IMG_VOID)
 {
-	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
+        SYS_DATA        *psSysData;
 
-	PowerLockUnwrap(psSysSpecData);
+        SysAcquireData(&psSysData);
+
+        PowerLockUnwrap(psSysData->pvSysSpecificData);
 }
+
+
 
 IMG_BOOL WrapSystemPowerChange(SYS_SPECIFIC_DATA *psSysSpecData)
 {

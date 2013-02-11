@@ -284,12 +284,12 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 {
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
+	enum omap_dss_update_mode eMode;
 	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
         if (psDSSDrv == NULL || psDSSDev == NULL)
         {
 		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": %s: Device %u: No DSS device\n", __FUNCTION__, psDevInfo->uiFBDevID));
         }
-	enum omap_dss_update_mode eMode;
 
 	if (psDSSDrv->get_update_mode == NULL)
 	{

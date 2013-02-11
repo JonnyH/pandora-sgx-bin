@@ -51,42 +51,65 @@
 #define SGX_PARENT_CLOCK "core_ck"
 #endif
 
-static IMG_VOID PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData)
+static PVRSRV_ERROR PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData, IMG_BOOL bTryLock)
 {
-	if (!in_interrupt())
-	{
-		mutex_lock(&psSysSpecData->sPowerLock);
+        if (!in_interrupt())
+        {
+                if (bTryLock)
+                {
+                        int locked = mutex_trylock(&psSysSpecData->sPowerLock);
+                        if (locked == 0)
+                        {
+                                return PVRSRV_ERROR_RETRY;
+                        }
+                }
+                else
+                {
+                        mutex_lock(&psSysSpecData->sPowerLock);
+                }
+        }
 
-	}
+        return PVRSRV_OK;
 }
 
 static IMG_VOID PowerLockUnwrap(SYS_SPECIFIC_DATA *psSysSpecData)
 {
-	if (!in_interrupt())
-	{
-		mutex_unlock(&psSysSpecData->sPowerLock);
-	}
+        if (!in_interrupt())
+        {
+                mutex_unlock(&psSysSpecData->sPowerLock);
+        }
 }
 
-PVRSRV_ERROR SysPowerLockWrap(SYS_DATA *psSysData)
+PVRSRV_ERROR SysPowerLockWrap(IMG_BOOL bTryLock)
 {
-	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
+        SYS_DATA        *psSysData;
 
-	PowerLockWrap(psSysSpecData);
+        SysAcquireData(&psSysData);
 
-	return PVRSRV_OK;
+        return PowerLockWrap(psSysData->pvSysSpecificData, bTryLock);
 }
 
-IMG_VOID SysPowerLockUnwrap(SYS_DATA *psSysData)
+IMG_VOID SysPowerLockUnwrap(IMG_VOID)
 {
-	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
+        SYS_DATA        *psSysData;
 
-	PowerLockUnwrap(psSysSpecData);
+        SysAcquireData(&psSysData);
+
+        PowerLockUnwrap(psSysData->pvSysSpecificData);
 }
 
+/*
+ * This function should be called to unwrap the Services power lock, prior
+ * to calling any function that might sleep.
+ * This function shouldn't be called prior to calling EnableSystemClocks
+ * or DisableSystemClocks, as those functions perform their own power lock
+ * unwrapping.
+ * If the function returns IMG_TRUE, UnwrapSystemPowerChange must be
+ * called to rewrap the power lock, prior to returning to Services.
+ */
 IMG_BOOL WrapSystemPowerChange(SYS_SPECIFIC_DATA *psSysSpecData)
 {
-	return IMG_TRUE;
+        return IMG_TRUE;
 }
 
 IMG_VOID UnwrapSystemPowerChange(SYS_SPECIFIC_DATA *psSysSpecData)
@@ -169,6 +192,24 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 		PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Couldn't enable SGX functional clock (%d)", res));
 		return PVRSRV_ERROR_UNABLE_TO_ENABLE_CLOCK;
 	}
+//	res = clk_get_rate(psSysSpecData->psSGX_FCK);
+//	PVR_TRACE(("Default SGX clock rate is %dMHz", HZ_TO_MHZ(res)));
+
+	res = clk_set_rate(psSysSpecData->psSGX_FCK,SYS_SGX_CLOCK_SPEED);
+
+	if(res != 0)
+	{
+	PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Couldn't set SGX Functional Clock rate"));
+	return PVRSRV_ERROR_UNABLE_TO_SET_CLOCK_RATE;
+	}
+
+	else
+	{
+	res = clk_get_rate(psSysSpecData->psSGX_FCK);
+//	PVR_TRACE(("SGX clock rate after set_clk_rate is %dMHz", HZ_TO_MHZ(res)));
+	}
+
+
 /*
 	res = clk_enable(psSysSpecData->psSGX_ICK);
 	if (res < 0)
@@ -271,7 +312,24 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 
 		atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
 
-              	psCLK = clk_get(NULL, "sgx_ck");
+            	psCLK = clk_get(NULL, "sgx_ck");
+                if (IS_ERR(psCLK))
+                {
+                        PVR_DPF((PVR_DBG_ERROR, "EnableSsystemClocks: Couldn't get SGX Functional Clock"));
+                        goto ExitError;
+                }
+/*		if(clk_enable(psCLK) != 0)
+                {
+                        printk("Could not enable SGX clock\n");
+                        goto ExitError;
+                }
+*/
+                psSysSpecData->psSGX_FCK = psCLK; 
+	
+                psSysSpecData->bSysClocksOneTimeInit = IMG_TRUE;
+        }
+
+       /*       	psCLK = clk_get(NULL, "sgx_ck");
                 if (IS_ERR(psCLK))
                 {
                         PVR_DPF((PVR_DBG_ERROR, "EnableSsystemClocks: Couldn't get SGX Functional Clock"));
@@ -283,10 +341,7 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
                         goto ExitError;
                 }
 
-                psSysSpecData->psSGX_FCK = psCLK; 
-
-                psSysSpecData->bSysClocksOneTimeInit = IMG_TRUE;
-        }
+                psSysSpecData->psSGX_FCK = psCLK; */
 /*        else
         {
 

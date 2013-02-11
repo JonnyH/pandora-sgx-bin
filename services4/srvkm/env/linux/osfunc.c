@@ -1,6 +1,6 @@
 /**********************************************************************
  *
- * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
+ * Copyright (C) Imagination Technologies Ltd. All rights reserved.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -26,9 +26,9 @@
 
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38))
 #ifndef AUTOCONF_INCLUDED
- #include <linux/config.h>
+#include <linux/config.h>
 #endif
 #endif
 
@@ -80,14 +80,12 @@
 #define ON_EACH_CPU(func, info, wait) on_each_cpu(func, info, 0, wait)
 #endif
 
-#if defined(PVR_LINUX_USING_WORKQUEUES) && !defined(CONFIG_PREEMPT)
-//#error "A preemptible Linux kernel is required when using workqueues"
-#endif
 
+#if defined(EMULATOR)
+#define EVENT_OBJECT_TIMEOUT_MS		(2000)
+#else
 #define EVENT_OBJECT_TIMEOUT_MS		(100)
-
-#define HOST_ALLOC_MEM_USING_KMALLOC ((IMG_HANDLE)0)
-#define HOST_ALLOC_MEM_USING_VMALLOC ((IMG_HANDLE)1)
+#endif 
 
 #if !defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
 PVRSRV_ERROR OSAllocMem_Impl(IMG_UINT32 ui32Flags, IMG_UINT32 ui32Size, IMG_PVOID *ppvCpuVAddr, IMG_HANDLE *phBlockAlloc)
@@ -96,40 +94,30 @@ PVRSRV_ERROR OSAllocMem_Impl(IMG_UINT32 ui32Flags, IMG_UINT32 ui32Size, IMG_PVOI
 #endif
 {
     PVR_UNREFERENCED_PARAMETER(ui32Flags);
+    PVR_UNREFERENCED_PARAMETER(phBlockAlloc);
 
-#if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-    *ppvCpuVAddr = _KMallocWrapper(ui32Size, pszFilename, ui32Line);
-#else
-    *ppvCpuVAddr = KMallocWrapper(ui32Size);
-#endif
-    if(*ppvCpuVAddr)
-    {
-    if (phBlockAlloc)
+    if (ui32Size > PAGE_SIZE)
     {
         
-        *phBlockAlloc = HOST_ALLOC_MEM_USING_KMALLOC;
-    }
-    }
-    else
-    {
-    if (!phBlockAlloc)
-    {
-        return PVRSRV_ERROR_OUT_OF_MEMORY;
+#if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
+        *ppvCpuVAddr = _VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED, pszFilename, ui32Line);
+#else
+        *ppvCpuVAddr = VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED);
+#endif
+        if (*ppvCpuVAddr)
+        {
+            return PVRSRV_OK;
+        }
     }
 
-    
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-    *ppvCpuVAddr = _VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED, pszFilename, ui32Line);
+    *ppvCpuVAddr = _KMallocWrapper(ui32Size, GFP_KERNEL | __GFP_NOWARN, pszFilename, ui32Line);
 #else
-    *ppvCpuVAddr = VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED);
+    *ppvCpuVAddr = KMallocWrapper(ui32Size, GFP_KERNEL | __GFP_NOWARN);
 #endif
     if (!*ppvCpuVAddr)
     {
-         return PVRSRV_ERROR_OUT_OF_MEMORY;
-    }
-
-    
-    *phBlockAlloc = HOST_ALLOC_MEM_USING_VMALLOC;
+        return PVRSRV_ERROR_OUT_OF_MEMORY;
     }
 
     return PVRSRV_OK;
@@ -153,19 +141,20 @@ PVRSRV_ERROR OSFreeMem_Impl(IMG_UINT32 ui32Flags, IMG_UINT32 ui32Size, IMG_PVOID
 {	
     PVR_UNREFERENCED_PARAMETER(ui32Flags);
     PVR_UNREFERENCED_PARAMETER(ui32Size);
+    PVR_UNREFERENCED_PARAMETER(hBlockAlloc);
 
-    if (hBlockAlloc == HOST_ALLOC_MEM_USING_VMALLOC)
+    if (is_vmalloc_addr(pvCpuVAddr))
     {
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-    _VFreeWrapper(pvCpuVAddr, pszFilename, ui32Line);
+        _VFreeWrapper(pvCpuVAddr, pszFilename, ui32Line);
 #else
-    VFreeWrapper(pvCpuVAddr);
+        VFreeWrapper(pvCpuVAddr);
 #endif
     }
     else
     {
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-    _KFreeWrapper(pvCpuVAddr, pszFilename, ui32Line);
+        _KFreeWrapper(pvCpuVAddr, pszFilename, ui32Line);
 #else
         KFreeWrapper(pvCpuVAddr);
 #endif
@@ -317,7 +306,7 @@ OSGetSubMemHandle(IMG_HANDLE hOSMemHandle,
 
     eError = PVRMMapRegisterArea(psLinuxMemArea);
     if(eError != PVRSRV_OK)
-     {
+    {
         goto failed_register_area;
     }
 
@@ -535,6 +524,25 @@ IMG_VOID OSSleepms(IMG_UINT32 ui32Timems)
     msleep(ui32Timems);
 }
 
+
+ 
+IMG_HANDLE OSFuncHighResTimerCreate(IMG_VOID)
+{
+	
+	return (IMG_HANDLE) 1;
+}
+
+ 
+IMG_UINT32 OSFuncHighResTimerGetus(IMG_HANDLE hTimer)
+{
+	return (IMG_UINT32) jiffies_to_usecs(jiffies);
+}
+
+ 
+IMG_VOID OSFuncHighResTimerDestroy(IMG_HANDLE hTimer)
+{
+	PVR_UNREFERENCED_PARAMETER(hTimer);
+}
 
 IMG_UINT32 OSGetCurrentProcessIDKM(IMG_VOID)
 {
@@ -1014,7 +1022,7 @@ PVRSRV_ERROR OSUnlockResource (PVRSRV_RESOURCE *psResource, IMG_UINT32 ui32ID)
         if(psResource->ui32ID == ui32ID)
         {
             psResource->ui32ID = 0;
-	    smp_mb();
+            smp_mb();
             *pui32Access = 0;
         }
         else
@@ -1042,6 +1050,20 @@ IMG_BOOL OSIsResourceLocked (PVRSRV_RESOURCE *psResource, IMG_UINT32 ui32ID)
             ?	IMG_TRUE
             :	IMG_FALSE;
 }
+
+
+#if !defined(SYS_CUSTOM_POWERLOCK_WRAP)
+PVRSRV_ERROR OSPowerLockWrap(IMG_BOOL bTryLock)
+{
+	PVR_UNREFERENCED_PARAMETER(bTryLock);	
+
+	return PVRSRV_OK;
+}
+
+IMG_VOID OSPowerLockUnwrap (IMG_VOID)
+{
+}
+#endif 
 
 
 IMG_CPU_PHYADDR OSMapLinToCPUPhys(IMG_HANDLE hOSMemHandle,
@@ -1394,9 +1416,9 @@ PVRSRV_ERROR OSBaseAllocContigMemory(IMG_UINT32 ui32Size, IMG_CPU_VIRTADDR *pvLi
     IMG_VOID *pvKernLinAddr;
 
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-    pvKernLinAddr = _KMallocWrapper(ui32Size, __FILE__, __LINE__);
+    pvKernLinAddr = _KMallocWrapper(ui32Size, GFP_KERNEL, __FILE__, __LINE__);
 #else
-    pvKernLinAddr = KMallocWrapper(ui32Size);
+    pvKernLinAddr = KMallocWrapper(ui32Size, GFP_KERNEL);
 #endif
     if (!pvKernLinAddr)
     {
@@ -1717,12 +1739,16 @@ PVRSRV_ERROR OSPCIResumeDev(PVRSRV_PCI_DEV_HANDLE hPVRPCI)
             return PVRSRV_ERROR_UNKNOWN_POWER_STATE;
     }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38))
+    pci_restore_state(psPVRPCI->psPCIDev);
+#else
     err = pci_restore_state(psPVRPCI->psPCIDev);
     if (err != 0)
     {
         PVR_DPF((PVR_DBG_ERROR, "OSPCIResumeDev: pci_restore_state failed (%d)", err));
         return PVRSRV_ERROR_PCI_CALL_FAILED;
     }
+#endif
 
     err = pci_enable_device(psPVRPCI->psPCIDev);
     if (err != 0)
@@ -1964,7 +1990,11 @@ PVRSRV_ERROR OSDisableTimer (IMG_HANDLE hTimer)
 }
 
 
-PVRSRV_ERROR OSEventObjectCreate(const IMG_CHAR *pszName, PVRSRV_EVENTOBJECT *psEventObject)
+#if defined (SUPPORT_SID_INTERFACE)
+PVRSRV_ERROR OSEventObjectCreateKM(const IMG_CHAR *pszName, PVRSRV_EVENTOBJECT_KM *psEventObject)
+#else
+PVRSRV_ERROR OSEventObjectCreateKM(const IMG_CHAR *pszName, PVRSRV_EVENTOBJECT *psEventObject)
+#endif
 {
 
     PVRSRV_ERROR eError = PVRSRV_OK;
@@ -1980,7 +2010,11 @@ PVRSRV_ERROR OSEventObjectCreate(const IMG_CHAR *pszName, PVRSRV_EVENTOBJECT *ps
         {
             	
             static IMG_UINT16 ui16NameIndex = 0;			
+#if defined (SUPPORT_SID_INTERFACE)
+            snprintf(psEventObject->szName, EVENTOBJNAME_MAXLENGTH, "PVRSRV_EVENTOBJECT_KM_%d", ui16NameIndex++);
+#else
             snprintf(psEventObject->szName, EVENTOBJNAME_MAXLENGTH, "PVRSRV_EVENTOBJECT_%d", ui16NameIndex++);
+#endif
         }
         
         if(LinuxEventObjectListCreate(&psEventObject->hOSEventKM) != PVRSRV_OK)
@@ -1991,7 +2025,7 @@ PVRSRV_ERROR OSEventObjectCreate(const IMG_CHAR *pszName, PVRSRV_EVENTOBJECT *ps
     }
     else
     {
-        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectCreate: psEventObject is not a valid pointer"));
+        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectCreateKM: psEventObject is not a valid pointer"));
         eError = PVRSRV_ERROR_UNABLE_TO_CREATE_EVENT;	
     }
     
@@ -2000,7 +2034,11 @@ PVRSRV_ERROR OSEventObjectCreate(const IMG_CHAR *pszName, PVRSRV_EVENTOBJECT *ps
 }
 
 
-PVRSRV_ERROR OSEventObjectDestroy(PVRSRV_EVENTOBJECT *psEventObject)
+#if defined (SUPPORT_SID_INTERFACE)
+PVRSRV_ERROR OSEventObjectDestroyKM(PVRSRV_EVENTOBJECT_KM *psEventObject)
+#else
+PVRSRV_ERROR OSEventObjectDestroyKM(PVRSRV_EVENTOBJECT *psEventObject)
+#endif
 {
     PVRSRV_ERROR eError = PVRSRV_OK;
 
@@ -2012,20 +2050,20 @@ PVRSRV_ERROR OSEventObjectDestroy(PVRSRV_EVENTOBJECT *psEventObject)
         }
         else
         {
-            PVR_DPF((PVR_DBG_ERROR, "OSEventObjectDestroy: hOSEventKM is not a valid pointer"));
+            PVR_DPF((PVR_DBG_ERROR, "OSEventObjectDestroyKM: hOSEventKM is not a valid pointer"));
             eError = PVRSRV_ERROR_INVALID_PARAMS;
         }
     }
     else
     {
-        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectDestroy: psEventObject is not a valid pointer"));
+        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectDestroyKM: psEventObject is not a valid pointer"));
         eError = PVRSRV_ERROR_INVALID_PARAMS;
     }
     
     return eError;
 }
 
-PVRSRV_ERROR OSEventObjectWait(IMG_HANDLE hOSEventKM)
+PVRSRV_ERROR OSEventObjectWaitKM(IMG_HANDLE hOSEventKM)
 {
     PVRSRV_ERROR eError;
     
@@ -2035,14 +2073,18 @@ PVRSRV_ERROR OSEventObjectWait(IMG_HANDLE hOSEventKM)
     }
     else
     {
-        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectWait: hOSEventKM is not a valid handle"));
+        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectWaitKM: hOSEventKM is not a valid handle"));
         eError = PVRSRV_ERROR_INVALID_PARAMS;
     }
     
     return eError;
 }
 
-PVRSRV_ERROR OSEventObjectOpen(PVRSRV_EVENTOBJECT *psEventObject,
+#if defined (SUPPORT_SID_INTERFACE)
+PVRSRV_ERROR OSEventObjectOpenKM(PVRSRV_EVENTOBJECT_KM *psEventObject,
+#else
+PVRSRV_ERROR OSEventObjectOpenKM(PVRSRV_EVENTOBJECT *psEventObject,
+#endif
                                             IMG_HANDLE *phOSEvent)
 {
     PVRSRV_ERROR eError = PVRSRV_OK;
@@ -2058,14 +2100,18 @@ PVRSRV_ERROR OSEventObjectOpen(PVRSRV_EVENTOBJECT *psEventObject,
     }
     else
     {
-        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectCreate: psEventObject is not a valid pointer"));
+        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectCreateKM: psEventObject is not a valid pointer"));
         eError = PVRSRV_ERROR_INVALID_PARAMS;
     }
     
     return eError;
 }
 
-PVRSRV_ERROR OSEventObjectClose(PVRSRV_EVENTOBJECT *psEventObject,
+#if defined (SUPPORT_SID_INTERFACE)
+PVRSRV_ERROR OSEventObjectCloseKM(PVRSRV_EVENTOBJECT_KM *psEventObject,
+#else
+PVRSRV_ERROR OSEventObjectCloseKM(PVRSRV_EVENTOBJECT *psEventObject,
+#endif
                                             IMG_HANDLE hOSEventKM)
 {
     PVRSRV_ERROR eError = PVRSRV_OK;
@@ -2081,7 +2127,7 @@ PVRSRV_ERROR OSEventObjectClose(PVRSRV_EVENTOBJECT *psEventObject,
     }
     else
     {
-        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectDestroy: psEventObject is not a valid pointer"));
+        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectDestroyKM: psEventObject is not a valid pointer"));
         eError = PVRSRV_ERROR_INVALID_PARAMS;
     }
     
@@ -2089,7 +2135,7 @@ PVRSRV_ERROR OSEventObjectClose(PVRSRV_EVENTOBJECT *psEventObject,
     
 }
 
-PVRSRV_ERROR OSEventObjectSignal(IMG_HANDLE hOSEventKM)
+PVRSRV_ERROR OSEventObjectSignalKM(IMG_HANDLE hOSEventKM)
 {
     PVRSRV_ERROR eError;
     
@@ -2099,7 +2145,7 @@ PVRSRV_ERROR OSEventObjectSignal(IMG_HANDLE hOSEventKM)
     }
     else
     {
-        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectSignal: hOSEventKM is not a valid handle"));
+        PVR_DPF((PVR_DBG_ERROR, "OSEventObjectSignalKM: hOSEventKM is not a valid handle"));
         eError = PVRSRV_ERROR_INVALID_PARAMS;
     }
     
@@ -2926,50 +2972,52 @@ IMG_VOID OSFlushCPUCacheKM(IMG_VOID)
 	outer_flush_all();
 #endif
 }
+
 static inline size_t pvr_dmac_range_len(const void *pvStart, const void *pvEnd)
 {
-        return (size_t)((char *)pvEnd - (char *)pvStart);
+	return (size_t)((char *)pvEnd - (char *)pvStart);
 }
-
 
 static void pvr_dmac_inv_range(const void *pvStart, const void *pvEnd)
 {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34))
-        dmac_inv_range(pvStart, pvEnd);
+	dmac_inv_range(pvStart, pvEnd);
 #else
-        dmac_map_area(pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_FROM_DEVICE);
+	dmac_map_area(pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_FROM_DEVICE);
 #endif
 }
 
 static void pvr_dmac_clean_range(const void *pvStart, const void *pvEnd)
 {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34))
-        dmac_clean_range(pvStart, pvEnd);
+	dmac_clean_range(pvStart, pvEnd);
 #else
-        dmac_map_area(pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
+	dmac_map_area(pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
 #endif
 }
-
 
 IMG_BOOL OSFlushCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 								IMG_VOID *pvRangeAddrStart,
 								IMG_UINT32 ui32Length)
 {
-	return CheckExecuteCacheOp(hOSMemHandle, pvRangeAddrStart, ui32Length,dmac_flush_range, (OuterCacheOp_t)outer_flush_range);
+	return CheckExecuteCacheOp(hOSMemHandle, pvRangeAddrStart, ui32Length,
+							   dmac_flush_range, (OuterCacheOp_t)outer_flush_range);
 }
 
 IMG_BOOL OSCleanCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 								IMG_VOID *pvRangeAddrStart,
 								IMG_UINT32 ui32Length)
 {
-	return CheckExecuteCacheOp(hOSMemHandle, pvRangeAddrStart, ui32Length,pvr_dmac_clean_range, (OuterCacheOp_t)outer_clean_range);
+	return CheckExecuteCacheOp(hOSMemHandle, pvRangeAddrStart, ui32Length,
+							   pvr_dmac_clean_range, (OuterCacheOp_t)outer_clean_range);
 }
 
 IMG_BOOL OSInvalidateCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 									 IMG_VOID *pvRangeAddrStart,
 									 IMG_UINT32 ui32Length)
 {
-	return CheckExecuteCacheOp(hOSMemHandle, pvRangeAddrStart, ui32Length,pvr_dmac_inv_range, (OuterCacheOp_t)outer_inv_range);
+	return CheckExecuteCacheOp(hOSMemHandle, pvRangeAddrStart, ui32Length,
+							   pvr_dmac_inv_range, (OuterCacheOp_t)outer_inv_range);
 }
 
 #else 
@@ -2991,7 +3039,8 @@ IMG_BOOL OSFlushCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 								IMG_VOID *pvRangeAddrStart,
 								IMG_UINT32 ui32Length)
 {
-	dma_cache_wback_inv((IMG_UINTPTR_T)pvRangeAddrStart, ui32Length);
+	if (ui32Length)
+		dma_cache_wback_inv((IMG_UINTPTR_T)pvRangeAddrStart, ui32Length);	
 	return IMG_TRUE;
 }
 
@@ -2999,7 +3048,8 @@ IMG_BOOL OSCleanCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 								IMG_VOID *pvRangeAddrStart,
 								IMG_UINT32 ui32Length)
 {
-	dma_cache_wback((IMG_UINTPTR_T)pvRangeAddrStart, ui32Length);
+	if (ui32Length)
+		dma_cache_wback((IMG_UINTPTR_T)pvRangeAddrStart, ui32Length);
 	return IMG_TRUE;
 }
 
@@ -3007,7 +3057,8 @@ IMG_BOOL OSInvalidateCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 									 IMG_VOID *pvRangeAddrStart,
 									 IMG_UINT32 ui32Length)
 {
-	dma_cache_inv((IMG_UINTPTR_T)pvRangeAddrStart, ui32Length);
+	if (ui32Length)
+		dma_cache_inv((IMG_UINTPTR_T)pvRangeAddrStart, ui32Length);
 	return IMG_TRUE;
 }
 

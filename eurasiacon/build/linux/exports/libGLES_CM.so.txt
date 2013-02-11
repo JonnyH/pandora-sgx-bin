@@ -1,2 +1,0 @@
-#include "egl.txt"
-#include "libGLESv1_CM.so.txt"

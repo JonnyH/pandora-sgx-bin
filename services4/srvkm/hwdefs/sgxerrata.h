@@ -1,6 +1,6 @@
 /**********************************************************************
  *
- * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
+ * Copyright (C) Imagination Technologies Ltd. All rights reserved.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -59,16 +59,16 @@
 		
 		#define SGX_CORE_REV	SGX_CORE_REV_HEAD
 	#endif
-        #if SGX_CORE_REV == 103
-               #define FIX_HW_BRN_22934
-	       #define FIX_HW_BRN_28889
-        #else
 
 	#if SGX_CORE_REV == 110
 		#define FIX_HW_BRN_22934
 		#define FIX_HW_BRN_28889
 	#else
 	#if SGX_CORE_REV == 111
+		#define FIX_HW_BRN_22934	
+		#define FIX_HW_BRN_28889
+	#else
+	#if SGX_CORE_REV == 1111
 		#define FIX_HW_BRN_22934	
 		#define FIX_HW_BRN_28889
 	#else
@@ -84,6 +84,10 @@
 		#define FIX_HW_BRN_22934	
 		#define FIX_HW_BRN_28889
 	#else
+	#if SGX_CORE_REV == 130
+		#define FIX_HW_BRN_22934	
+		#define FIX_HW_BRN_28889
+	#else
 	#if SGX_CORE_REV == SGX_CORE_REV_HEAD
 		
 	#else
@@ -92,9 +96,11 @@
 	#endif
 	#endif
 	#endif
+	#endif
+	#endif
 #endif
         #endif
-        #endif	
+	
 	#define SGX_CORE_DEFINED
 #endif
 
@@ -109,9 +115,10 @@
 	#if SGX_CORE_REV == 101
 		#define FIX_HW_BRN_26620
 		#define FIX_HW_BRN_28011
+		#define FIX_HW_BRN_34028
 	#else
 	#if SGX_CORE_REV == 110
-		
+		#define FIX_HW_BRN_34028
 	#else
 	#if SGX_CORE_REV == SGX_CORE_REV_HEAD
 		
@@ -134,7 +141,7 @@
 
 	#if SGX_CORE_REV == 112
 		#define FIX_HW_BRN_23281
-		#define FIX_HW_BRN_23410
+		#define FIX_HW_BRN_23410 
 		#define FIX_HW_BRN_22693
 		#define FIX_HW_BRN_22934	
 		#define FIX_HW_BRN_22997
@@ -181,23 +188,31 @@
 		#define FIX_HW_BRN_25503
 		#define FIX_HW_BRN_26620
 		#define FIX_HW_BRN_28011
+		#define FIX_HW_BRN_34028
 	#else
 	#if SGX_CORE_REV == 110
 		#define FIX_HW_BRN_25503
 		#define FIX_HW_BRN_26620
 		#define FIX_HW_BRN_28011
+		#define FIX_HW_BRN_34028
 	#else
 	#if SGX_CORE_REV == 120
 		#define FIX_HW_BRN_26620
 		#define FIX_HW_BRN_28011
+		#define FIX_HW_BRN_34028
 	#else
 	#if SGX_CORE_REV == 121
 		#define FIX_HW_BRN_28011
+		#define FIX_HW_BRN_34028
+	#else
+	#if SGX_CORE_REV == 130
+		#define FIX_HW_BRN_34028
 	#else
 	#if SGX_CORE_REV == SGX_CORE_REV_HEAD
 		
 	#else
 		#error "sgxerrata.h: SGX540 Core Revision unspecified"
+	#endif
 	#endif
 	#endif
 	#endif
@@ -244,28 +259,215 @@
 	#endif
 
 	#if SGX_CORE_REV == 113
+		#define FIX_HW_BRN_29954
 		#define FIX_HW_BRN_29997
 		#define FIX_HW_BRN_30954
 		#define FIX_HW_BRN_31093
 		#define FIX_HW_BRN_31195
-			
+		#define FIX_HW_BRN_31272
+		#define FIX_HW_BRN_31278
+ 		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31620
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_31542
+		#define FIX_HW_BRN_32044 
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
 	#else
 	#if SGX_CORE_REV == 122
+		#define FIX_HW_BRN_29954
 		#define FIX_HW_BRN_29997
 		#define FIX_HW_BRN_30954
 		#define FIX_HW_BRN_31093
 		#define FIX_HW_BRN_31195
+		#define FIX_HW_BRN_31272
+		#define FIX_HW_BRN_31278
+ 		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31620
+		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_31542
+		#define FIX_HW_BRN_32044 
+		#define FIX_HW_BRN_32085 
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+			
+	#else
+	#if SGX_CORE_REV == 1221
+		#define FIX_HW_BRN_29954
+        #define FIX_HW_BRN_31195
+		#define FIX_HW_BRN_31272
+		#define FIX_HW_BRN_31278
+ 		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31542
+		#define FIX_HW_BRN_31671		
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_32044
+		#define FIX_HW_BRN_32085 
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
 			
 	#else
 	#if SGX_CORE_REV == 140
-		 #define FIX_HW_BRN_30954
-		 #define FIX_HW_BRN_31195
+		#define FIX_HW_BRN_29954
+		#define FIX_HW_BRN_30954
+		#define FIX_HW_BRN_31093
+		#define FIX_HW_BRN_31195
+		#define FIX_HW_BRN_31272
+		#define FIX_HW_BRN_31278
+ 		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31620
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_31542
+		#define FIX_HW_BRN_32044 
+		#define FIX_HW_BRN_32085 
+		#define FIX_HW_BRN_33920
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
 			
 	#else
+	#if SGX_CORE_REV == 1401
+		#define FIX_HW_BRN_29954
+		#define FIX_HW_BRN_30954
+		#define FIX_HW_BRN_31195
+		#define FIX_HW_BRN_31272
+		#define FIX_HW_BRN_31278
+ 		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31620
+		#define FIX_HW_BRN_31542
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_32044 
+		#define FIX_HW_BRN_32085 
+		#define FIX_HW_BRN_33920
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+			
+	#else
+	#if SGX_CORE_REV == 141
+		#define FIX_HW_BRN_29954
+ 		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31671 
+ 		#define FIX_HW_BRN_31780
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+			
+	#else
+	#if SGX_CORE_REV == 142
+		#define FIX_HW_BRN_29954
+ 		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31671 
+ 		#define FIX_HW_BRN_31780
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+			
+	#else
+	#if SGX_CORE_REV == 211
+		#define FIX_HW_BRN_31093
+		#define FIX_HW_BRN_31195
+		#define FIX_HW_BRN_31272
+		#define FIX_HW_BRN_31278
+ 		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31620
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_31542
+		#define FIX_HW_BRN_32044 
+		#define FIX_HW_BRN_32085 
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+			
+	#else
+	#if SGX_CORE_REV == 2111
+		#define FIX_HW_BRN_30982 
+		#define FIX_HW_BRN_31093
+		#define FIX_HW_BRN_31195
+		#define FIX_HW_BRN_31272
+		#define FIX_HW_BRN_31278
+ 		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31620
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_31542
+		#define FIX_HW_BRN_32044 
+		#define FIX_HW_BRN_32085 
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+			
+	#else
+	#if SGX_CORE_REV == 213
+		#define FIX_HW_BRN_31272
+		#if defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_31425
+		#endif
+		#define FIX_HW_BRN_31671 
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_32085 
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+			
+	#else
+	#if SGX_CORE_REV == 216
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+	#else
+	#if SGX_CORE_REV == 302
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+	#else
+	#if SGX_CORE_REV == 303
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+	#else
 	#if SGX_CORE_REV == SGX_CORE_REV_HEAD
-		
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
 	#else
 		#error "sgxerrata.h: SGX543 Core Revision unspecified"
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
 	#endif
 	#endif
 	#endif
@@ -283,12 +485,122 @@
 	#endif
 
 	#if SGX_CORE_REV == 100
-		
+ 		#if defined(SGX_FEATURE_MP)
+ 			#define FIX_HW_BRN_31425
+ 		#endif
+	#else
+	#if SGX_CORE_REV == 102
+		#define FIX_HW_BRN_29954
+		#define FIX_HW_BRN_31272
+ 		#if defined(SGX_FEATURE_MP)
+ 			#define FIX_HW_BRN_31425
+ 		#endif
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_32085 
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+	#else
+	#if SGX_CORE_REV == 103
+		#define FIX_HW_BRN_29954
+		#define FIX_HW_BRN_31272
+ 		#if defined(SGX_FEATURE_MP)
+ 			#define FIX_HW_BRN_31425
+ 		#endif
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_32085 
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+	#else
+	#if SGX_CORE_REV == 104
+		#define FIX_HW_BRN_29954
+		#define FIX_HW_BRN_31093
+		#define FIX_HW_BRN_31195
+		#define FIX_HW_BRN_31272
+		#define FIX_HW_BRN_31278
+ 		#if defined(SGX_FEATURE_MP)
+ 			#define FIX_HW_BRN_31425
+ 		#endif
+		#define FIX_HW_BRN_31542 
+ 		#define FIX_HW_BRN_31620
+		#define FIX_HW_BRN_31671 
+ 		#define FIX_HW_BRN_31780
+		#define FIX_HW_BRN_32044 
+		#define FIX_HW_BRN_32085 
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+	#else	
+	#if SGX_CORE_REV == 105
+ 		#if defined(SGX_FEATURE_MP)
+ 			#define FIX_HW_BRN_31425
+ 		#endif
+ 		#define FIX_HW_BRN_31780
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+	#else
+	#if SGX_CORE_REV == 106
+		#define FIX_HW_BRN_31272
+ 		#define FIX_HW_BRN_31780
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+	#else
+	#if SGX_CORE_REV == 110
+		#define FIX_HW_BRN_31272
+ 		#if defined(SGX_FEATURE_MP)
+ 			#define FIX_HW_BRN_31425
+ 		#endif
+ 		#define FIX_HW_BRN_31780
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33920
+	#else
+	#if SGX_CORE_REV == 112
+		#define FIX_HW_BRN_31272
+		#define FIX_HW_BRN_33920
+	#else
+	#if SGX_CORE_REV == 114
+ 		#if defined(SGX_FEATURE_MP)
+ 			#define FIX_HW_BRN_31425
+ 		#endif
+ 		#define FIX_HW_BRN_31780
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+	#else
+	#if SGX_CORE_REV == 115
+ 		#if defined(SGX_FEATURE_MP)
+ 			#define FIX_HW_BRN_31425
+ 		#endif
+ 		#define FIX_HW_BRN_31780
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
 	#else
 	#if SGX_CORE_REV == SGX_CORE_REV_HEAD
-		
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
 	#else
 		#error "sgxerrata.h: SGX544 Core Revision unspecified"
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
+	#endif
 	#endif
 	#endif
 	
@@ -313,17 +625,27 @@
 	#if SGX_CORE_REV == 109
 		#define FIX_HW_BRN_29702
 		#define FIX_HW_BRN_29823
+		#define FIX_HW_BRN_31939
 	#else
 	#if SGX_CORE_REV == 1012
- 		#define FIX_HW_BRN_29823
+		#define FIX_HW_BRN_31939
 	#else
 	#if SGX_CORE_REV == 1013
- 		#define FIX_HW_BRN_29823
+		#define FIX_HW_BRN_31939
+	#else
+	#if SGX_CORE_REV == 10131
+	#else
+	#if SGX_CORE_REV == 1014
+	#else
+	#if SGX_CORE_REV == 10141
 	#else
 	#if SGX_CORE_REV == SGX_CORE_REV_HEAD
 		
 	#else
 		#error "sgxerrata.h: SGX545 Core Revision unspecified"
+	#endif
+	#endif
+	#endif
 	#endif
 	#endif
 	#endif
@@ -341,11 +663,16 @@
 		#define SGX_CORE_REV	SGX_CORE_REV_HEAD
 	#endif
 
-	#if SGX_CORE_REV == 100
+	#if SGX_CORE_REV == 1251
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
 		
-	#else
+	#else	
 	#if SGX_CORE_REV == SGX_CORE_REV_HEAD
-		
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
 	#else
 		#error "sgxerrata.h: SGX554 Core Revision unspecified"
 	#endif

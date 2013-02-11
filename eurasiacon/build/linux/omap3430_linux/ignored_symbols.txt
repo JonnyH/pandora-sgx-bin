@@ -1,5 +1,0 @@
-^__aeabi_
-^__exidx_
-^__data_start
-^_init
-^_fini

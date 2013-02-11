@@ -27,6 +27,7 @@
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/pci.h>
+#include <linux/module.h>
 #include <asm/system.h>
 
 #include "pvr_drm_mod.h"

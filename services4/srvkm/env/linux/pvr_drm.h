@@ -1,6 +1,6 @@
 /**********************************************************************
  *
- * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
+ * Copyright (C) Imagination Technologies Ltd. All rights reserved.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,12 +33,23 @@
 #define	PVR_DRM_MAKENAME_HELPER(x, y) x ## y
 #define	PVR_DRM_MAKENAME(x, y) PVR_DRM_MAKENAME_HELPER(x, y)
 
+#if defined(PVR_DRI_DRM_PLATFORM_DEV)
+#define	LDM_DEV	struct platform_device
+#endif
+
 int PVRCore_Init(void);
 void PVRCore_Cleanup(void);
 int PVRSRVOpen(struct drm_device *dev, struct drm_file *pFile);
 void PVRSRVRelease(void *pvPrivData);
+
+#if defined(PVR_DRI_DRM_PLATFORM_DEV)
+void PVRSRVDriverShutdown(LDM_DEV *pDevice);
+int PVRSRVDriverSuspend(LDM_DEV *pDevice, pm_message_t state);
+int PVRSRVDriverResume(LDM_DEV *pDevice);
+#else
 int PVRSRVDriverSuspend(struct drm_device *pDevice, pm_message_t state);
 int PVRSRVDriverResume(struct drm_device *pDevice);
+#endif
 
 int PVRSRV_BridgeDispatchKM(struct drm_device *dev, void *arg, struct drm_file *pFile);
 
@@ -76,11 +87,17 @@ IMG_INT dbgdrv_ioctl(struct drm_device *dev, IMG_VOID *arg, struct drm_file *pFi
 #endif
 
 #if !defined(SUPPORT_DRI_DRM_EXT)
-#define	PVR_DRM_SRVKM_IOCTL	_IO(0, PVR_DRM_SRVKM_CMD)
-#define	PVR_DRM_IS_MASTER_IOCTL _IO(0, PVR_DRM_IS_MASTER_CMD)
-#define	PVR_DRM_UNPRIV_IOCTL	_IO(0, PVR_DRM_UNPRIV_CMD)
-#define	PVR_DRM_DBGDRV_IOCTL	_IO(0, PVR_DRM_DBGDRV_CMD)
-#define	PVR_DRM_DISP_IOCTL	_IO(0, PVR_DRM_DISP_CMD)
+#define	DRM_PVR_SRVKM		PVR_DRM_SRVKM_CMD
+#define	DRM_PVR_IS_MASTER	PVR_DRM_IS_MASTER_CMD
+#define	DRM_PVR_UNPRIV		PVR_DRM_UNPRIV_CMD
+#define	DRM_PVR_DBGDRV		PVR_DRM_DBGDRV_CMD
+#define	DRM_PVR_DISP		PVR_DRM_DISP_CMD
+
+#define	DRM_IOCTL_PVR_SRVKM		_IO(0, DRM_PVR_SRVKM)
+#define	DRM_IOCTL_PVR_IS_MASTER 	_IO(0, DRM_PVR_IS_MASTER)
+#define	DRM_IOCTL_PVR_UNPRIV		_IO(0, DRM_PVR_UNPRIV)
+#define	DRM_IOCTL_PVR_DBGDRV		_IO(0, DRM_PVR_DBGDRV)
+#define	DRM_IOCTL_PVR_DISP		_IO(0, DRM_PVR_DISP)
 #endif	
 
 #endif	
