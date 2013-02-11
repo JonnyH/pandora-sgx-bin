@@ -110,7 +110,7 @@ static int bc_release(struct inode *i, struct file *f);
 static int bc_ioctl(struct inode *inode, struct file *file,
                     unsigned int cmd, unsigned long arg);
 #else
-static int bc_ioctl(struct file *file,
+static long bc_ioctl(struct file *file,
                     unsigned int cmd, unsigned long arg);
 #endif
 static int bc_mmap(struct file *filp, struct vm_area_struct *vma);
@@ -216,7 +216,7 @@ OPEN_FXN(8)
 OPEN_FXN(9)
 #endif
 
-static PVRSRV_ERROR CloseBCDevice(IMG_HANDLE hDevice)
+static PVRSRV_ERROR CloseBCDevice(IMG_UINT32 handle , IMG_HANDLE hDevice)
 {
     PVR_UNREFERENCED_PARAMETER(hDevice);
 
@@ -328,6 +328,12 @@ static int BC_CreateBuffers(int id, bc_buf_params_t *p)
         pixel_fmt = PVRSRV_PIXEL_FORMAT_FOURCC_ORG_YUYV;
         stride = p->width << 1;
         break;
+    
+    case BC_PIX_FMT_ARGB:
+        pixel_fmt = PVRSRV_PIXEL_FORMAT_ARGB8888;
+        stride = p->width << 2;
+        break;
+
     default:
         return -EINVAL;
         break;
@@ -922,7 +928,7 @@ static int bc_mmap(struct file *filp, struct vm_area_struct *vma)
 static int bc_ioctl(struct inode *inode, struct file *file,
                     unsigned int cmd, unsigned long arg)
 #else
-static int bc_ioctl(struct file *file,
+static long  bc_ioctl(struct file *file,
                     unsigned int cmd, unsigned long arg)
 #endif
 {

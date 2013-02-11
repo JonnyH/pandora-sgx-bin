@@ -26,8 +26,15 @@ SYS_CFLAGS += -DPVR_HAS_BROKEN_OMAPFB_H
 endif
 OPTIM                   = -Os
 
-
+ifeq ($(TI_PLATFORM),omap4)
+SGXCORE = 540
+else
 SGXCORE = 530
+endif
+
+ifeq ($(TI_PLATFORM),omap4)
+CORE = -DSGX540 -DSUPPORT_SGX540 -DSGX_CORE_REV=120
+else
 ifeq ($(TI_PLATFORM),ti81xx)
 CORE = -DPLAT_TI81xx -DSGX530 -DSUPPORT_SGX530 -DSGX_CORE_REV=125
 else
@@ -43,6 +50,7 @@ endif
 endif
 endif
 endif
+endif
 
 SUPPORT_SGX = 1
 SUPPORT_HW_RECOVERY = 1
@@ -53,6 +61,31 @@ SUPPORT_TI_PM = 0
 PVR2D_ALT_2DHW = 1
 
 LDM_PLATFORM ?= 1
+SUPPORT_XORG ?=0
+SUPPORT_DRI_DRM_NOT_PCI ?= 0
+
+ifeq ($(SUPPORT_XORG),1)
+SUPPORT_DRI_DRM = 1
+SUPPORT_DRI_DRM_NOT_PCI = 1
+endif
+
+
+ifeq ($(SUPPORT_DRI_DRM_NOT_PCI),1)
+KBUILD_EXTRA_SYMBOLS = `pwd`/services4/3rdparty/linux_drm/kbuild/Module.symvers
+endif
+
+SUPPORT_DRI_DRM ?= $(SUPPORT_XORG)
+SUPPORT_DRI_DRM_EXT ?= 0
+SUPPORT_DRI_DRM_NO_DROPMASTER ?= 0
+#SUPPORT_SECURE_DRM_AUTH_EXPORT ?= $(SUPPORT_XORG)
+
+SUPPORT_DRI_DRM_NO_LIBDRM ?= 0
+ifneq ($(SUPPORT_XORG),1)
+ifeq ($(SUPPORT_DRI_DRM),1)
+SUPPORT_DRI_DRM_NO_LIBDRM = 1
+endif
+endif
+
 
 # Only enable active power management if passive power management is
 # enabled, as indicated by LDM_PLATFORM being set to 1.  On OMAP,
@@ -70,11 +103,25 @@ else
 SUPPORT_ACTIVE_POWER_MANAGEMENT = 0
 endif
 
+#if 0
+ifeq ($(LDM_PLATFORM),1)
+DISPLAY_CONTROLLER                      = omaplfb
+OMAP_NON_FLIP_DISPLAY                   = 0
+else
+DISPLAY_CONTROLLER                      = pvrlfb
+DISPLAY_CONTROLLER_DIR                  = 3rdparty/linux_framebuffer
+OMAP_NON_FLIP_DISPLAY                   = 1
+endif
+#endif
+
+
 
 PVRSRV_MODNAME ?= pvrsrvkm
 
 SYS_CFLAGS += -DPVRSRV_MODNAME="\"$(PVRSRV_MODNAME)"\"
 
+#ARCH_CFLAGS             += -ftree-vectorize -mfpu=neon -mfloat-abi=hard
+ARCH_CFLAGS     += -Wno-sign-conversion
 
 
 export PVR_BUILD_DIR := $(shell pwd)
@@ -143,7 +190,6 @@ PVRSRV_LOG_MEMORY_ALLOCS ?= 0
 PVRSRV_DEBUG_OS_MEMORY ?= 0
 endif
 
-SUPPORT_XORG ?= 0
 ifneq ($(SUPPORT_XORG),1)
 SUPPORT_XWS        ?= 1
 XWS_SERVER_ONLY    ?= 0
@@ -164,19 +210,22 @@ else
 SUPPORT_SECURE_FD_EXPORT        ?= 0
 endif
 
-
-
+SUPPORT_DRI_DRM_NO_LIBDRM ?= 0
 
 TRANSFER_QUEUE				?= 1
 SUPPORT_SGX_EVENT_OBJECT		?= 1
 SUPPORT_SECURE_HANDLES			= 1
-SUPPORT_SECURE_FD_EXPORT        	= 1
 SUPPORT_SRVINIT				= 1
 SUPPORT_PERCONTEXT_PB			= 1
 DISABLE_SGX_PB_GROW_SHRINK             ?= 1
 SUPPORT_LINUX_X86_PAT 			?=1
 SUPPORT_LINUX_X86_WRITECOMBINE 		?=1
 SUPPORT_SGX_LOW_LATENCY_SCHEDULING 	?=1
+
+ifeq ($(SUPPORT_XORG),1)
+SUPPORT_PDUMP_MULTI_PROCESS = 1
+endif
+
 
 SUPPORT_OMAP3430_SGXFCLK_96M ?= 0
 SUPPORT_OMAP3430_OMAPFB3 ?= 0
@@ -272,11 +321,17 @@ SYS_CFLAGS.$(PVRSRV_RESET_ON_HWTIMEOUT)                 += -DPVRSRV_RESET_ON_HWT
 SYS_CFLAGS.$(PVRSRV_CLIENT_RESET_ON_HWTIMEOUT)  += -DPVRSRV_CLIENT_RESET_ON_HWTIMEOUT
 SYS_CFLAGS.$(NO_HARDWARE)                                               += -DNO_HARDWARE
 
-
-
-
-SYS_CFLAGS.$(SUPPORT_DRI_DRM)				+= -DSUPPORT_DRI_DRM
+SYS_CFLAGS.$(SUPPORT_DRI_DRM)                                   += -DSUPPORT_DRI_DRM
 SYS_CFLAGS.$(SUPPORT_DRI_DRM_EXT)                               += -DSUPPORT_DRI_DRM_EXT
+SYS_CFLAGS.$(SUPPORT_DRI_DRM_NOT_PCI)                           += -DPVR_DRI_DRM_NOT_PCI
+SYS_CFLAGS.$(SUPPORT_DRI_DRM_NO_DROPMASTER)             += -DSUPPORT_DRI_DRM_NO_DROPMASTER
+SYS_CFLAGS.$(SUPPORT_DRI_DRM_NO_LIBDRM)                         += -DSUPPORT_DRI_DRM_NO_LIBDRM
+SYS_CFLAGS.$(DRM_PVR_RESERVED_INTEL_ORDER)              += -DDRM_PVR_RESERVED_INTEL_ORDER
+SYS_CFLAGS.$(DRM_PVR_USE_INTEL_FB)                              += -DDRM_PVR_USE_INTEL_FB
+
+
+
+
 SYS_CFLAGS.$(SUPPORT_LIBDRM_LITE)                               += -DSUPPORT_LIBDRM_LITE
 
 ifneq ("$(NO_HARDWARE)", "1")
@@ -349,8 +404,9 @@ SYS_CFLAGS.$(SUPPORT_PVR_PDP_LINUX_FB) += -DPVR_PDP_LINUX_FB
 SYS_CFLAGS.$(SUPPORT_LINUX_USING_WORKQUEUES) += -DPVR_LINUX_USING_WORKQUEUES \
                                 -DPVR_LINUX_MISR_USING_PRIVATE_WORKQUEUE \
                                 -DPVR_LINUX_TIMERS_USING_WORKQUEUES \
-                                -DSYS_CUSTOM_POWERLOCK_WRAP
-
+                                -DSYS_CUSTOM_POWERLOCK_WRAP \
+				-DPVR_NO_FULL_CACHE_OPS \
+				-DSGX_CLK_CORE_DIV5
 
 
 SYS_CFLAGS.$(SUPPORT_SGX_NEW_STATUS_VALS)       += -DSUPPORT_SGX_NEW_STATUS_VALS
@@ -384,7 +440,10 @@ export ALL_CFLAGS =	-DLINUX \
 			$(SYS_CFLAGS) $(SYS_CFLAGS.1) \
 			$(MODULE_CFLAGS) $(MODULE_CFLAGS.$(BUILD)) \
 			$(CORE) -fno-strict-aliasing -Wno-pointer-arith \
-			$(CFLAGS)
+			$(CFLAGS) $(ARCH_CFLAGS)
+ifdef SUPPORT_DRI_DRM_NO_TTM
+export SUPPORT_DRI_DRM_NO_TTM
+endif
 
 all:
 	$(MAKE) -C $(KERNELDIR) M=`pwd` $*

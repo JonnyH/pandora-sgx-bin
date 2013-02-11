@@ -163,8 +163,10 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 {
 #if !defined(NO_HARDWARE)
 	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
+/*
 	long lNewRate;
 	long lRate;
+*/
 	IMG_INT res;
 
 	
@@ -269,11 +271,12 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 {
 	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
 	struct clk *psCLK;
-	IMG_INT res;
+//	IMG_INT res;
         IMG_BOOL bPowerLock;
 	PVRSRV_ERROR eError;
 
 #if defined(DEBUG) || defined(TIMING)
+        IMG_INT res;
 	IMG_INT rate;
 	struct clk *sys_ck;
 	IMG_CPU_PHYADDR     TimerRegPhysBase;

@@ -41,6 +41,17 @@ services4/srvkm/bridged/sgx/bridged_sgx_bridge.c \
 services4/system/$(TI_PLATFORM)/sysutils.c \
 services4/system/$(TI_PLATFORM)/sysconfig.c \
 
+ifneq ($(FBDEV),no)
+EXTRA_CFLAGS += -DFBDEV_PRESENT
+endif
+
+
+ifeq ($(TI_PLATFORM),ti81xx)
+DRIFILES = services4/srvkm/env/linux/pvr_drm.c services4/3rdparty/dc_ti81xx_linux/omaplfb_linux.c services4/3rdparty/dc_ti81xx_linux/omaplfb_displayclass.c 
+else
+DRIFILES = services4/srvkm/env/linux/pvr_drm.c services4/3rdparty/dc_omapfb3_linux/omaplfb_linux.c services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.c
+endif
+
 EXTRA_CFLAGS += -I$(src)/include4
 EXTRA_CFLAGS += -I$(src)/services4/include
 EXTRA_CFLAGS += -I$(src)/services4/srvkm/include
@@ -52,14 +63,35 @@ EXTRA_CFLAGS += -I$(src)/services4/system/include
 EXTRA_CFLAGS += -I$(src)/services4/system/$(TI_PLATFORM)
 EXTRA_CFLAGS += -I$(src)/services4/srvkm/bridged/sgx
 
+
+ifeq ($(SUPPORT_XORG),1)
+EXTRA_CFLAGS += -I$(KERNELDIR)/include/drm 
+EXTRA_CFLAGS += -I$(src)/services4/3rdparty/linux_drm
+EXTRA_CFLAGS += -I$(src)/services4/include/env/linux
+EXTRA_CFLAGS += -I$(KERNELDIR)/drivers/video/omap2
+EXTRA_CFLAGS += -I$(KERNELDIR)/arch/arm/plat-omap/include
+ifeq ($(TI_PLATFORM),omap4)
+EXTRA_CFLAGS += -DCONFIG_SLOW_WORK 
+endif
+endif
+
 EXTRA_CFLAGS += $(ALL_CFLAGS)
 
 pvrsrvkm-y	:= $(FILES:.c=.o)
 
+ifeq ($(SUPPORT_XORG),1)
+pvrsrvkm-y +=  $(DRIFILES:.c=.o)
+endif
+
+ifneq ($(SUPPORT_XORG),1)
 ifeq ($(TI_PLATFORM),ti81xx)
 obj-y := services4/3rdparty/dc_ti81xx_linux/
 else
-obj-y := services4/3rdparty/dc_omap3430_linux/
+obj-y := services4/3rdparty/dc_omapfb3_linux/
+endif
 endif
 obj-y += services4/3rdparty/bufferclass_ti/
 
+ifeq ($(SUPPORT_XORG),1)
+obj-y += services4/3rdparty/linux_drm/
+endif

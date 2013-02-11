@@ -432,7 +432,6 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, unsigned int unref__ ioctlCmd, unsig
 			}
 			break;
 		}
-
 		case PVRSRV_BRIDGE_MAP_DEV_MEMORY:
 		{
 			PVRSRV_BRIDGE_IN_MAP_DEV_MEMORY *psMapDevMemIN =

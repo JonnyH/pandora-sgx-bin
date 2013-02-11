@@ -148,6 +148,7 @@ PVRVERSION_BUILD	= $(shell echo $(PVRVERSION) | $(CUT) -d '.' -f4,5,6)
 
 # Linux kernel defines
 #
+ifneq ($(NO_KERNEL_MODULES),1)
 KERNEL_VER		= $(shell grep "^VERSION = " \
 	 				$(KERNELDIR)/Makefile | $(CUT) -f3 -d' ')
 KERNEL_REL		= $(shell grep "^PATCHLEVEL = " \
@@ -164,28 +165,18 @@ KERNEL_ID		?= $(shell grep -h '\#define UTS_RELEASE' $(KERNELDIR)/include/linux/
 				$(CUT) -f3 -d' ' | \
 				$(SED) s/\"//g)
 
+KM_SUFFIX		= ko
+
 ifeq ("$(KERNEL_ID)", "")
 # For Linux 2.6.33, the above method of finding the KERNEL ID no longer
 # works, as UTS_RELEASE is no longer defined anywhere.
 KERNEL_ID		:= $(KERNELVERSION)$(KERNEL_EXTRAVER)
 endif
+endif # !NO_KERNEL_MODULES
 
 # Get checksum from env variables
 #
 ENV_CHECKSUM	=	$(shell echo $(ALL_CFLAGS_$(MODSUFFIX)) | $(MD5SUM) - | $(CUT) -d' ' -f 1)
-
-# Linux kernel defines
-#
-ifeq ("$(KERNEL_VER)", "2")
-ifeq ("$(KERNEL_REL)", "6")
-KM_SUFFIX		= ko
-else
-KM_SUFFIX		= o
-CFLAGS_.o	+= -DEXPORT_SYMTAB $(CFLAGS_.ko)
-endif
-else 
-KM_SUFFIX		= o
-endif
 
 # The standard CFLAGS macro can be overridden on the 'make' command line.  We
 # put CBUILD in a separate macro so its setting doesn't get lost when a user
@@ -318,7 +309,7 @@ SUPPORT_SGX_EVENT_OBJECT ?=1
 SUPPORT_SECURE_HANDLES		= 1
 SUPPORT_SRVINIT = 1
 SUPPORT_PERCONTEXT_PB = 1
-DISABLE_SGX_PB_GROW_SHRINK ?= 0
+DISABLE_SGX_PB_GROW_SHRINK ?= 1
 SUPPORT_LINUX_X86_PAT ?=1
 SUPPORT_LINUX_X86_WRITECOMBINE ?=1
 SUPPORT_SGX_LOW_LATENCY_SCHEDULING ?=1
@@ -514,8 +505,10 @@ SYS_CFLAGS += -DDEBUG_LOG_PATH_TRUNCATE=\"$(EURASIAROOT)\"
 
 SYS_INCLUDES	=	-I$(EURASIAROOT)/include4 \
 					-I$(EURASIAROOT)/eurasiacon/includeext \
-					-I$(SYSBIN) \
-					-isystem $(KERNELDIR)/include
+					-I$(SYSBIN)
+ifneq ($(NO_KERNEL_MODULES),1)
+SYS_INCLUDES += -isystem $(KERNELDIR)/include
+endif
 
 
 ALL_CFLAGS_kbuild	=	$(CCFLAGS_KERNEL) -DLINUX \
@@ -534,9 +527,12 @@ export SUPPORT_XORG_SENSOR_FRAMEWORK
 endif
 
 # If we do not specify direst path to external 3pdd sources, use tarball
+EXTERNAL_3PDD_TARBALL_PATH :=
 ifeq ($(MRST_DRIVER_SOURCE),)
-EXTERNAL_3PDD_TARBALL_PATH = $(EURASIAROOT)/eurasiacon/external/$(EXTERNAL_3PDD_TARBALL)
+ifneq ($(EXTERNAL_3PDD_TARBALL),)
+EXTERNAL_3PDD_TARBALL_PATH := $(EURASIAROOT)/eurasiacon/external/$(EXTERNAL_3PDD_TARBALL)
 export EXTERNAL_3PDD_TARBALL_PATH
+endif
 endif
 
 

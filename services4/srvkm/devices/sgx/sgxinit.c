@@ -294,7 +294,7 @@ static PVRSRV_ERROR SGXRunScript(PVRSRV_SGXDEV_INFO *psDevInfo, SGX_INIT_COMMAND
 //Function to configure PLL clocks. Only required for TI814x. For other devices its taken care in u-boot.
 void PLL_Clocks_Config(UWORD32 Base_Address,UWORD32 OSC_FREQ,UWORD32 N,UWORD32 M,UWORD32 M2,UWORD32 CLKCTRL_VAL)
 {
-        UWORD32 m2nval,mn2val,read_clkctrl,clk_out,ref_clk,clkout_dco = 0;
+        UWORD32 m2nval,mn2val,read_clkctrl;
         m2nval = (M2<<16) | N;
         mn2val =  M;
 	WR_MEM_32((Base_Address+M2NDIV    ),m2nval);
@@ -402,13 +402,13 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo,
             div_base = ioremap(SGX_TI81xx_CLK_DVDR_ADDR,0x100);
             WR_MEM_32((div_base),0x0);
             pll_base = ioremap(SGX_PLL_BASE,0x100);
-	    PLL_Clocks_Config(pll_base,OSC_0,19,800,4,ADPLLJ_CLKCRTL_HS2);
+	    PLL_Clocks_Config((UWORD32)pll_base,OSC_0,19,800,4,ADPLLJ_CLKCRTL_HS2);
             iounmap (div_base);
             iounmap (pll_base);
         }
 
 #else
-        if(cpu_is_omap3630())
+        if(cpu_is_omap3630() || cpu_is_omap44xx())
                 OSWriteHWReg(psDevInfo->pvRegsBaseKM, 0xFF08, 0x80000000);//OCP Bypass mode
 #endif
 
@@ -466,13 +466,20 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo,
 #endif 
 
 #if !defined(NO_HARDWARE)
+
+       if (PollForValueKM(&psSGXHostCtl->ui32InitStatus,
+                                           PVRSRV_USSE_EDM_INIT_COMPLETE,
+                                           PVRSRV_USSE_EDM_INIT_COMPLETE,
+                                           MAX_HW_TIME_US,
+                                           MAX_HW_TIME_US/WAIT_TRY_COUNT,
+                                           IMG_FALSE) != PVRSRV_OK)
 	
 
-	if (PollForValueKM(&psSGXHostCtl->ui32InitStatus,
-					   PVRSRV_USSE_EDM_INIT_COMPLETE,
-					   PVRSRV_USSE_EDM_INIT_COMPLETE,
-					   MAX_HW_TIME_US/WAIT_TRY_COUNT,
-					   WAIT_TRY_COUNT) != PVRSRV_OK)
+//	if (PollForValueKM(&psSGXHostCtl->ui32InitStatus,
+//					   PVRSRV_USSE_EDM_INIT_COMPLETE,
+//					   PVRSRV_USSE_EDM_INIT_COMPLETE,
+//					   MAX_HW_TIME_US/WAIT_TRY_COUNT,
+//					   WAIT_TRY_COUNT) != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "SGXInitialise: Wait for uKernel initialisation failed"));
 		#if !defined(FIX_HW_BRN_23281)
@@ -2067,11 +2074,19 @@ PVRSRV_ERROR SGXGetMiscInfoUkernel(PVRSRV_SGXDEV_INFO	*psDevInfo,
 	sCommandData.ui32Data[1] = psMemInfo->sDevVAddr.uiAddr; 
 
 	PDUMPCOMMENT("Microkernel kick for SGXGetMiscInfo");
-	eError = SGXScheduleCCBCommandKM(psDeviceNode,
+/*	eError = SGXScheduleCCBCommandKM(psDeviceNode,
 									 SGXMKIF_CMD_GETMISCINFO,
 									 &sCommandData,
 									 KERNEL_ID,
 									 0);
+*/
+
+      eError = SGXScheduleCCBCommandKM(psDeviceNode,
+                                                                         SGXMKIF_CMD_GETMISCINFO,
+                                                                         &sCommandData,
+                                                                         KERNEL_ID,
+                                                                         0,
+                                                                         IMG_FALSE);
 
 	if (eError != PVRSRV_OK)
 	{
@@ -2177,11 +2192,19 @@ PVRSRV_ERROR SGXGetMiscInfoKM(PVRSRV_SGXDEV_INFO	*psDevInfo,
 			psDevInfo->psSGXHostCtl->ui32BPSetClearSignal = 0;
 
 			PDUMPCOMMENT("Microkernel kick for setting a data breakpoint");
-			eError = SGXScheduleCCBCommandKM(psDeviceNode,
+/*			eError = SGXScheduleCCBCommandKM(psDeviceNode,
 											 SGXMKIF_CMD_DATABREAKPOINT,
 											 &sCommandData,
 											 KERNEL_ID,
 											 0);
+*/
+                        eError = SGXScheduleCCBCommandKM(psDeviceNode,
+                                                                                         SGXMKIF_CMD_DATABREAKPOINT,
+                                                                                         &sCommandData,
+                                                                                         KERNEL_ID,
+                                                                                         0,
+                                                                                         IMG_FALSE);
+
 
 			if (eError != PVRSRV_OK)
 			{
@@ -2558,11 +2581,19 @@ PVRSRV_ERROR SGXGetMiscInfoKM(PVRSRV_SGXDEV_INFO	*psDevInfo,
 
 			
 			sCommandData.ui32Data[0] = psSetHWPerfStatus->ui32NewHWPerfStatus;
-			eError = SGXScheduleCCBCommandKM(psDeviceNode,
+/*			eError = SGXScheduleCCBCommandKM(psDeviceNode,
 											 SGXMKIF_CMD_SETHWPERFSTATUS,
 											 &sCommandData,
 											 KERNEL_ID,
 											 0);
+*/
+                        eError = SGXScheduleCCBCommandKM(psDeviceNode,
+                                                                                         SGXMKIF_CMD_SETHWPERFSTATUS,
+                                                                                         &sCommandData,
+                                                                                         KERNEL_ID,
+                                                                                         0,
+                                                                                         IMG_FALSE);
+
 			return eError;
 		}
 #endif 

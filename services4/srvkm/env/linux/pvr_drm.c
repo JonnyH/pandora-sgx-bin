@@ -36,6 +36,7 @@
 #include <linux/version.h>
 #include <linux/fs.h>
 #include <linux/proc_fs.h>
+#include <linux/sched.h>
 #include <asm/ioctl.h>
 #include <drm/drmP.h>
 #include <drm/drm.h>
@@ -69,6 +70,11 @@
 #define PVR_DRM_NAME	PVRSRV_MODNAME
 #define PVR_DRM_DESC	"Imagination Technologies PVR DRM"
 
+DECLARE_WAIT_QUEUE_HEAD(sWaitForInit);
+
+IMG_BOOL bInitComplete;
+IMG_BOOL bInitFailed;
+
 #if !defined(PVR_DRI_DRM_NOT_PCI)
 struct pci_dev *gpsPVRLDMDev;
 #endif
@@ -98,7 +104,7 @@ static struct pci_device_id asPciIdList[] = {
 DRI_DRM_STATIC int
 PVRSRVDrmLoad(struct drm_device *dev, unsigned long flags)
 {
-	int iRes;
+	int iRes=0;
 
 	PVR_TRACE(("PVRSRVDrmLoad"));
 
@@ -111,7 +117,7 @@ PVRSRVDrmLoad(struct drm_device *dev, unsigned long flags)
 	iRes = dbgdrv_init();
 	if (iRes != 0)
 	{
-		return iRes;
+		goto exit;
 	}
 #endif
 	
@@ -128,8 +134,8 @@ PVRSRVDrmLoad(struct drm_device *dev, unsigned long flags)
 		goto exit_pvrcore_cleanup;
 	}
 #endif
-	return 0;
-
+//	return 0;
+        goto exit;
 #if defined(DISPLAY_CONTROLLER)
 exit_pvrcore_cleanup:
 	PVRCore_Cleanup();
@@ -138,6 +144,16 @@ exit_dbgdrv_cleanup:
 #if defined(PDUMP)
 	dbgdrv_cleanup();
 #endif
+exit:
+	if (iRes != 0)
+	{
+		bInitFailed = IMG_TRUE;
+	}
+	bInitComplete = IMG_TRUE;
+
+	wake_up_interruptible(&sWaitForInit);
+
+
 	return iRes;
 }
 
@@ -162,6 +178,34 @@ PVRSRVDrmUnload(struct drm_device *dev)
 DRI_DRM_STATIC int
 PVRSRVDrmOpen(struct drm_device *dev, struct drm_file *file)
 {
+while (!bInitComplete)
+	{
+		DEFINE_WAIT(sWait);
+
+		prepare_to_wait(&sWaitForInit, &sWait, TASK_INTERRUPTIBLE);
+
+		if (!bInitComplete)
+		{
+			PVR_TRACE(("%s: Waiting for module initialisation to complete", __FUNCTION__));
+
+			schedule();
+		}
+
+		finish_wait(&sWaitForInit, &sWait);
+
+		if (signal_pending(current))
+		{
+			return -ERESTARTSYS;
+		}
+	}
+
+	if (bInitFailed)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Module initialisation failed", __FUNCTION__));
+		return -EINVAL;
+	}
+
+
 	return PVRSRVOpen(dev, file);
 }
 
@@ -263,6 +307,12 @@ PVRDRM_Display_ioctl(struct drm_device *dev, void *arg, struct drm_file *pFile)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33))
 #define	PVR_DRM_FOPS_IOCTL	.unlocked_ioctl
 #define	PVR_DRM_UNLOCKED	DRM_UNLOCKED
+#define DRM_IOCTL_PVR_DRM_SRVKM_IOCTL PVR_DRM_SRVKM_IOCTL
+#define DRM_PVR_DRM_SRVKM_IOCTL PVR_DRM_SRVKM_IOCTL
+#define DRM_PVR_DRM_IS_MASTER_IOCTL PVR_DRM_IS_MASTER_IOCTL
+#define DRM_IOCTL_PVR_DRM_IS_MASTER_IOCTL PVR_DRM_IS_MASTER_IOCTL
+#define DRM_PVR_DRM_UNPRIV_IOCTL PVR_DRM_UNPRIV_IOCTL
+#define DRM_IOCTL_PVR_DRM_UNPRIV_IOCTL PVR_DRM_UNPRIV_IOCTL
 #else
 #define	PVR_DRM_FOPS_IOCTL	.ioctl
 #define	PVR_DRM_UNLOCKED	0
@@ -270,14 +320,28 @@ PVRDRM_Display_ioctl(struct drm_device *dev, void *arg, struct drm_file *pFile)
 
 #if !defined(SUPPORT_DRI_DRM_EXT)
 struct drm_ioctl_desc sPVRDrmIoctls[] = {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+	DRM_IOCTL_DEF_DRV(PVR_DRM_SRVKM_IOCTL, PVRSRV_BridgeDispatchKM, PVR_DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PVR_DRM_IS_MASTER_IOCTL, PVRDRMIsMaster, DRM_MASTER | PVR_DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PVR_DRM_UNPRIV_IOCTL, PVRDRMUnprivCmd, PVR_DRM_UNLOCKED),
+#else
 	DRM_IOCTL_DEF(PVR_DRM_SRVKM_IOCTL, PVRSRV_BridgeDispatchKM, PVR_DRM_UNLOCKED),
 	DRM_IOCTL_DEF(PVR_DRM_IS_MASTER_IOCTL, PVRDRMIsMaster, DRM_MASTER | PVR_DRM_UNLOCKED),
 	DRM_IOCTL_DEF(PVR_DRM_UNPRIV_IOCTL, PVRDRMUnprivCmd, PVR_DRM_UNLOCKED),
+#endif
 #if defined(PDUMP)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+	DRM_IOCTL_DEF_DRV(PVR_DRM_DBGDRV_IOCTL, dbgdrv_ioctl, PVR_DRM_UNLOCKED),
+#else
 	DRM_IOCTL_DEF(PVR_DRM_DBGDRV_IOCTL, dbgdrv_ioctl, PVR_DRM_UNLOCKED),
 #endif
+#endif
 #if defined(DISPLAY_CONTROLLER) && defined(PVR_DISPLAY_CONTROLLER_DRM_IOCTL)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+	DRM_IOCTL_DEF_DRV(PVR_DRM_DISP_IOCTL, PVRDRM_Display_ioctl, DRM_MASTER | PVR_DRM_UNLOCKED)
+#else
 	DRM_IOCTL_DEF(PVR_DRM_DISP_IOCTL, PVRDRM_Display_ioctl, DRM_MASTER | PVR_DRM_UNLOCKED)
+#endif
 #endif
 };
 
@@ -292,8 +356,10 @@ static struct drm_driver sPVRDrmDriver =
 	.open = PVRSRVDrmOpen,
 	.suspend = PVRSRVDriverSuspend,
 	.resume = PVRSRVDriverResume,
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,32))
 	.get_map_ofs = drm_core_get_map_ofs,
 	.get_reg_ofs = drm_core_get_reg_ofs,
+#endif
 	.ioctls = sPVRDrmIoctls,
 	.fops = 
 	{
