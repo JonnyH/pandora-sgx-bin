@@ -36,6 +36,6 @@
 #endif
 
 
-#define SYS_DEVICE_COUNT 15 
+#define SYS_DEVICE_COUNT 15
 
 #endif	
