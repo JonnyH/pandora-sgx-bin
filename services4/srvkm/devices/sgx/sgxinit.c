@@ -409,7 +409,7 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo,
         }
 
 #else
-        if(!cpu_is_omap3530())
+        if(!(cpu_is_omap3530() || cpu_is_omap3517()))
 	{
                OSWriteHWReg(psDevInfo->pvRegsBaseKM, 0xFF08, 0x80000000);//OCP Bypass mode
 	}

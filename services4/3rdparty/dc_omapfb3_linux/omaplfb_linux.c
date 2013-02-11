@@ -24,11 +24,14 @@
  *
  ******************************************************************************/
 
+
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
 #ifndef AUTOCONF_INCLUDED
 #include <linux/config.h>
 #endif
+#endif
 
-#include <linux/version.h>
 
 #include <asm/atomic.h>
 
@@ -290,7 +293,7 @@ OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 
 	if (psDSSDrv->get_update_mode == NULL)
 	{
-		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": %s: Device %u: Can't get update mode\n", __FUNCTION__, psDevInfo->uiFBDevID));
+//		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": %s: Device %u: Can't get update mode\n", __FUNCTION__, psDevInfo->uiFBDevID));
 		return OMAPLFB_UPDATE_MODE_AUTO;
 //		return OMAPLFB_UPDATE_MODE_UNDEFINED;
 	}
@@ -718,13 +721,13 @@ int PVR_DRM_MAKENAME(omaplfb, _Ioctl)(struct drm_device unref__ *dev, void *arg,
 			}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_lock();
+        		console_lock();
 #else
 			acquire_console_sem();
 #endif
 			ret = fb_blank(psDevInfo->psLINFBInfo, iFBMode);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
-        console_unlock();
+        		console_unlock();
 #else
 			release_console_sem();
 #endif

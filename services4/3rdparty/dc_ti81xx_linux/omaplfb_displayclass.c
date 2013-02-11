@@ -828,7 +828,11 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 	unsigned long ulLCM;
 	unsigned uiFBDevID = psDevInfo->uiFBDevID;
 
-	acquire_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_lock();
+#else
+        acquire_console_sem();
+#endif
 
 	psLINFBInfo = registered_fb[uiFBDevID];
 	if (psLINFBInfo == NULL)
@@ -970,8 +974,11 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 ErrorModPut:
 	module_put(psLINFBOwner);
 ErrorRelSem:
-	release_console_sem();
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_unlock();
+#else
+        release_console_sem();
+#endif
 	return eError;
 }
 
@@ -980,7 +987,11 @@ static void OMAPLFBDeInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 	struct fb_info *psLINFBInfo = psDevInfo->psLINFBInfo;
 	struct module *psLINFBOwner;
 
-	acquire_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_lock();
+#else
+        acquire_console_sem();
+#endif
 
 	psLINFBOwner = psLINFBInfo->fbops->owner;
 
@@ -990,8 +1001,11 @@ static void OMAPLFBDeInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 	}
 
 	module_put(psLINFBOwner);
-
-	release_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_unlock();
+#else
+        release_console_sem();
+#endif
 }
 
 static OMAPLFB_DEVINFO *OMAPLFBInitDev(unsigned uiFBDevID)

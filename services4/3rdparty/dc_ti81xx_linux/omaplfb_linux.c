@@ -24,11 +24,14 @@
  *
  ******************************************************************************/
 
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
 #ifndef AUTOCONF_INCLUDED
 #include <linux/config.h>
 #endif
+#endif
 
-#include <linux/version.h>
 
 #include <asm/atomic.h>
 
@@ -241,7 +244,11 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 	int res;
 	unsigned long ulYResVirtual;
 
-	acquire_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_lock();
+#else
+        acquire_console_sem();
+#endif
 
 	sFBVar = psDevInfo->psLINFBInfo->var;
 
@@ -273,8 +280,11 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 			printk(KERN_INFO DRIVER_PREFIX ": %s: Device %u: fb_pan_display failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res);
 		}
 	}
-
-	release_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_unlock();
+#else
+        release_console_sem();
+#endif
 }
 
 OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
@@ -489,9 +499,17 @@ OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 {
 	int res;
 #ifdef FBDEV_PRESENT
-	acquire_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_lock();
+#else
+        acquire_console_sem();
+#endif
 	res = fb_blank(psDevInfo->psLINFBInfo, 0);
-	release_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_unlock();
+#else
+        release_console_sem();
+#endif	
 	if (res != 0 && res != -EINVAL)
 	{
 		printk(KERN_WARNING DRIVER_PREFIX
@@ -507,9 +525,17 @@ OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 
 static void OMAPLFBBlankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 {
-	acquire_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_lock();
+#else
+        acquire_console_sem();
+#endif
 	fb_blank(psDevInfo->psLINFBInfo, 1);
-	release_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        console_unlock();
+#else
+        release_console_sem();
+#endif
 }
 
 static void OMAPLFBEarlySuspendHandler(struct early_suspend *h)
@@ -739,11 +765,17 @@ int PVR_DRM_MAKENAME(omaplfb, _Ioctl)(struct drm_device unref__ *dev, void *arg,
 			{
 				flush_workqueue(psDevInfo->psSwapChain->psWorkQueue);
 			}
-
-			acquire_console_sem();
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        		console_lock();
+#else
+        		acquire_console_sem();
+#endif
 			ret = fb_blank(psDevInfo->psLINFBInfo, iFBMode);
-			release_console_sem();
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+        		console_unlock();
+#else
+        		release_console_sem();
+#endif
 			OMAPLFBCreateSwapChainUnLock(psDevInfo);
 
 			break;
