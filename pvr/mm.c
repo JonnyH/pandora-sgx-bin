@@ -1140,9 +1140,6 @@ static void inv_cache_vmalloc(const struct LinuxMemArea *mem_area)
 	u32 pg_ofs;
 	u32 vaddr, vaddr_end;
 
-	extern void ___dma_single_dev_to_cpu(const void *, size_t,
-			                enum dma_data_direction);
-
 	vaddr = (u32)mem_area->uData.sVmalloc.pvVmallocAddress;
 	vaddr_end = vaddr + mem_area->ui32ByteSize;
 	pg_cnt = (PAGE_ALIGN(vaddr_end) - (vaddr & PAGE_MASK)) / PAGE_SIZE;
@@ -1153,7 +1150,7 @@ static void inv_cache_vmalloc(const struct LinuxMemArea *mem_area)
 		pg_ofs = vaddr & ~PAGE_MASK;
 		kaddr += pg_ofs;
 		chunk = min_t(ssize_t, vaddr_end - vaddr, PAGE_SIZE - pg_ofs);
-		___dma_single_dev_to_cpu(kaddr, chunk, DMA_FROM_DEVICE);
+		dmac_map_area(kaddr, chunk, DMA_FROM_DEVICE);
 		vaddr += chunk;
 	}
 }
@@ -1163,13 +1160,10 @@ static void inv_cache_page_list(const struct LinuxMemArea *mem_area)
 	u32 pg_cnt;
 	struct page **pg_list;
 
-	extern void ___dma_single_dev_to_cpu(const void *, size_t,
-			                enum dma_data_direction);
-
 	pg_cnt = RANGE_TO_PAGES(mem_area->ui32ByteSize);
 	pg_list = mem_area->uData.sPageList.pvPageList;
 	while (pg_cnt--)
-		___dma_single_dev_to_cpu(page_address(*pg_list++), PAGE_SIZE,
+		dmac_map_area(page_address(*pg_list++), PAGE_SIZE,
 				DMA_FROM_DEVICE);
 }
 
