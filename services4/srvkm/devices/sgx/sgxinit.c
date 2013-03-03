@@ -1831,11 +1831,13 @@ IMG_VOID SGXPanic(PVRSRV_SGXDEV_INFO	*psDevInfo)
 }
 
 
+static IMG_UINT32 ui32BuildOptions;
+
 PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	PVRSRV_ERROR	eError;
 	PVRSRV_SGXDEV_INFO 				*psDevInfo;
-	IMG_UINT32 			ui32BuildOptions, ui32BuildOptionsMismatch;
+	IMG_UINT32 			ui32BuildOptionsMismatch;
 #if !defined(NO_HARDWARE)
 	PPVRSRV_KERNEL_MEM_INFO			psMemInfo;
 	PVRSRV_SGX_MISCINFO_INFO		*psSGXMiscInfoInt; 	
@@ -1866,6 +1868,10 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 	
 	
 	ui32BuildOptions = (SGX_BUILD_OPTIONS);
+	// support blobs with and without SUPPORT_ACTIVE_POWER_MANAGEMENT
+	ui32BuildOptions &= ~(1 << 15);
+	ui32BuildOptions |= psDevInfo->ui32ClientBuildOptions & (1 << 15);
+
 	if (ui32BuildOptions != psDevInfo->ui32ClientBuildOptions)
 	{
 		ui32BuildOptionsMismatch = ui32BuildOptions ^ psDevInfo->ui32ClientBuildOptions;
@@ -2003,8 +2009,7 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 	}
 
 	
-	ui32BuildOptions = psSGXFeatures->ui32BuildOptions;
-	if (ui32BuildOptions != (SGX_BUILD_OPTIONS))
+	if (ui32BuildOptions != psSGXFeatures->ui32BuildOptions)
 	{
 		ui32BuildOptionsMismatch = ui32BuildOptions ^ (SGX_BUILD_OPTIONS);
 		if ( ((SGX_BUILD_OPTIONS) & ui32BuildOptionsMismatch) != 0)
@@ -2417,7 +2422,7 @@ PVRSRV_ERROR SGXGetMiscInfoKM(PVRSRV_SGXDEV_INFO	*psDevInfo,
 			psSGXFeatures->ui32DDKBuild = PVRVERSION_BUILD;
 
 			
-			psSGXFeatures->ui32BuildOptions = (SGX_BUILD_OPTIONS);
+			psSGXFeatures->ui32BuildOptions = ui32BuildOptions;
 
 #if defined(PVRSRV_USSE_EDM_STATUS_DEBUG)
 			
