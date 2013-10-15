@@ -1,5 +1,5 @@
 /*************************************************************************/ /*!
-@Title          SGX kernel/client driver interface structures and prototypes
+@Title          Ion driver inter-operability code.
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 @License        Dual MIT/GPLv2
 
@@ -39,42 +39,45 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
 
-#if !defined(__OEMFUNCS_H__)
-#define __OEMFUNCS_H__
+#ifndef __IMG_LINUX_ION_H__
+#define __IMG_LINUX_ION_H__
 
-#if defined (__cplusplus)
-extern "C" {
+#include <linux/ion.h>
+#if defined (CONFIG_ION_OMAP)
+#include <linux/omap_ion.h>
+#endif
+#if defined (SUPPORT_ION)
+#include "img_types.h"
+#include "servicesext.h"
 #endif
 
-/* function in/out data structures: */
-typedef IMG_UINT32   (*PFN_SRV_BRIDGEDISPATCH)( IMG_UINT32  Ioctl,
-												IMG_BYTE   *pInBuf,
-												IMG_UINT32  InBufLen, 
-											    IMG_BYTE   *pOutBuf,
-												IMG_UINT32  OutBufLen,
-												IMG_UINT32 *pdwBytesTransferred);
-/*
-	Function table for kernel 3rd party driver to kernel services
-*/
-typedef struct PVRSRV_DC_OEM_JTABLE_TAG
-{
-	PFN_SRV_BRIDGEDISPATCH			pfnOEMBridgeDispatch;
-	IMG_PVOID						pvDummy1;
-	IMG_PVOID						pvDummy2;
-	IMG_PVOID						pvDummy3;
+#if !defined(SUPPORT_ION) && defined(CONFIG_ION_OMAP)
 
-} PVRSRV_DC_OEM_JTABLE;
+void PVRSRVExportFDToIONHandles(int fd, struct ion_client **client,
+								struct ion_handle *handles[2]);
 
-#define OEM_GET_EXT_FUNCS			(1<<1)
+struct ion_handle *PVRSRVExportFDToIONHandle(int fd,
+											 struct ion_client **client);
 
-#if defined(__cplusplus)
-}
-#endif
+#endif /* !defined(SUPPORT_ION) && defined(CONFIG_ION_OMAP) */
 
-#endif	/* __OEMFUNCS_H__ */
+#if defined(SUPPORT_ION)
 
-/*****************************************************************************
- End of file (oemfuncs.h)
-*****************************************************************************/
+PVRSRV_ERROR IonInit(IMG_VOID);
 
+IMG_VOID IonDeinit(IMG_VOID);
 
+PVRSRV_ERROR IonImportBufferAndAcquirePhysAddr(IMG_HANDLE hIonDev,
+											   IMG_UINT32 ui32NumFDs,
+											   IMG_INT32  *pi32BufferFDs,
+											   IMG_UINT32 *pui32PageCount,
+											   IMG_SYS_PHYADDR **ppsSysPhysAddr,
+											   IMG_PVOID *ppvKernAddr0,
+											   IMG_HANDLE *phPriv,
+											   IMG_HANDLE *phUnique);
+
+IMG_VOID IonUnimportBufferAndReleasePhysAddr(IMG_HANDLE hPriv);
+
+#endif /* defined(SUPPORT_ION) */
+
+#endif /* __IMG_LINUX_ION_H__ */
