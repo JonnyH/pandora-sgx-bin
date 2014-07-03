@@ -42,7 +42,7 @@ endif
 
 ###
 
-obj-$(CONFIG_PVR)	+= omaplfb.o pvrsrvkm.o
+obj-$(CONFIG_PVR)	+= omaplfb.o pvrsrvkm.o # bufferclass_ti.o
 
 omaplfb-objs		:= omaplfb_displayclass.o omaplfb_linux.o
 
@@ -69,6 +69,7 @@ obj-$(CONFIG_PVR_EXAMPLES) += bc_example.o
 bc_example-objs		:= bufferclass_example.o bufferclass_example_linux.o \
 			   bufferclass_example_private.o
 
+bufferclass_ti-objs	:= bc_cat.o
 
 DATE			:= $(shell date "+%a %B %d %Z %Y" )
 CBUILD			:= -O2						\
