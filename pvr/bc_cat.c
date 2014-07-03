@@ -369,6 +369,7 @@ static PVRSRV_ERROR BC_DestroyBuffers(int id)
         }
 
     BCFreeKernelMem(psDevInfo->psSystemBuffer);
+    psDevInfo->psSystemBuffer = NULL;
     
     psDevInfo->ui32NumBuffers = 0;
     psDevInfo->sBufferInfo.pixelformat = PVRSRV_PIXEL_FORMAT_UNKNOWN;
@@ -497,7 +498,7 @@ static PVRSRV_ERROR BC_Unregister(int id)
 static int __init bc_cat_init(void)
 {
     struct device *bc_dev;
-    int id;
+    int id = 0;
 
     /* texture buffer width should be multiple of 8 for OMAP3 ES3.x,
      * or 32 for ES2.x */
@@ -511,9 +512,8 @@ static int __init bc_cat_init(void)
     }
 
     bc_class = class_create(THIS_MODULE, DEVNAME);
-
     if (IS_ERR(bc_class)) {
-       printk(KERN_ERR DRVNAME ": upable to create device class\n");
+       printk(KERN_ERR DRVNAME ": unable to create device class\n");
        goto ExitUnregister;
     }
 
@@ -529,18 +529,23 @@ static int __init bc_cat_init(void)
         if (BC_Register(id) != PVRSRV_OK) {
             printk (KERN_ERR DRVNAME ": can't register BC service %d\n", id);
             if (id > 0) {
-                /* lets live with the drivers that we were able to create soi
+                /* let's live with the drivers that we were able to create so
                  * far, even though it isn't as many as we'd like
                  */
+                 device_destroy(bc_class, MKDEV(major, id));
                  break;
             }
-            goto ExitUnregister;
+            goto ExitDestroyClass;
         }
     }
 
     return 0;
 
 ExitDestroyClass:
+    for (; id >= 0; id--) {
+        BC_Unregister(id);
+        device_destroy(bc_class, MKDEV(major, id));
+    }
     class_destroy(bc_class);
 ExitUnregister:
     unregister_chrdev(major, DEVNAME);
@@ -554,12 +559,10 @@ static void __exit bc_cat_cleanup(void)
 
     for (id = 0; id < DEVICE_COUNT; id++) {
         if (BC_DestroyBuffers(id) != PVRSRV_OK) {
-            printk(KERN_ERR DRVNAME ": can't free texture buffers\n");
-            return;
+            printk(KERN_ERR DRVNAME ": can't free texture buffers, dev %d\n", id);
         }
         if (BC_Unregister(id) != PVRSRV_OK) {
-            printk(KERN_ERR DRVNAME ": can't un-register BC service\n");
-            return;
+            printk(KERN_ERR DRVNAME ": can't un-register BC service, dev %d\n", id);
         }
         device_destroy(bc_class, MKDEV(major, id));
     }
@@ -583,17 +586,16 @@ static PVRSRV_ERROR BCAllocContigMemory(IMG_UINT32 ui32Size,
                                  IMG_CPU_VIRTADDR *pLinAddr, 
                                  IMG_CPU_PHYADDR *pPhysAddr)
 {
-    IMG_VOID *pvLinAddr;
-    gfp_t mask = GFP_KERNEL;
-    
-    pvLinAddr = alloc_pages_exact(ui32Size, mask);
-/*    printk("pvLinAddr=%p, ui32Size=%ld\n", pvLinAddr, ui32Size);*/
-    
-    if (pvLinAddr == IMG_NULL)
-        return PVRSRV_ERROR_OUT_OF_MEMORY;
+    dma_addr_t dma;
+    void *pvLinAddr;
 
-    pPhysAddr->uiAddr = virt_to_phys(pvLinAddr);
+    pvLinAddr = dma_alloc_coherent(NULL, ui32Size, &dma, GFP_KERNEL);
+    if (pvLinAddr == NULL)
+    {
+            return PVRSRV_ERROR_OUT_OF_MEMORY;
+    }
 
+    pPhysAddr->uiAddr = dma;
     *pLinAddr = pvLinAddr;
 
     return PVRSRV_OK;
@@ -604,7 +606,7 @@ static IMG_VOID BCFreeContigMemory(IMG_UINT32 ui32Size,
                         IMG_CPU_VIRTADDR LinAddr, 
                         IMG_CPU_PHYADDR PhysAddr)
 {
-    free_pages_exact(LinAddr, ui32Size);
+    dma_free_coherent(NULL, ui32Size, LinAddr, (dma_addr_t)PhysAddr.uiAddr);
 }
 
 static IMG_SYS_PHYADDR CpuPAddrToSysPAddrBC(IMG_CPU_PHYADDR cpu_paddr)
@@ -716,7 +718,7 @@ static long bc_ioctl(struct file *file,
                 return -EFAULT;
 
             idx = params->input;
-            if (idx < 0 || idx > devinfo->ui32NumBuffers) {
+            if (idx < 0 || idx >= devinfo->ui32NumBuffers) {
                 printk(KERN_ERR DRVNAME
                         ": BCIOGET_BUFFERADDR - idx out of range\n");
                 return -EINVAL;

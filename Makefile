@@ -3,4 +3,4 @@ MAKECMDGOALS = all
 endif
 
 $(MAKECMDGOALS):
-	make -C pvr $@
+	$(MAKE) -C pvr $@

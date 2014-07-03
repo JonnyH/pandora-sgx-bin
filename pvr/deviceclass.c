@@ -196,7 +196,12 @@ static enum PVRSRV_ERROR PVRSRVRegisterDCDeviceKM(
 	psDeviceNode->sDevId.eDeviceClass = PVRSRV_DEVICE_CLASS_DISPLAY;
 	psDeviceNode->psSysData = psSysData;
 
-	AllocateDeviceID(psSysData, &psDeviceNode->sDevId.ui32DeviceIndex);
+	if (AllocateDeviceID(psSysData,
+			&psDeviceNode->sDevId.ui32DeviceIndex) != PVRSRV_OK) {
+		PVR_DPF(PVR_DBG_ERROR,
+			"PVRSRVRegisterDCDeviceKM: Failed deviceId alloc");
+		goto ErrorExit;
+	}
 	psDCInfo->ui32DeviceID = psDeviceNode->sDevId.ui32DeviceIndex;
 	if (pui32DeviceID)
 		*pui32DeviceID = psDeviceNode->sDevId.ui32DeviceIndex;
@@ -341,7 +346,12 @@ static enum PVRSRV_ERROR PVRSRVRegisterBCDeviceKM(
 	psDeviceNode->sDevId.eDeviceClass = PVRSRV_DEVICE_CLASS_BUFFER;
 	psDeviceNode->psSysData = psSysData;
 
-	AllocateDeviceID(psSysData, &psDeviceNode->sDevId.ui32DeviceIndex);
+	if (AllocateDeviceID(psSysData,
+			&psDeviceNode->sDevId.ui32DeviceIndex) != PVRSRV_OK) {
+		PVR_DPF(PVR_DBG_ERROR,
+			"PVRSRVRegisterBCDeviceKM: Failed deviceId alloc");
+		goto ErrorExit;
+	}
 	psBCInfo->ui32DeviceID = psDeviceNode->sDevId.ui32DeviceIndex;
 	if (pui32DeviceID)
 		*pui32DeviceID = psDeviceNode->sDevId.ui32DeviceIndex;

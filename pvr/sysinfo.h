@@ -35,7 +35,7 @@ enum SYS_DEVICE_TYPE {
 	SYS_DEVICE_FORCE_I16			= 0x7fff
 };
 
-#define SYS_DEVICE_COUNT			3
+#define SYS_DEVICE_COUNT			15
 
 #define PRM_REG32(offset)			(offset)
 #define CM_REG32(offset)			(offset)
