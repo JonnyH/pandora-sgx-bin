@@ -28,14 +28,36 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/slab.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
-#include <img_defs.h>
-#include <servicesext.h>
-#include <kernelbuffer.h>
+#include "img_defs.h"
+#include "img_types.h"
+#include "servicesext.h"
+#include "kernelbuffer.h"
 #include "bc_cat.h"
 
 #include <linux/dma-mapping.h>
+
+#ifndef IMG_NULL
+#define IMG_IMPORT
+#define IMG_NULL        0
+typedef unsigned int    IMG_UINT32,     *IMG_PUINT32;
+typedef char            IMG_CHAR,       *IMG_PCHAR;
+typedef void            IMG_VOID, *IMG_PVOID;
+typedef IMG_PVOID       IMG_HANDLE;
+
+typedef IMG_PVOID       IMG_CPU_VIRTADDR;
+
+typedef struct IMG_SYS_PHYADDR IMG_SYS_PHYADDR;
+typedef struct IMG_CPU_PHYADDR IMG_CPU_PHYADDR;
+typedef struct BUFFER_INFO BUFFER_INFO;
+typedef struct PVRSRV_SYNC_DATA PVRSRV_SYNC_DATA;
+typedef struct PVRSRV_BC_BUFFER2SRV_KMJTABLE PVRSRV_BC_BUFFER2SRV_KMJTABLE;
+typedef struct PVRSRV_BC_SRV2BUFFER_KMJTABLE PVRSRV_BC_SRV2BUFFER_KMJTABLE;
+typedef enum PVRSRV_ERROR PVRSRV_ERROR;
+typedef enum PVRSRV_PIXEL_FORMAT PVRSRV_PIXEL_FORMAT;
+#endif
 
 #define DEVNAME             "bccat"
 #define DRVNAME             DEVNAME
@@ -77,7 +99,7 @@ extern IMG_IMPORT IMG_BOOL PVRGetBufferClassJTable(
 
 static int bc_open(struct inode *i, struct file *f);
 static int bc_release(struct inode *i, struct file *f);
-static int bc_ioctl(struct inode *inode, struct file *file,
+static long bc_ioctl(struct file *file,
                     unsigned int cmd, unsigned long arg);
 static int bc_mmap(struct file *filp, struct vm_area_struct *vma);
 
@@ -104,22 +126,18 @@ static IMG_VOID BCFreeContigMemory(IMG_UINT32 ui32Size,
 static IMG_SYS_PHYADDR CpuPAddrToSysPAddrBC(IMG_CPU_PHYADDR cpu_paddr);
 static IMG_CPU_PHYADDR SysPAddrToCpuPAddrBC(IMG_SYS_PHYADDR sys_paddr);
 
-static PVRSRV_ERROR BCGetLibFuncAddr(IMG_HANDLE hExtDrv,
-                                     IMG_CHAR *szFunctionName,
-                                     PFN_BC_GET_PVRJTABLE *ppfnFuncTable);
 static BC_CAT_DEVINFO * GetAnchorPtr(int id);
 
 
 static int major;
 static struct class *bc_class;
 static IMG_VOID *device[DEVICE_COUNT] = { 0 };
-static PFN_BC_GET_PVRJTABLE pfnGetPVRJTable = IMG_NULL;
 static int width_align;
 
 static struct file_operations bc_cat_fops = {
     .open =  bc_open,
     .release = bc_release,
-    .ioctl = bc_ioctl,
+    .unlocked_ioctl = bc_ioctl,
     .mmap =  bc_mmap,
 };
 
@@ -388,11 +406,7 @@ static PVRSRV_ERROR BC_Register(id)
     if (BCOpenPVRServices(&psDevInfo->hPVRServices) != PVRSRV_OK)
         return PVRSRV_ERROR_INIT_FAILURE;
 
-    if (BCGetLibFuncAddr(psDevInfo->hPVRServices, "PVRGetBufferClassJTable",
-                         &pfnGetPVRJTable) != PVRSRV_OK)
-        return PVRSRV_ERROR_INIT_FAILURE;
-    
-    if (!(*pfnGetPVRJTable)(&psDevInfo->sPVRJTable))
+    if (!PVRGetBufferClassJTable(&psDevInfo->sPVRJTable))
         return PVRSRV_ERROR_INIT_FAILURE;
 
     psDevInfo->ui32NumBuffers = 0;
@@ -487,7 +501,7 @@ static int __init bc_cat_init(void)
 
     /* texture buffer width should be multiple of 8 for OMAP3 ES3.x,
      * or 32 for ES2.x */
-    width_align = omap_rev_lt_3_0() ? 32 : 8;
+    width_align = (cpu_is_omap3530() && omap_rev() < OMAP3430_REV_ES3_0) ? 32 : 8;
     
     major = register_chrdev(0, DEVNAME, &bc_cat_fops);
 
@@ -621,18 +635,6 @@ static PVRSRV_ERROR BCClosePVRServices (IMG_HANDLE unref__ hPVRServices)
     return PVRSRV_OK;
 }
 
-static PVRSRV_ERROR BCGetLibFuncAddr(IMG_HANDLE unref__ hExtDrv,
-                              IMG_CHAR *szFunctionName,
-                              PFN_BC_GET_PVRJTABLE *ppfnFuncTable)
-{
-    if (strcmp("PVRGetBufferClassJTable", szFunctionName) != 0)
-        return PVRSRV_ERROR_INVALID_PARAMS;
-
-    *ppfnFuncTable = PVRGetBufferClassJTable;
-    return PVRSRV_OK;
-}
-
-
 static int bc_open(struct inode *i, struct file *f)
 {
     BC_CAT_DEVINFO *devinfo;
@@ -685,7 +687,7 @@ static int bc_mmap(struct file *filp, struct vm_area_struct *vma)
     return 0;
 }
 
-static int bc_ioctl(struct inode *inode, struct file *file,
+static long bc_ioctl(struct file *file,
                     unsigned int cmd, unsigned long arg)
 {
     BC_CAT_DEVINFO *devinfo;

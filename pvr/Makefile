@@ -42,7 +42,7 @@ endif
 
 ###
 
-obj-$(CONFIG_PVR)	+= omaplfb.o pvrsrvkm.o # bufferclass_ti.o
+obj-$(CONFIG_PVR)	+= omaplfb.o pvrsrvkm.o bufferclass_ti.o
 
 omaplfb-objs		:= omaplfb_displayclass.o omaplfb_linux.o
 
