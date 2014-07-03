@@ -48,7 +48,6 @@
 #define DEVNAME             "bccat"
 #define DRVNAME             DEVNAME
 #define DEVICE_COUNT        10
-#define BC_EXAMPLE_NUM_BUFFERS  3
 #define BUFFERCLASS_DEVICE_NAME "Example Bufferclass Device (SW)"
 
 #ifndef UNREFERENCED_PARAMETER
@@ -523,7 +522,8 @@ static PVRSRV_ERROR BC_DestroyBuffers(int id)
 #endif
         }
 
-  //  BCFreeKernelMem(psDevInfo->psSystemBuffer);
+    BCFreeKernelMem(psDevInfo->psSystemBuffer);
+    psDevInfo->psSystemBuffer = NULL;
     
     psDevInfo->ulNumBuffers = 0;
     psDevInfo->sBufferInfo.pixelformat = PVRSRV_PIXEL_FORMAT_UNKNOWN;
@@ -568,7 +568,7 @@ static PVRSRV_ERROR BC_Register(id)
 
     psDevInfo->ulNumBuffers = 0;
 
-    psDevInfo->psSystemBuffer = BCAllocKernelMem(sizeof(BC_CAT_BUFFER) * BC_EXAMPLE_NUM_BUFFERS);
+    psDevInfo->psSystemBuffer = NULL;
 
     psDevInfo->sBufferInfo.pixelformat = PVRSRV_PIXEL_FORMAT_UNKNOWN;
     psDevInfo->sBufferInfo.ui32Width = 0;
@@ -669,7 +669,7 @@ if (psDevInfo->psSystemBuffer)
 static int __init bc_cat_init(void)
 {
     struct device *bc_dev;
-    int id;
+    int id = 0;
 
     /* texture buffer width should be multiple of 8 for OMAP3 ES3.x,
      * or 32 for ES2.x */
@@ -689,9 +689,8 @@ static int __init bc_cat_init(void)
     }
 
     bc_class = class_create(THIS_MODULE, DEVNAME);
-
     if (IS_ERR(bc_class)) {
-       printk(KERN_ERR DRVNAME ": upable to create device class\n");
+       printk(KERN_ERR DRVNAME ": unable to create device class\n");
        goto ExitUnregister;
     }
 
@@ -707,18 +706,23 @@ static int __init bc_cat_init(void)
         if (BC_Register(id) != PVRSRV_OK) {
             printk (KERN_ERR DRVNAME ": can't register BC service %d\n", id);
             if (id > 0) {
-                /* lets live with the drivers that we were able to create soi
+                /* let's live with the drivers that we were able to create so
                  * far, even though it isn't as many as we'd like
                  */
+                 device_destroy(bc_class, MKDEV(major, id));
                  break;
             }
-            goto ExitUnregister;
+            goto ExitDestroyClass;
         }
     }
 
     return 0;
 
 ExitDestroyClass:
+    for (; id >= 0; id--) {
+        BC_Unregister(id);
+        device_destroy(bc_class, MKDEV(major, id));
+    }
     class_destroy(bc_class);
 ExitUnregister:
     unregister_chrdev(major, DEVNAME);
@@ -730,22 +734,19 @@ static void __exit bc_cat_cleanup(void)
 {    
     int id=0;
 
-    for (id = 0; id < DEVICE_COUNT; id++) {
-device_destroy(bc_class, MKDEV(major, id));
-}
+    for (id = 0; id < DEVICE_COUNT; id++)
+        device_destroy(bc_class, MKDEV(major, id));
 
     class_destroy(bc_class);
 
     unregister_chrdev(major, DEVNAME);
   
-  for (id = 0; id < DEVICE_COUNT; id++) {
+    for (id = 0; id < DEVICE_COUNT; id++) {
         if (BC_DestroyBuffers(id) != PVRSRV_OK) {
-            printk(KERN_ERR DRVNAME ": can't free texture buffers\n");
-            return;
+            printk(KERN_ERR DRVNAME ": can't free texture buffers, dev %d\n", id);
         }
         if (BC_Unregister(id) != PVRSRV_OK) {
-            printk(KERN_ERR DRVNAME ": can't un-register BC service\n");
-            return;
+            printk(KERN_ERR DRVNAME ": can't un-register BC service, dev %d\n", id);
         }
     }
 } 
@@ -1059,7 +1060,7 @@ static long  bc_ioctl(struct file *file,
                 return -EFAULT;
 
             idx = params->input;
-            if (idx < 0 || idx > devinfo->ulNumBuffers) {
+            if (idx < 0 || idx >= devinfo->ulNumBuffers) {
                 printk(KERN_ERR DRVNAME
                         ": BCIOGET_BUFFERADDR - idx out of range\n");
                 return -EINVAL;
